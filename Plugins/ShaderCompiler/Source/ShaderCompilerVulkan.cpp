@@ -84,6 +84,7 @@ namespace Babylon::Plugins
         ShaderCompilerTraversers::AssignLocationsAndNamesToVertexVaryingsD3D(program, ids, vertexAttributeRenaming);
         ShaderCompilerTraversers::SplitSamplersIntoSamplersAndTextures(program, ids);
         ShaderCompilerTraversers::InvertYDerivativeOperands(program);
+        ShaderCompilerTraversers::InvertYTextureSampling(program);
 
         std::vector<uint32_t> spirvVS;
         auto [vertexParser, vertexCompiler] = CompileShader(program, EShLangVertex, spirvVS);

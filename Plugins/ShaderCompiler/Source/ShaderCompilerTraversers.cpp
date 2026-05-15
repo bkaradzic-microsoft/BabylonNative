@@ -939,6 +939,101 @@ namespace Babylon::ShaderCompilerTraversers
 
             TIntermediate* m_intermediate{};
         };
+
+        /// Wrap the UV argument of every texture() call in an expression that flips the Y
+        /// component, matching the behaviour of the legacy "flip()" preprocessor macro in
+        /// ShaderCompilerCommon::ProcessSamplerFlip but at the AST level so we are not
+        /// affected by argument-count mismatches (e.g. the 3-arg texture(sampler, uv, bias)
+        /// form emitted by Babylon's PBR fragment shaders).
+        ///
+        /// For vec2 / float UVs:
+        ///     uv  ->  vec2(0.0, 1.0) + uv * vec2(1.0, -1.0)        ==  vec2(uv.x, 1.0 - uv.y)
+        ///
+        /// 3-component (cube-map) UVs and other types are left unchanged, matching the legacy
+        /// macro behaviour where flip(vec3) was an identity function.
+        ///
+        /// textureLod() and texelFetch() are still handled by preprocessor macros in
+        /// ProcessSamplerFlip (they always take exactly 3 arguments so the macro form is
+        /// safe).
+        class InvertYTextureSamplingTraverser : public TIntermTraverser
+        {
+        public:
+            static void Traverse(TProgram& program)
+            {
+                for (auto stage : {EShLangVertex, EShLangFragment})
+                {
+                    auto intermediate{program.getIntermediate(stage)};
+                    if (intermediate == nullptr || intermediate->getTreeRoot() == nullptr)
+                    {
+                        continue;
+                    }
+                    InvertYTextureSamplingTraverser traverser{intermediate};
+                    intermediate->getTreeRoot()->traverse(&traverser);
+                }
+            }
+
+        protected:
+            bool visitAggregate(TVisit visit, TIntermAggregate* node) override
+            {
+                if (visit != EvPreVisit)
+                {
+                    return true;
+                }
+
+                if (node->getOp() != EOpTexture)
+                {
+                    return true;
+                }
+
+                auto& seq = node->getSequence();
+                if (seq.size() < 2)
+                {
+                    return true;
+                }
+
+                auto* uv = seq[1] == nullptr ? nullptr : seq[1]->getAsTyped();
+                if (uv == nullptr)
+                {
+                    return true;
+                }
+
+                const TType& uvType = uv->getType();
+                if (!uvType.isVector() || uvType.getVectorSize() != 2 || uvType.getBasicType() != EbtFloat)
+                {
+                    return true;
+                }
+
+                const TSourceLoc loc = uv->getLoc();
+                seq[1] = MakeFlippedFloatUV(uv, loc);
+                return true;
+            }
+
+        private:
+            InvertYTextureSamplingTraverser(TIntermediate* intermediate)
+                : m_intermediate{intermediate}
+            {
+            }
+
+            TIntermConstantUnion* MakeConstVec2(double x, double y, const TSourceLoc& loc)
+            {
+                TConstUnionArray values(2);
+                values[0].setDConst(x);
+                values[1].setDConst(y);
+                TType type(EbtFloat, EvqConst, 2);
+                return m_intermediate->addConstantUnion(values, type, loc, true);
+            }
+
+            TIntermTyped* MakeFlippedFloatUV(TIntermTyped* uv, const TSourceLoc& loc)
+            {
+                // vec2(0.0, 1.0) + uv * vec2(1.0, -1.0)
+                auto* scale = MakeConstVec2(1.0, -1.0, loc);
+                auto* offset = MakeConstVec2(0.0, 1.0, loc);
+                auto* scaledUv = m_intermediate->addBinaryMath(EOpMul, uv, scale, loc);
+                return m_intermediate->addBinaryMath(EOpAdd, offset, scaledUv, loc);
+            }
+
+            TIntermediate* m_intermediate{};
+        };
     }
 
     ScopeT MoveNonSamplerUniformsIntoStruct(TProgram& program, IdGenerator& ids)
@@ -974,5 +1069,10 @@ namespace Babylon::ShaderCompilerTraversers
     void InvertYDerivativeOperands(TProgram& program)
     {
         InvertYDerivativeOperandsTraverser::Traverse(program);
+    }
+
+    void InvertYTextureSampling(TProgram& program)
+    {
+        InvertYTextureSamplingTraverser::Traverse(program);
     }
 }

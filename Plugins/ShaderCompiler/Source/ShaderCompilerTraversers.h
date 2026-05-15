@@ -82,4 +82,15 @@ namespace Babylon::ShaderCompilerTraversers
     /// https://github.com/bkaradzic/bgfx/blob/7be225bf490bb1cd231cfb4abf7e617bf35b59cb/src/bgfx_shader.sh#L44-L45
     /// https://github.com/bkaradzic/bgfx/blob/7be225bf490bb1cd231cfb4abf7e617bf35b59cb/src/bgfx_shader.sh#L62-L65
     void InvertYDerivativeOperands(glslang::TProgram& program);
+
+    /// Wrap the UV operand of every texture() call in a Y-flip expression so that
+    /// Babylon.js shaders authored against the WebGL/OpenGL texture-coordinate convention
+    /// render correctly on D3D/Metal/Vulkan, where the texture origin is at the top-left
+    /// instead of the bottom-left.
+    ///
+    /// This replaces the legacy 2-argument preprocessor-macro flip for texture(), which
+    /// broke on the 3-argument form `texture(sampler, uv, bias)` that GLSL ES 3.0 allows
+    /// and Babylon's PBR pipelines emit. textureLod() and texelFetch() always take exactly
+    /// 3 arguments so they are still handled by preprocessor macros in ProcessSamplerFlip.
+    void InvertYTextureSampling(glslang::TProgram& program);
 }

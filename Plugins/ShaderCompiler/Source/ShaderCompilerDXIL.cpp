@@ -182,6 +182,7 @@ namespace Babylon::Plugins
         ShaderCompilerTraversers::AssignLocationsAndNamesToVertexVaryingsD3D(program, ids, vertexAttributeRenaming);
         ShaderCompilerTraversers::SplitSamplersIntoSamplersAndTextures(program, ids);
         ShaderCompilerTraversers::InvertYDerivativeOperands(program);
+        ShaderCompilerTraversers::InvertYTextureSampling(program);
 
         // clang-format off
         static const spirv_cross::HLSLVertexAttributeRemap attributes[] = {

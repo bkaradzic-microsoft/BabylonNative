@@ -109,6 +109,7 @@ namespace Babylon::Plugins
         ShaderCompilerTraversers::AssignLocationsAndNamesToVertexVaryingsMetal(program, ids, vertexAttributeRenaming);
         ShaderCompilerTraversers::SplitSamplersIntoSamplersAndTextures(program, ids);
         ShaderCompilerTraversers::InvertYDerivativeOperands(program);
+        ShaderCompilerTraversers::InvertYTextureSampling(program);
 
         std::string vertexMSL(vertexSource.data(), vertexSource.size());
         auto [vertexParser, vertexCompiler] = CompileShader(program, EShLangVertex, vertexMSL);

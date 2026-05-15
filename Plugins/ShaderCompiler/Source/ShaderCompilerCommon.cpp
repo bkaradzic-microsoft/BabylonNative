@@ -26,6 +26,16 @@ namespace Babylon::ShaderCompilerCommon
         return std::string{source}.substr(0, lastBrace) + "gl_Position.z = (gl_Position.z + gl_Position.w) / 2.0; }";
     }
 
+    // Y-flip helpers for texture-sampling UVs (needed to bridge the OpenGL vs D3D/Metal/Vulkan
+    // texture-coordinate convention).
+    //
+    // texture() is handled at AST level by ShaderCompilerTraversers::InvertYTextureSampling
+    // because GLSL ES 3.0 allows a 3-argument form `texture(sampler, uv, bias)` that a
+    // 2-argument function-like macro cannot match (it silently rejects the 3-arg call site
+    // at preprocess time with no per-line error from glslang).
+    //
+    // textureLod() and texelFetch() always take exactly 3 arguments in GLSL ES 3.0 so we
+    // keep them as preprocessor macros here.
     std::string ProcessSamplerFlip(std::string_view source)
     {
         static const std::string shaderNameDefineStr = "#define SHADER_NAME";
@@ -45,7 +55,6 @@ namespace Babylon::ShaderCompilerCommon
                 return uv;
             }
 
-            #define texture(x,y) texture(x, flip(y))
             #define textureLod(x,y,z) textureLod(x, flip(y), z)
             #define texelFetch(tex, uv, lod) texelFetch((tex), ivec2((uv).x, textureSize((tex), (lod)).y - 1 - (uv).y), (lod))
             #define SHADER_NAME)";
