@@ -698,21 +698,17 @@
             "title": "PBR in mirror",
             "playgroundId": "#Q7DP2M",
             "excludeFromAutomaticTesting": true,
-            "reason": "Test crashes or hangs on Babylon Native",
+            "reason": "Snippet uses cubemap loaded from 6 separate files - cubemap auto-expand not supported by Babylon Native",
             "referenceImage": "pbr_mirror.png"
         },
         {
             "title": "OpenPBR Base Weight",
             "playgroundId": "#DT1XPP#4",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Test crashes or hangs on Babylon Native",
             "referenceImage": "openpbr_base_weight.png"
         },
         {
             "title": "OpenPBR Base Diffuse Roughness Analytical Lights",
             "playgroundId": "#MXACV7#30",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Test crashes or hangs on Babylon Native",
             "referenceImage": "openpbr_base_diffuse_roughness.png"
         },
         {
@@ -720,7 +716,7 @@
             "playgroundId": "#MXACV7#29",
             "renderCount": 15,
             "excludeFromAutomaticTesting": true,
-            "reason": "Test crashes or hangs on Babylon Native",
+            "reason": "NativeEngine missing gl.FLOAT constant - real-time IBL path fails",
             "referenceImage": "openpbr_base_diffuse_roughness_realtime_ibl.png"
         },
         {
@@ -728,7 +724,7 @@
             "playgroundId": "#MXACV7#28",
             "renderCount": 5,
             "excludeFromAutomaticTesting": true,
-            "reason": "Test crashes or hangs on Babylon Native",
+            "reason": "NativeEngine missing gl.FLOAT constant - prefiltered IBL with CDF path fails",
             "referenceImage": "openpbr_base_diffuse_roughness_prefiltered_ibl_with_cdf.png"
         },
         {
@@ -736,7 +732,7 @@
             "playgroundId": "#MXACV7#27",
             "renderCount": 5,
             "excludeFromAutomaticTesting": true,
-            "reason": "Test crashes or hangs on Babylon Native",
+            "reason": "NativeEngine missing gl.FLOAT constant - prefiltered IBL path fails",
             "referenceImage": "openpbr_base_diffuse_roughness_prefiltered_ibl.png"
         },
         {
@@ -744,28 +740,26 @@
             "playgroundId": "#MXACV7#32",
             "renderCount": 2,
             "excludeFromAutomaticTesting": true,
-            "reason": "Test crashes or hangs on Babylon Native",
+            "reason": "NativeEngine missing gl.FLOAT constant - spherical-harmonics IBL path fails",
             "referenceImage": "openpbr_base_diffuse_roughness_spherical_harmonics.png"
         },
         {
             "title": "NME Glow Manual",
             "playgroundId": "#7QCYPB#320",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Test crashes or hangs on Babylon Native",
             "referenceImage": "nme_glow_manual.png"
         },
         {
             "title": "NME Glow Automatic",
             "playgroundId": "#7QCYPB#327",
             "excludeFromAutomaticTesting": true,
-            "reason": "Test crashes or hangs on Babylon Native",
+            "reason": "Snippet uses cubemap loaded from 6 separate files - cubemap auto-expand not supported by Babylon Native",
             "referenceImage": "nme_glow_automatic.png"
         },
         {
             "title": "EXT_lights_ies",
             "playgroundId": "#UIAXAU#19",
             "excludeFromAutomaticTesting": true,
-            "reason": "Test crashes or hangs on Babylon Native",
+            "reason": "IES extension snippet fails with name not defined at Babylon Native runtime",
             "referenceImage": "ext_lights_ies.png"
         },
         {
@@ -2503,16 +2497,12 @@
         {
             "title": "Asset Container Instantiate to Scene",
             "playgroundId": "#5NFRVE#142",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Test crashes or hangs on Babylon Native",
-            "referenceImage": "Asset-Container-Instantiate-to-Scene"
+            "referenceImage": "Asset-Container-Instantiate-to-Scene.png"
         },
         {
             "title": "Asset Container Instantiate to Scene 2",
             "playgroundId": "#5NFRVE#161",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Test crashes or hangs on Babylon Native",
-            "referenceImage": "Asset-Container-Instantiate-to-Scene-2"
+            "referenceImage": "Asset-Container-Instantiate-to-Scene-2.png"
         },
         {
             "title": "Instantiate Hierarchy",
@@ -3132,8 +3122,9 @@
         {
             "title": "FrameGraph nrge clustered lights (simple)",
             "playgroundId": "#1QCA2M#37",
+            "referenceImage": "framegraph-nrge-clustered-lights-simple.png",
             "excludeFromAutomaticTesting": true,
-            "reason": "No matching reference image found"
+            "reason": "Snippet uses ES2021 numeric-separator syntax (1_000) which ChakraCore does not parse"
         },
         {
             "title": "FrameGraph nrge multiple post processes",
@@ -3166,8 +3157,9 @@
         {
             "title": "FrameGraph nrge OIT (Geometry renderer)",
             "playgroundId": "#MIACY4#14",
+            "referenceImage": "framegraph-nrge-oit-geometry-renderer.png",
             "excludeFromAutomaticTesting": true,
-            "reason": "No matching reference image found"
+            "reason": "Snippet hangs on Babylon Native (FrameGraph OIT path)"
         },
         {
             "title": "FrameGraph nrge multi-render targets",
@@ -3394,14 +3386,16 @@
         {
             "title": "Furnace Test (Legacy) for Spec-Gloss",
             "playgroundId": "#KQYNYS#20",
+            "referenceImage": "furnace-test-legacy-spec-gloss.png",
             "excludeFromAutomaticTesting": true,
-            "reason": "No matching reference image found"
+            "reason": "NativeEngine missing gl.FLOAT constant - legacy spec-gloss furnace setup fails"
         },
         {
             "title": "Furnace Test (Legacy) for Metal-Rough",
             "playgroundId": "#KQYNYS#21",
+            "referenceImage": "furnace-test-legacy-metal-rough.png",
             "excludeFromAutomaticTesting": true,
-            "reason": "No matching reference image found"
+            "reason": "NativeEngine missing gl.FLOAT constant - legacy metal-rough furnace setup fails"
         },
         {
             "title": "Furnace Test for Spec-Gloss",
@@ -3469,62 +3463,72 @@
         {
             "title": "Sponza Clustered Lighting (node material std)",
             "playgroundId": "#QY98Z3#16",
+            "referenceImage": "sponza-clustered-lighting-nodematerial-std.png",
             "excludeFromAutomaticTesting": true,
-            "reason": "No matching reference image found"
+            "reason": "Snippet uses ES2021 numeric-separator syntax (1_000) which ChakraCore does not parse"
         },
         {
             "title": "Sponza Clustered Lighting (node material pbr)",
             "playgroundId": "#QY98Z3#17",
+            "referenceImage": "sponza-clustered-lighting-nodematerial-pbr.png",
             "excludeFromAutomaticTesting": true,
-            "reason": "No matching reference image found"
+            "reason": "Snippet uses ES2021 numeric-separator syntax (1_000) which ChakraCore does not parse"
         },
         {
             "title": "Clustered Lighting (lhs std material)",
             "playgroundId": "#CSCJO2#59",
+            "referenceImage": "clustered-lighting-lhs-std-material.png",
             "excludeFromAutomaticTesting": true,
-            "reason": "No matching reference image found"
+            "reason": "Snippet uses ES2021 numeric-separator syntax (1_000) which ChakraCore does not parse"
         },
         {
             "title": "Clustered Lighting (lhs pbr material)",
             "playgroundId": "#CSCJO2#60",
+            "referenceImage": "clustered-lighting-lhs-pbr-material.png",
             "excludeFromAutomaticTesting": true,
-            "reason": "No matching reference image found"
+            "reason": "Snippet uses ES2021 numeric-separator syntax (1_000) which ChakraCore does not parse"
         },
         {
             "title": "Clustered Lighting (lhs std nodematerial)",
             "playgroundId": "#CSCJO2#64",
+            "referenceImage": "clustered-lighting-lhs-std-nodematerial.png",
             "excludeFromAutomaticTesting": true,
-            "reason": "No matching reference image found"
+            "reason": "Snippet uses ES2021 numeric-separator syntax (1_000) which ChakraCore does not parse"
         },
         {
             "title": "Clustered Lighting (lhs pbr nodematerial)",
             "playgroundId": "#CSCJO2#62",
+            "referenceImage": "clustered-lighting-lhs-pbr-nodematerial.png",
             "excludeFromAutomaticTesting": true,
-            "reason": "No matching reference image found"
+            "reason": "Snippet uses ES2021 numeric-separator syntax (1_000) which ChakraCore does not parse"
         },
         {
             "title": "Clustered Lighting (rhs std material)",
             "playgroundId": "#CSCJO2#69",
+            "referenceImage": "clustered-lighting-rhs-std-material.png",
             "excludeFromAutomaticTesting": true,
-            "reason": "No matching reference image found"
+            "reason": "Snippet uses ES2021 numeric-separator syntax (1_000) which ChakraCore does not parse"
         },
         {
             "title": "Clustered Lighting (rhs pbr material)",
             "playgroundId": "#CSCJO2#70",
+            "referenceImage": "clustered-lighting-rhs-pbr-material.png",
             "excludeFromAutomaticTesting": true,
-            "reason": "No matching reference image found"
+            "reason": "Snippet uses ES2021 numeric-separator syntax (1_000) which ChakraCore does not parse"
         },
         {
             "title": "Clustered Lighting (rhs std nodematerial)",
             "playgroundId": "#CSCJO2#71",
+            "referenceImage": "clustered-lighting-rhs-std-nodematerial.png",
             "excludeFromAutomaticTesting": true,
-            "reason": "No matching reference image found"
+            "reason": "Snippet uses ES2021 numeric-separator syntax (1_000) which ChakraCore does not parse"
         },
         {
             "title": "Clustered Lighting (rhs pbr nodematerial)",
             "playgroundId": "#CSCJO2#72",
+            "referenceImage": "clustered-lighting-rhs-pbr-nodematerial.png",
             "excludeFromAutomaticTesting": true,
-            "reason": "No matching reference image found"
+            "reason": "Snippet uses ES2021 numeric-separator syntax (1_000) which ChakraCore does not parse"
         },
         {
             "title": "Clustered Light Serialization",
@@ -4964,16 +4968,18 @@
         {
             "title": "wgsl-in-shadermaterial",
             "playgroundId": "#8RU8Q3#157",
+            "referenceImage": "wgsl-in-shadermaterial.png",
             "renderCount": 30,
             "excludeFromAutomaticTesting": true,
-            "reason": "Requires WebGL2-only feature (not supported by Babylon Native)"
+            "reason": "createStorageBuffer not implemented by Babylon Native (WGSL storage buffers)"
         },
         {
             "title": "terrain-erosion",
             "playgroundId": "#C90R62#17",
+            "referenceImage": "terrain-erosion.png",
             "renderCount": 15,
             "excludeFromAutomaticTesting": true,
-            "reason": "Requires WebGL2-only feature (not supported by Babylon Native)"
+            "reason": "Snippet uses syntax not parsable by ChakraCore"
         },
         {
             "title": "Read-write storage texture compute",
@@ -4992,46 +4998,47 @@
         {
             "title": "FrameGraph nrge clustered lights",
             "playgroundId": "#1QCA2M#36",
+            "referenceImage": "framegraph-nrge-clustered-lights.png",
             "excludeFromAutomaticTesting": true,
-            "reason": "Requires WebGL2-only feature (not supported by Babylon Native)"
+            "reason": "Snippet uses ES2021 numeric-separator syntax (1_000) which ChakraCore does not parse"
         },
         {
             "title": "Depth Renderer and RTT - debug markers",
             "playgroundId": "#7E73LI#21",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Requires WebGL2-only feature (not supported by Babylon Native)"
+            "referenceImage": "depth-renderer-and-rtt-debug-markers.png"
         },
         {
             "title": "Clustered lights - debug markers",
             "playgroundId": "#1QCA2M#47",
+            "referenceImage": "clustered-lights-debug-markers.png",
             "excludeFromAutomaticTesting": true,
-            "reason": "Requires WebGL2-only feature (not supported by Babylon Native)"
+            "reason": "Snippet uses ES2021 numeric-separator syntax (1_000) which ChakraCore does not parse"
         },
         {
             "title": "CSM  FrameGraph - debug markers",
             "playgroundId": "#JWKDME#216",
+            "referenceImage": "csm-framegraph-debug-markers.png",
             "excludeFromAutomaticTesting": true,
-            "reason": "Requires WebGL2-only feature (not supported by Babylon Native)"
+            "reason": "Snippet hangs on Babylon Native (CSM FrameGraph)"
         },
         {
             "title": "Reflection Probes - debug markers",
             "playgroundId": "#KA93U#1723",
+            "referenceImage": "reflection-probes-debug-markers.png",
             "excludeFromAutomaticTesting": true,
-            "reason": "Requires WebGL2-only feature (not supported by Babylon Native)"
+            "reason": "TEXTURE_CUBE_MAP constant missing on NativeEngine reflection-probes path"
         },
         {
             "title": "Unbalanced push pop - debug markers",
             "playgroundId": "#T26WTI#2",
-            "renderCount": 10,
-            "excludeFromAutomaticTesting": true,
-            "reason": "Requires WebGL2-only feature (not supported by Babylon Native)"
+            "referenceImage": "unbalanced-push-pop-debug-markers.png",
+            "renderCount": 10
         },
         {
             "title": "Pending pop - debug markers",
             "playgroundId": "#24HWT9#25",
-            "renderCount": 10,
-            "excludeFromAutomaticTesting": true,
-            "reason": "Requires WebGL2-only feature (not supported by Babylon Native)"
+            "referenceImage": "pending-pop-debug-markers.png",
+            "renderCount": 10
         },
         {
             "title": "WebGPU async pipeline pre-warming",
