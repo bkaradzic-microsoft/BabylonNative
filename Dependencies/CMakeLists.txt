@@ -57,7 +57,11 @@ target_compile_definitions(bgfx PUBLIC BGFX_PLATFORM_SUPPORTS_WGSL=0)
 # text-rendering operation; combined with V8 GC pacing this can exceed the
 # default 128 limit during long playground sweeps. CI workflows pass
 # -DBGFX_CONFIG_MAX_FRAME_BUFFERS as a CMake variable, so honour it here.
-if(NOT DEFINED BGFX_CONFIG_MAX_FRAME_BUFFERS)
+# bgfx.cmake declares this as an empty CACHE STRING, so use NOT (truthy check)
+# rather than NOT DEFINED to also catch the default empty case. Enforce a
+# minimum of 512 because Playground sweeps with the cascade-victim re-enables
+# overflow 256 on V8.
+if(NOT BGFX_CONFIG_MAX_FRAME_BUFFERS OR BGFX_CONFIG_MAX_FRAME_BUFFERS LESS 512)
     set(BGFX_CONFIG_MAX_FRAME_BUFFERS 512)
 endif()
 target_compile_definitions(bgfx PRIVATE BGFX_CONFIG_MAX_FRAME_BUFFERS=${BGFX_CONFIG_MAX_FRAME_BUFFERS})
