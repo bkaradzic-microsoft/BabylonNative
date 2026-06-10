@@ -1301,6 +1301,45 @@ namespace Babylon
         const bool renderTarget = info[5].As<Napi::Boolean>();
         const bool srgb = info[6].As<Napi::Boolean>();
         const uint32_t samples = info[7].IsUndefined() ? 1 : info[7].As<Napi::Number>().Uint32Value();
+        // JS passes layers == 0 for non-array textures; bgfx requires at least 1 layer.
+        const uint32_t requestedLayers = info[8].IsUndefined() ? 1 : info[8].As<Napi::Number>().Uint32Value();
+        const uint16_t numLayers = requestedLayers < 1 ? 1 : static_cast<uint16_t>(requestedLayers);
+
+        // Optional depth-texture path: create a *sampleable* depth render target (one or more
+        // array layers) plus, when requested, a hardware comparison sampler. This backs native
+        // CSM/PCF shadow maps where the shadow depth array is sampled with sampler2DArrayShadow.
+        const bool isDepth = info[9].IsUndefined() ? false : info[9].As<Napi::Boolean>();
+        const bool comparison = info[10].IsUndefined() ? false : info[10].As<Napi::Boolean>();
+        const bool depthGenerateStencil = info[11].IsUndefined() ? false : info[11].As<Napi::Boolean>();
+        if (isDepth)
+        {
+#ifdef ANDROID
+            // See CreateFrameBuffer: D32 is glitchy on some Android/Mali GPUs, prefer D24S8.
+            const auto depthStencilFormat{bgfx::TextureFormat::D24S8};
+#else
+            const auto depthStencilFormat{depthGenerateStencil ? bgfx::TextureFormat::D24S8 : bgfx::TextureFormat::D32};
+#endif
+            // Readable (NOT WRITE_ONLY) so the depth array can be bound and sampled by the shadow
+            // shader. Created directly via bgfx (not Texture::Create2D) to avoid the zero-init
+            // memory upload Create2D performs for render targets, which depth formats reject.
+            const uint64_t depthFlags = BGFX_TEXTURE_RT | RenderTargetSamplesToBgfxMsaaFlag(samples);
+            const bgfx::TextureHandle handle = bgfx::createTexture2D(width, height, false, numLayers, depthStencilFormat, depthFlags);
+            if (!bgfx::isValid(handle))
+            {
+                throw Napi::Error::New(info.Env(), "Failed to create depth texture");
+            }
+            texture->Attach(handle, true, width, height, false, numLayers, depthStencilFormat, depthFlags);
+
+            // Hardware shadow comparison sampler: clamp addressing + linear filtering (default,
+            // i.e. no *_POINT bits) gives 2x2 hardware PCF when sampled with sampler2DArrayShadow.
+            uint32_t samplerFlags = BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP | BGFX_SAMPLER_W_CLAMP;
+            if (comparison)
+            {
+                samplerFlags |= BGFX_SAMPLER_COMPARE_LESS;
+            }
+            texture->SamplerFlags(samplerFlags);
+            return;
+        }
 
         auto flags = BGFX_TEXTURE_NONE;
         if (renderTarget)
@@ -1312,7 +1351,7 @@ namespace Babylon
             flags |= BGFX_TEXTURE_SRGB;
         }
 
-        texture->Create2D(width, height, hasMips, 1, format, flags);
+        texture->Create2D(width, height, hasMips, numLayers, format, flags);
     }
 
     void NativeEngine::LoadTexture(const Napi::CallbackInfo& info)
@@ -1767,24 +1806,44 @@ namespace Babylon
         const bool generateStencilBuffer = info[3].As<Napi::Boolean>();
         const bool generateDepth = info[4].As<Napi::Boolean>();
         const uint32_t samples = info[5].IsUndefined() ? 1 : info[5].As<Napi::Number>().Uint32Value();
+        // For layered (2D array) render targets, the layer to attach as the color
+        // attachment. Each layer of a CSM shadow map array gets its own framebuffer.
+        const uint16_t layer = info[6].IsUndefined() ? 0 : static_cast<uint16_t>(info[6].As<Napi::Number>().Uint32Value());
+        // Optional explicit, *shared* depth texture (e.g. a sampleable CSM depth array). When
+        // provided, the given array slice is attached as the depth-stencil attachment instead of
+        // generating a private depth buffer. Ownership stays with the JS-side texture, so this
+        // framebuffer must NOT destroy it (depthStencilAttachmentIndex is left at -1 below).
+        Graphics::Texture* depthTexture = (info.Length() > 7 && !info[7].IsNull() && !info[7].IsUndefined())
+            ? info[7].As<Napi::Pointer<Graphics::Texture>>().Get()
+            : nullptr;
+        const uint16_t depthLayer = info[8].IsUndefined() ? 0 : static_cast<uint16_t>(info[8].As<Napi::Number>().Uint32Value());
 
         std::array<bgfx::Attachment, 2> attachments{};
         uint8_t numAttachments = 0;
 
-        if (texture != nullptr)
+        // A null texture (or one without a valid handle, e.g. the placeholder passed by
+        // _createDepthStencilTexture) means this is a depth-only framebuffer; skip the
+        // color attachment in that case.
+        if (texture != nullptr && bgfx::isValid(texture->Handle()))
         {
             const bgfx::Caps* caps = bgfx::getCaps();
             // bgfx validation now asserts when trying to use BGFX_RESOLVE_AUTO_GEN_MIPS with a texture that doesn't have the BGFX_CAPS_FORMAT_TEXTURE_MIP_AUTOGEN flag,
             // but before it would just ignore the flag and not generate mips without any warning. This prevents validation assert, but rendering might be broken if autogen
             // mips were expected. Basically this change preserves previous behavior.
-            attachments[numAttachments++].init(texture->Handle(), bgfx::Access::Write, 0, 1, 0
+            attachments[numAttachments++].init(texture->Handle(), bgfx::Access::Write, layer, 1, 0
                 , 0 != (caps->formats[texture->Format()] & BGFX_CAPS_FORMAT_TEXTURE_MIP_AUTOGEN) ? BGFX_RESOLVE_AUTO_GEN_MIPS : BGFX_RESOLVE_NONE
                 );
         }
 
         bgfx::TextureHandle depthStencilTextureHandle = BGFX_INVALID_HANDLE;
         int8_t depthStencilAttachmentIndex = -1;
-        if (generateStencilBuffer || generateDepth)
+        if (depthTexture != nullptr && bgfx::isValid(depthTexture->Handle()))
+        {
+            // Attach the shared depth array slice. Leave depthStencilAttachmentIndex == -1 so
+            // FrameBuffer::Dispose does not destroy this externally-owned depth texture.
+            attachments[numAttachments++].init(depthTexture->Handle(), bgfx::Access::Write, depthLayer, 1, 0, BGFX_RESOLVE_NONE);
+        }
+        else if (generateStencilBuffer || generateDepth)
         {
             if (generateStencilBuffer && !generateDepth)
             {
@@ -1823,7 +1882,8 @@ namespace Babylon
             throw Napi::Error::New(info.Env(), "Failed to create frame buffer");
         }
 
-        Graphics::FrameBuffer* frameBuffer = new Graphics::FrameBuffer(m_deviceContext, frameBufferHandle, width, height, false, generateDepth, generateStencilBuffer, depthStencilAttachmentIndex);
+        const bool hasExternalDepth = depthTexture != nullptr && bgfx::isValid(depthTexture->Handle());
+        Graphics::FrameBuffer* frameBuffer = new Graphics::FrameBuffer(m_deviceContext, frameBufferHandle, width, height, false, generateDepth || hasExternalDepth, generateStencilBuffer, depthStencilAttachmentIndex);
         return Napi::Pointer<Graphics::FrameBuffer>::Create(info.Env(), frameBuffer, Napi::NapiPointerDeleter(frameBuffer));
     }
 

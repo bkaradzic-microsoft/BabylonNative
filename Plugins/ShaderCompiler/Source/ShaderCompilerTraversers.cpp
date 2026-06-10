@@ -13,6 +13,8 @@
 
 #include <stdexcept>
 #include <arcana/macros.h>
+#include <cstring>
+#include <string>
 
 using namespace glslang;
 
@@ -776,6 +778,250 @@ namespace Babylon::ShaderCompilerTraversers
             const unsigned int FIRST_GENERIC_ATTRIBUTE_LOCATION{10};
         };
 
+        /// Flattens inter-stage varying arrays into individual varyings for Direct3D.
+        /// See FlattenInterStageVaryingArraysD3D in the header for the rationale.
+        class InterStageVaryingArrayFlattenerD3D final
+        {
+        public:
+            class Scope final : public AllocationsScopeBase
+            {
+            public:
+                std::vector<std::unique_ptr<TArraySizes>> ArraySizes{};
+            };
+
+            static ScopeT Traverse(TProgram& program, IdGenerator& ids)
+            {
+                auto scope = std::make_unique<Scope>();
+                // Vertex stage produces the varyings (EvqVaryingOut); copy local -> varying at end of main.
+                FlattenStage(program.getIntermediate(EShLangVertex), ids, EvqVaryingOut, *scope);
+                // Fragment stage consumes the varyings (EvqVaryingIn); copy varying -> local at start of main.
+                FlattenStage(program.getIntermediate(EShLangFragment), ids, EvqVaryingIn, *scope);
+                return scope;
+            }
+
+        private:
+            /// Gathers the targeted inter-stage varying arrays: their linker-object
+            /// declarations and every body occurrence (so they can be repointed).
+            class Collector final : public TIntermTraverser
+            {
+            public:
+                explicit Collector(TStorageQualifier storage)
+                    : m_storage{storage}
+                {
+                }
+
+                void visitSymbol(TIntermSymbol* symbol) override
+                {
+                    const auto& type = symbol->getType();
+                    if (type.getQualifier().storage != m_storage || !type.isArray())
+                    {
+                        return;
+                    }
+
+                    const char* name = symbol->getName().c_str();
+                    // Skip built-ins (e.g. gl_in/gl_out); only user varyings are flattened.
+                    if (std::strncmp(name, "gl_", 3) == 0)
+                    {
+                        return;
+                    }
+
+                    if (IsLinkerObject(this->path))
+                    {
+                        m_linkerObjects[name] = symbol;
+                    }
+                    else
+                    {
+                        m_occurrences.emplace_back(symbol, this->getParentNode());
+                    }
+                }
+
+                std::map<std::string, TIntermSymbol*> m_linkerObjects{};
+                std::vector<std::pair<TIntermSymbol*, TIntermNode*>> m_occurrences{};
+
+            private:
+                TStorageQualifier m_storage;
+            };
+
+            /// Returns the body aggregate of the `main` entry point, or nullptr.
+            static TIntermAggregate* GetMainBody(TIntermediate* intermediate)
+            {
+                auto* root = intermediate->getTreeRoot()->getAsAggregate();
+                if (root == nullptr)
+                {
+                    return nullptr;
+                }
+
+                for (auto* node : root->getSequence())
+                {
+                    auto* function = node->getAsAggregate();
+                    if (function != nullptr && function->getOp() == EOpFunction &&
+                        std::strncmp(function->getName().c_str(), "main(", 5) == 0)
+                    {
+                        auto& sequence = function->getSequence();
+                        return sequence.size() >= 2 ? sequence[1]->getAsAggregate() : nullptr;
+                    }
+                }
+
+                return nullptr;
+            }
+
+            /// Fills a TPublicType with the scalar/vector/matrix shape of the array element.
+            static void SetElementShape(const TType& arrayType, TPublicType& publicType)
+            {
+                if (arrayType.isMatrix())
+                {
+                    publicType.setMatrix(arrayType.getMatrixCols(), arrayType.getMatrixRows());
+                }
+                else if (arrayType.isVector())
+                {
+                    publicType.setVector(arrayType.getVectorSize());
+                }
+                else
+                {
+                    publicType.setVector(1);
+                }
+            }
+
+            static void FlattenStage(TIntermediate* intermediate, IdGenerator& ids, TStorageQualifier storage, Scope& scope)
+            {
+                if (intermediate == nullptr)
+                {
+                    return;
+                }
+
+                Collector collector{storage};
+                intermediate->getTreeRoot()->traverse(&collector);
+
+                if (collector.m_linkerObjects.empty())
+                {
+                    return;
+                }
+
+                auto* body = GetMainBody(intermediate);
+                if (body == nullptr)
+                {
+                    throw std::runtime_error{"Cannot flatten varying arrays: main() body not found"};
+                }
+
+                auto* linkerObjects = intermediate->getTreeRoot()->getAsAggregate()->getSequence().back()->getAsAggregate();
+                assert(linkerObjects->getOp() == EOpLinkerObjects);
+
+                TSourceLoc loc{};
+                loc.init();
+
+                const bool isInput = (storage == EvqVaryingIn);
+
+                std::map<std::string, TIntermTyped*> originalNameToReplacement{};
+                std::vector<TIntermNode*> newLinkerSymbols{};
+                std::vector<TIntermNode*> inputCopyStatements{};
+                std::vector<TIntermNode*> outputCopyStatements{};
+
+                for (const auto& [name, arraySymbol] : collector.m_linkerObjects)
+                {
+                    const TType& arrayType = arraySymbol->getType();
+                    const int count = arrayType.getOuterArraySize();
+                    const TBasicType basicType = arrayType.getBasicType();
+                    const TPrecisionQualifier precision = arrayType.getQualifier().precision;
+
+                    // Type of each individual varying (name_k): same shape/qualifier as the
+                    // element, but not an array and with an unset location for auto-assignment.
+                    TPublicType varyingPublicType{};
+                    varyingPublicType.qualifier = arrayType.getQualifier();
+                    varyingPublicType.qualifier.layoutLocation = TQualifier::layoutLocationEnd;
+                    varyingPublicType.arraySizes = nullptr;
+                    SetElementShape(arrayType, varyingPublicType);
+                    TType varyingType{varyingPublicType};
+                    varyingType.setBasicType(basicType);
+
+                    // Type of the function-local array replacing the varying inside main().
+                    TPublicType localPublicType{};
+                    localPublicType.qualifier.clearLayout();
+                    localPublicType.qualifier.storage = EvqTemporary;
+                    localPublicType.qualifier.precision = precision;
+                    SetElementShape(arrayType, localPublicType);
+                    scope.ArraySizes.emplace_back(std::make_unique<TArraySizes>());
+                    auto* arraySizes = scope.ArraySizes.back().get();
+                    arraySizes->addInnerSize(count);
+                    localPublicType.arraySizes = arraySizes;
+                    TType localArrayType{localPublicType};
+                    localArrayType.setBasicType(basicType);
+
+                    // Element type used for index expressions into the local array.
+                    TPublicType elementPublicType{};
+                    elementPublicType.qualifier.clearLayout();
+                    elementPublicType.qualifier.storage = EvqTemporary;
+                    elementPublicType.qualifier.precision = precision;
+                    elementPublicType.arraySizes = nullptr;
+                    SetElementShape(arrayType, elementPublicType);
+                    TType elementType{elementPublicType};
+                    elementType.setBasicType(basicType);
+
+                    const int localId = ids.Next();
+
+                    // The shared replacement node repoints every body reference of the
+                    // original varying array at the new function-local array.
+                    originalNameToReplacement[name] = intermediate->addSymbol(TIntermSymbol{localId, name.c_str(), localArrayType});
+
+                    for (int element = 0; element < count; ++element)
+                    {
+                        const TString varyingName{(name + "_" + std::to_string(element)).c_str()};
+                        const int varyingId = ids.Next();
+
+                        auto* varyingDeclaration = intermediate->addSymbol(TIntermSymbol{varyingId, varyingName, varyingType});
+                        newLinkerSymbols.push_back(varyingDeclaration);
+
+                        // local[element]
+                        auto* localNode = intermediate->addSymbol(TIntermSymbol{localId, name.c_str(), localArrayType});
+                        auto* indexNode = intermediate->addBinaryNode(EOpIndexDirect, localNode, intermediate->addConstantUnion(element, loc), loc);
+                        indexNode->setType(elementType);
+
+                        // name_element
+                        auto* varyingNode = intermediate->addSymbol(TIntermSymbol{varyingId, varyingName, varyingType});
+
+                        if (isInput)
+                        {
+                            // local[element] = name_element;  (at start of main)
+                            inputCopyStatements.push_back(intermediate->addAssign(EOpAssign, indexNode, varyingNode, loc));
+                        }
+                        else
+                        {
+                            // name_element = local[element];  (at end of main)
+                            outputCopyStatements.push_back(intermediate->addAssign(EOpAssign, varyingNode, indexNode, loc));
+                        }
+                    }
+                }
+
+                // Remove the original varying arrays from the linker objects.
+                auto& linkerSequence = linkerObjects->getSequence();
+                for (int idx = gsl::narrow_cast<int>(linkerSequence.size()) - 1; idx >= 0; --idx)
+                {
+                    auto* symbol = linkerSequence[idx]->getAsSymbolNode();
+                    if (symbol != nullptr && collector.m_linkerObjects.find(symbol->getName().c_str()) != collector.m_linkerObjects.end())
+                    {
+                        RemoveAllTreeNodes(linkerSequence[idx]);
+                        linkerSequence.erase(linkerSequence.begin() + idx);
+                    }
+                }
+
+                // Append the individual varyings (deterministic order, identical across stages).
+                linkerSequence.insert(linkerSequence.end(), newLinkerSymbols.begin(), newLinkerSymbols.end());
+
+                // Repoint body references at the function-local arrays.
+                MakeReplacements(originalNameToReplacement, collector.m_occurrences);
+
+                // Insert the copy statements that connect the local arrays to the varyings.
+                auto& bodySequence = body->getSequence();
+                if (!inputCopyStatements.empty())
+                {
+                    bodySequence.insert(bodySequence.begin(), inputCopyStatements.begin(), inputCopyStatements.end());
+                }
+                if (!outputCopyStatements.empty())
+                {
+                    bodySequence.insert(bodySequence.end(), outputCopyStatements.begin(), outputCopyStatements.end());
+                }
+            }
+        };
+
         /// <summary>
         /// Split sampler symbols into separate sampler and texture symbols and assign bindings.
         /// This is required for DirectX and Metal. Note that bgfx expects sequential bindings
@@ -855,6 +1101,13 @@ namespace Babylon::ShaderCompilerTraversers
                         publicType.qualifier.precision = EpqHigh;
                         publicType.qualifier.layoutBinding = layoutBinding;
                         publicType.sampler.sampler = true;
+                        // Preserve the comparison ("shadow") flag so that a sampler split
+                        // out of a sampler2DShadow/sampler2DArrayShadow remains a comparison
+                        // sampler. Without this, EOpConstructTextureSampler pairs a depth
+                        // texture with a non-comparison sampler and SPIRV-Cross emits a plain
+                        // SamplerState + Sample() instead of SamplerComparisonState +
+                        // SampleCmp(), which fails to compile / behaves incorrectly.
+                        publicType.sampler.shadow = type.getSampler().shadow;
 
                         TType newType{publicType};
                         newSampler = intermediate->addSymbol(TIntermSymbol{ids.Next(), name.c_str(), newType});
@@ -1312,6 +1565,239 @@ namespace Babylon::ShaderCompilerTraversers
             };
         };
 
+        /// Prepends a zero-initialization assignment to the start of every function body
+        /// for each struct-typed local variable referenced anywhere in that body.
+        ///
+        /// Babylon.js emits patterns like
+        ///
+        ///     lightingInfo computeAreaLighting(...) {
+        ///         lightingInfo result;             // declared, no initializer
+        ///         result.specular += value;        // read-modify-write of an
+        ///         result.diffuse  += value;        // uninitialized field
+        ///         return result;
+        ///     }
+        ///
+        /// which is undefined behavior in GLSL but tolerated by WebGL drivers. The HLSL
+        /// emitted by SPIRV-Cross faithfully reproduces the pattern, and D3DCompile
+        /// rejects it with `error X4000: variable 'result_1' used without having been
+        /// completely initialized`.
+        ///
+        /// This pass walks every function body, collects all struct-typed local
+        /// (`EvqTemporary`) symbols it references, and prepends an assignment of an
+        /// `EOpConstructStruct(0, 0, ...)` aggregate at the start of the body. The
+        /// SPIR-V emitter sees this as a normal store and emits well-defined SPIR-V;
+        /// SPIRV-Cross then emits HLSL with the struct local initialized at declaration
+        /// (or shortly after). Any subsequent real assignment in the body is dead-code
+        /// eliminated by the HLSL compiler's optimizer (FXC for the DXBC backend, DXC
+        /// for DXIL), so functional behavior is unchanged for previously-well-defined
+        /// shaders.
+        ///
+        /// Note on nested-scope locals: a struct local declared inside a loop body or
+        /// conditional branch (e.g. `for (...) { lightingInfo r; r.x += ...; }`) also
+        /// gets its init prepended at the *function* entry rather than at its lexical
+        /// scope entry. This is safe — and necessary — because:
+        ///
+        ///   1. SPIR-V's `OpVariable` rule requires every function-scope variable to
+        ///      live in the function's entry basic block, so glslang already hoists
+        ///      nested-scope locals to function scope in the SPIR-V it emits; SPIRV-
+        ///      Cross then emits HLSL with the variable at function scope as well,
+        ///      meaning a function-entry init reaches every use site correctly.
+        ///   2. Real BabylonJS shaders (Standard / PBR / OpenPBR area lighting,
+        ///      `computeAreaLighting` inlined per-light) hit this exact pattern — the
+        ///      inlined struct locals are referenced *only* from nested scopes — and
+        ///      need the init to suppress X4000.
+        ///   3. The marginal semantic change versus per-scope init (a hypothetical
+        ///      "accumulator that depends on per-iteration freshness" pattern) does
+        ///      not occur in BabylonJS-generated GLSL, which only ever uses the
+        ///      uninitialized-first-read pattern this pass targets.
+        class StructLocalZeroInitializerTraverser final
+        {
+        public:
+            static void Traverse(TProgram& program)
+            {
+                StructLocalZeroInitializerTraverser pass{};
+                pass.TraverseStage(program.getIntermediate(EShLangVertex));
+                pass.TraverseStage(program.getIntermediate(EShLangFragment));
+            }
+
+        private:
+            void TraverseStage(TIntermediate* intermediate)
+            {
+                if (intermediate == nullptr)
+                {
+                    return;
+                }
+
+                auto* root = intermediate->getTreeRoot()->getAsAggregate();
+                if (root == nullptr)
+                {
+                    return;
+                }
+
+                for (auto* node : root->getSequence())
+                {
+                    auto* function = node->getAsAggregate();
+                    if (function != nullptr && function->getOp() == EOpFunction)
+                    {
+                        ProcessFunction(intermediate, function);
+                    }
+                }
+            }
+
+            static void ProcessFunction(TIntermediate* intermediate, TIntermAggregate* function)
+            {
+                auto& functionSequence = function->getSequence();
+                if (functionSequence.size() < 2)
+                {
+                    return;
+                }
+
+                auto* body = functionSequence[1]->getAsAggregate();
+                if (body == nullptr)
+                {
+                    return;
+                }
+
+                SymbolCollector collector{};
+                body->traverse(&collector);
+
+                if (collector.UniqueLocals.empty())
+                {
+                    return;
+                }
+
+                std::vector<TIntermNode*> initStatements{};
+                initStatements.reserve(collector.UniqueLocals.size());
+                for (const auto& [id, symbolNode] : collector.UniqueLocals)
+                {
+                    BX_UNUSED(id);
+                    const TType& type = symbolNode->getType();
+                    TIntermTyped* zeroValue = MakeZeroForType(intermediate, type, symbolNode->getLoc());
+                    if (zeroValue == nullptr)
+                    {
+                        continue;
+                    }
+                    TIntermSymbol* lhs = intermediate->addSymbol(*symbolNode);
+                    TIntermTyped* assign = intermediate->addAssign(EOpAssign, lhs, zeroValue, symbolNode->getLoc());
+                    if (assign != nullptr)
+                    {
+                        initStatements.push_back(assign);
+                    }
+                }
+
+                if (!initStatements.empty())
+                {
+                    auto& bodySequence = body->getSequence();
+                    bodySequence.insert(bodySequence.begin(), initStatements.begin(), initStatements.end());
+                }
+            }
+
+            /// Build a typed expression that evaluates to the all-zero value of `type`.
+            /// For struct types, recursively constructs `EOpConstructStruct(zero_field_0, ...)`.
+            /// For scalar/vector/matrix types, builds a `TIntermConstantUnion` with zeros.
+            /// Returns nullptr for unsupported types (currently: array types).
+            static TIntermTyped* MakeZeroForType(TIntermediate* intermediate, const TType& type, const TSourceLoc& loc)
+            {
+                if (type.isArray())
+                {
+                    // Skipping array initialization keeps this pass focused on the
+                    // X4000-on-struct-local case observed in BabylonJS's
+                    // `computeAreaLighting`. Array-of-struct is rare in BJS shaders and
+                    // can be added later if a concrete failure surfaces.
+                    return nullptr;
+                }
+
+                if (type.isStruct())
+                {
+                    const TTypeList* structFields = type.getStruct();
+                    if (structFields == nullptr || structFields->empty())
+                    {
+                        return nullptr;
+                    }
+
+                    TIntermAggregate* construct = nullptr;
+                    for (const TTypeLoc& field : *structFields)
+                    {
+                        TIntermTyped* fieldZero = MakeZeroForType(intermediate, *field.type, loc);
+                        if (fieldZero == nullptr)
+                        {
+                            return nullptr;
+                        }
+                        construct = intermediate->growAggregate(construct, fieldZero, loc);
+                    }
+
+                    if (construct == nullptr)
+                    {
+                        return nullptr;
+                    }
+                    construct->setOperator(EOpConstructStruct);
+                    construct->setType(type);
+                    return construct;
+                }
+
+                const size_t numComponents = gsl::narrow_cast<size_t>(type.computeNumComponents());
+                if (numComponents == 0)
+                {
+                    return nullptr;
+                }
+
+                TConstUnionArray zeros{gsl::narrow_cast<int>(numComponents)};
+                for (size_t i = 0; i < numComponents; ++i)
+                {
+                    switch (type.getBasicType())
+                    {
+                        case EbtFloat:
+                        case EbtDouble:
+                        case EbtFloat16:
+                            zeros[i].setDConst(0.0);
+                            break;
+                        case EbtInt:
+                        case EbtInt8:
+                        case EbtInt16:
+                        case EbtInt64:
+                            zeros[i].setIConst(0);
+                            break;
+                        case EbtUint:
+                        case EbtUint8:
+                        case EbtUint16:
+                        case EbtUint64:
+                            zeros[i].setUConst(0);
+                            break;
+                        case EbtBool:
+                            zeros[i].setBConst(false);
+                            break;
+                        default:
+                            // Unknown basic type (e.g. opaque sampler); skip.
+                            return nullptr;
+                    }
+                }
+
+                return intermediate->addConstantUnion(zeros, type, loc, true);
+            }
+
+            class SymbolCollector final : public TIntermTraverser
+            {
+            public:
+                // Map uniqueId -> a representative symbol node (used to read type/loc when
+                // building the init statement). One entry per distinct local variable.
+                std::map<long long, TIntermSymbol*> UniqueLocals{};
+
+                void visitSymbol(TIntermSymbol* symbol) override
+                {
+                    const TType& type = symbol->getType();
+                    if (type.getQualifier().storage != EvqTemporary)
+                    {
+                        return;
+                    }
+                    if (!type.isStruct() || type.isArray())
+                    {
+                        return;
+                    }
+                    UniqueLocals.try_emplace(symbol->getId(), symbol);
+                }
+            };
+        };
+
         class InvertYDerivativeOperandsTraverser : public TIntermTraverser
         {
         public:
@@ -1383,8 +1869,18 @@ namespace Babylon::ShaderCompilerTraversers
         SamplerFunctionParameterSplitterTraverser::Traverse(program, ids);
     }
 
+    void ZeroInitializeStructLocals(TProgram& program)
+    {
+        StructLocalZeroInitializerTraverser::Traverse(program);
+    }
+
     void InvertYDerivativeOperands(TProgram& program)
     {
         InvertYDerivativeOperandsTraverser::Traverse(program);
+    }
+
+    ScopeT FlattenInterStageVaryingArraysD3D(TProgram& program, IdGenerator& ids)
+    {
+        return InterStageVaryingArrayFlattenerD3D::Traverse(program, ids);
     }
 }

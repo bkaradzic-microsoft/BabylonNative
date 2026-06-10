@@ -44,6 +44,10 @@ namespace Babylon::ShaderCompilerCommon
             {
                 return uv;
             }
+            highp vec4 flip(highp vec4 uv)
+            {
+                return vec4(uv.x, 1. - uv.y, uv.z, uv.w);
+            }
 
             #define texture(x,y) texture(x, flip(y))
             #define textureLod(x,y,z) textureLod(x, flip(y), z)

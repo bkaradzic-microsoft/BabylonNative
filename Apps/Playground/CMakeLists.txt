@@ -149,6 +149,7 @@ target_link_libraries(Playground
     PRIVATE NativeOptimizations
     PRIVATE NativeTracing
     PRIVATE Performance
+    PRIVATE RenderTargetTexture
     PRIVATE ScriptLoader
     PRIVATE ShaderCache
     PRIVATE TestUtils

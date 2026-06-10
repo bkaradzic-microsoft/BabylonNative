@@ -40,6 +40,7 @@ target_link_libraries(BabylonNativeJNI
     PRIVATE NativeTracing
     PRIVATE NativeXr
     PRIVATE Performance
+    PRIVATE RenderTargetTexture
     PRIVATE ScriptLoader
     PRIVATE ShaderCache
     PRIVATE TestUtils

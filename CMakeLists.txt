@@ -142,6 +142,7 @@ option(BABYLON_NATIVE_PLUGIN_TESTUTILS "Include Babylon Native Plugin TestUtils.
 # Polyfills
 option(BABYLON_NATIVE_POLYFILL_WINDOW "Include Babylon Native Polyfill Window." ON)
 option(BABYLON_NATIVE_POLYFILL_CANVAS "Include Babylon Native Polyfill Canvas." ON)
+option(BABYLON_NATIVE_POLYFILL_RENDERTARGETTEXTURE "Include Babylon Native Polyfill RenderTargetTexture (normalize bogus Constants.TEXTURE_2D options.type in NativeEngine.createRenderTargetTexture; Babylon.js AreaLightTextureTools workaround)." ON)
 
 # Sanitizers
 option(ENABLE_SANITIZERS "Enable AddressSanitizer and UBSan" OFF)
