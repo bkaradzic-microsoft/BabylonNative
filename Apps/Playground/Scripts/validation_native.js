@@ -1,3 +1,28 @@
+// ES2019 language polyfills for the (older Chakra) JS engine hosted by Babylon
+// Native. These built-ins are absent at runtime, so playground snippets and
+// Babylon core that use them throw "Object doesn't support property or method".
+// Defined non-enumerable to avoid leaking into for-in enumeration.
+(function () {
+    function define(proto, name, fn) {
+        if (!proto[name]) {
+            Object.defineProperty(proto, name, { value: fn, writable: true, configurable: true, enumerable: false });
+        }
+    }
+    define(String.prototype, "trimStart", function () { return this.replace(/^[\s\uFEFF\xA0]+/, ""); });
+    define(String.prototype, "trimEnd", function () { return this.replace(/[\s\uFEFF\xA0]+$/, ""); });
+    define(Array.prototype, "flat", function (depth) {
+        var d = depth === undefined ? 1 : Math.floor(depth);
+        if (isNaN(d) || d < 1) { return Array.prototype.slice.call(this); }
+        return Array.prototype.reduce.call(this, function (acc, cur) {
+            if (Array.isArray(cur)) { acc.push.apply(acc, cur.flat(d - 1)); } else { acc.push(cur); }
+            return acc;
+        }, []);
+    });
+    define(Array.prototype, "flatMap", function (cb, thisArg) {
+        return Array.prototype.map.call(this, cb, thisArg).flat();
+    });
+})();
+
 (function () {
     let currentScene;
     let config;

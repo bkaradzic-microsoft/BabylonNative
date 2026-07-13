@@ -548,8 +548,6 @@
         {
             "title": "Merge Meshes with submeshes",
             "playgroundId": "#ZHPFRQ",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Test crashes or hangs on Babylon Native",
             "referenceImage": "mergemeshes-sub.png"
         },
         {
@@ -2167,8 +2165,6 @@
             "title": "Bones and morphs computation order",
             "playgroundId": "#WGZLGJ#4040",
             "renderCount": 40,
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
             "referenceImage": "bonesMorphsCompute.png"
         },
         {
