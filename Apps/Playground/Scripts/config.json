@@ -583,8 +583,6 @@
             "title": "Gaussian Splatting Depth Alpha Blended",
             "playgroundId": "#V80DRL#19",
             "renderCount": 15,
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
             "referenceImage": "gsplat-depth-alpha-blended.png"
         },
         {
@@ -892,8 +890,6 @@
         {
             "title": "Node Geometry - Building generator",
             "playgroundId": "#7RWIUU#29",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Test crashes or hangs on Babylon Native",
             "referenceImage": "nodeGeometryBuildingGenerator.png"
         },
         {
@@ -913,8 +909,6 @@
         {
             "title": "GreasedLine - simple material",
             "playgroundId": "#H1LRZ3#427",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Test crashes or hangs on Babylon Native",
             "referenceImage": "greased-line-simple-material.png"
         },
         {
@@ -1047,8 +1041,6 @@
         {
             "title": "Weighted animations",
             "playgroundId": "#LL5BIQ#636",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
             "referenceImage": "weighted-animations.png"
         },
         {
@@ -1578,8 +1570,6 @@
         {
             "title": "PBR refraction",
             "playgroundId": "#LCA0Q4#26",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
             "referenceImage": "pbr-refraction.png"
         },
         {
@@ -1654,8 +1644,6 @@
         {
             "title": "DDS",
             "playgroundId": "#ZI77S7#3",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
             "referenceImage": "dds.png"
         },
         {
@@ -2377,8 +2365,6 @@
         {
             "title": "Decal Map",
             "playgroundId": "#9BVW2S#67",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
             "referenceImage": "Decal-Map.png"
         },
         {
@@ -2398,8 +2384,6 @@
         {
             "title": "Scene Recorder Apply Delta",
             "playgroundId": "#9ZS92P#9",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
             "referenceImage": "Scene-Recorder-Apply-Delta.png"
         },
         {
@@ -2632,8 +2616,6 @@
             "title": "dissolve-effect-with-node-material-and-glow-layer",
             "playgroundId": "#F6PGMC#12",
             "renderCount": 2,
-            "excludeFromAutomaticTesting": true,
-            "reason": "Test crashes or hangs on Babylon Native",
             "referenceImage": "dissolve-effect-with-node-material-and-glow-layer.png"
         },
         {
@@ -2771,8 +2753,6 @@
         {
             "title": "Glow layer with vertex alpha",
             "playgroundId": "#GWAX2G#7",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
             "referenceImage": "Glow-layer-with-vertex-alpha.png"
         },
         {
@@ -3161,8 +3141,6 @@
         {
             "title": "KHR diffuse transmission",
             "playgroundId": "#RX52XX#1",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
             "referenceImage": "KHR-diffuse-transmission.png"
         },
         {
@@ -4368,8 +4346,6 @@
             "title": "Particles - Helper - Smoke",
             "playgroundId": "#XRRTC0#2",
             "renderCount": 120,
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
             "referenceImage": "particles-helper-smoke.png"
         },
         {
