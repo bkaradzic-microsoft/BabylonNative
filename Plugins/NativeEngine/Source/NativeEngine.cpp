@@ -1907,8 +1907,27 @@ namespace Babylon
         std::array<bgfx::Attachment, 9> attachments{};
         uint8_t numAttachments = 0;
 
+        // Babylon's NativeEngine._createDepthStencilTexture asks for a standalone, *sampleable* depth/stencil
+        // texture by passing a freshly created (and therefore uninitialized) color texture: its bgfx handle is
+        // still kInvalidHandle. Detect that here so we (a) don't attach the invalid handle as a color target and
+        // (b) create a readable depth attachment and alias it back into the supplied texture so it can be sampled.
+        Graphics::Texture* depthStencilTextureRequest = nullptr;
+
         for (Graphics::Texture* texture : colorTextures)
         {
+            if (texture == nullptr)
+            {
+                continue;
+            }
+
+            if (!bgfx::isValid(texture->Handle()))
+            {
+                // Standalone sampleable depth/stencil texture request (uninitialized color handle):
+                // don't attach it as a color target; alias the depth attachment back into it below.
+                depthStencilTextureRequest = texture;
+                continue;
+            }
+
             // bgfx validation now asserts when trying to use BGFX_RESOLVE_AUTO_GEN_MIPS with a texture that doesn't have the BGFX_CAPS_FORMAT_TEXTURE_MIP_AUTOGEN flag,
             // but before it would just ignore the flag and not generate mips without any warning. This prevents validation assert, but rendering might be broken if autogen
             // mips were expected. Basically this change preserves previous behavior.
@@ -1917,8 +1936,12 @@ namespace Babylon
                 );
         }
 
+        const bool requestDepthStencilTexture = (depthStencilTextureRequest != nullptr);
+
         bgfx::TextureHandle depthStencilTextureHandle = BGFX_INVALID_HANDLE;
         int8_t depthStencilAttachmentIndex = -1;
+        bgfx::TextureFormat::Enum depthStencilTextureFormat = bgfx::TextureFormat::Unknown;
+        uint64_t depthStencilTextureFlags = 0;
         if (generateStencilBuffer || generateDepth)
         {
             if (generateStencilBuffer && !generateDepth)
@@ -1926,7 +1949,9 @@ namespace Babylon
                 JsConsoleLogger::LogWarn(env, "Stencil without depth is not supported, assuming depth and stencil");
             }
 
-            auto flags = BGFX_TEXTURE_RT_WRITE_ONLY | RenderTargetSamplesToBgfxMsaaFlag(samples);
+            // A standalone depth/stencil texture must be readable; render-target-only depth attachments stay
+            // write-only (cheaper, and the resolve path below relies on it).
+            auto flags = (requestDepthStencilTexture ? BGFX_TEXTURE_RT : BGFX_TEXTURE_RT_WRITE_ONLY) | RenderTargetSamplesToBgfxMsaaFlag(samples);
 #ifdef ANDROID
             // On Android with Mali GPU (Oppo Find x5 lite, Google Pixel 8, Samsung Galaxy Tab Active 3, ...)
             // D32 depth buffer gives glitches. Everything is fine with D24S8.
@@ -1938,6 +1963,8 @@ namespace Babylon
 #endif
             assert(bgfx::isTextureValid(0, false, 1, depthStencilFormat, flags));
             depthStencilTextureHandle = bgfx::createTexture2D(width, height, false, 1, depthStencilFormat, flags);
+            depthStencilTextureFormat = depthStencilFormat;
+            depthStencilTextureFlags = flags;
 
             // bgfx doesn't add flag D3D11_RESOURCE_MISC_GENERATE_MIPS for depth textures (missing that flag will crash D3D with resolving)
             // And not sure it makes sense to generate mipmaps from a depth buffer with exponential values.
@@ -1958,7 +1985,21 @@ namespace Babylon
             throw Napi::Error::New(env, "Failed to create frame buffer");
         }
 
-        Graphics::FrameBuffer* frameBuffer = new Graphics::FrameBuffer(m_deviceContext, frameBufferHandle, width, height, false, generateDepth, generateStencilBuffer, depthStencilAttachmentIndex);
+        // Stencil-without-depth still allocates a combined depth/stencil attachment above, so the framebuffer
+        // genuinely has depth in that case too. Report hasDepth accordingly, otherwise Clear/DrawInternal would
+        // skip depth clear and Z-writes against a depth buffer that actually exists.
+        const bool hasDepthAttachment = generateDepth || generateStencilBuffer;
+        Graphics::FrameBuffer* frameBuffer = new Graphics::FrameBuffer(m_deviceContext, frameBufferHandle, width, height, false, hasDepthAttachment, generateStencilBuffer, depthStencilAttachmentIndex);
+
+        // For a standalone depth/stencil texture request, alias the framebuffer's readable depth attachment back
+        // into the caller-supplied texture so Babylon can sample it (e.g. fluid rendering's depth copy). The
+        // framebuffer owns the handle (its destructor destroys it), so the texture must not own it.
+        if (depthStencilTextureRequest != nullptr && depthStencilAttachmentIndex >= 0)
+        {
+            depthStencilTextureRequest->Attach(bgfx::getTexture(frameBufferHandle, static_cast<uint8_t>(depthStencilAttachmentIndex)),
+                false, width, height, false, 1, depthStencilTextureFormat, depthStencilTextureFlags);
+        }
+
         return Napi::Pointer<Graphics::FrameBuffer>::Create(env, frameBuffer, Napi::NapiPointerDeleter(frameBuffer));
     }
 
