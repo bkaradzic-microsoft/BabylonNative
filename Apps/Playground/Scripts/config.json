@@ -860,8 +860,6 @@
         {
             "title": "NMEGLTF",
             "playgroundId": "#WGZLGJ#10320",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
             "referenceImage": "nmegltf.png"
         },
         {
@@ -1058,15 +1056,11 @@
         {
             "title": "Anisotropic",
             "playgroundId": "#MAXCNU#1",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
             "referenceImage": "anisotropic.png"
         },
         {
             "title": "Clear Coat",
             "playgroundId": "#YACNQS#2",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
             "referenceImage": "clearCoat.png"
         },
         {
@@ -1573,22 +1567,16 @@
         {
             "title": "PBRMetallicRoughnessMaterial",
             "playgroundId": "#2FDQT5#13",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
             "referenceImage": "PBRMetallicRoughnessMaterial.png"
         },
         {
             "title": "PBRSpecularGlossinessMaterial",
             "playgroundId": "#Z1VL3V#4",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
             "referenceImage": "PBRSpecularGlossinessMaterial.png"
         },
         {
             "title": "PBR",
             "playgroundId": "#LCA0Q4#27",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
             "referenceImage": "pbr.png"
         },
         {
@@ -1825,16 +1813,12 @@
             "title": "Shadows with instances in left handed system",
             "playgroundId": "#MSAHKR#79",
             "renderCount": 10,
-            "excludeFromAutomaticTesting": true,
-            "reason": "Test crashes or hangs on Babylon Native",
             "referenceImage": "shadowsinstancesleft.png"
         },
         {
             "title": "Shadows with instances in right handed system",
             "playgroundId": "#MSAHKR#13",
             "renderCount": 10,
-            "excludeFromAutomaticTesting": true,
-            "reason": "Test crashes or hangs on Babylon Native",
             "referenceImage": "shadowsinstancesright.png"
         },
         {
@@ -2214,8 +2198,6 @@
         {
             "title": "Test updateTextureData",
             "playgroundId": "#EVX1DH#80",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
             "referenceImage": "testUpdateTextureData.png"
         },
         {
