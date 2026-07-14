@@ -179,4 +179,17 @@ namespace Babylon
 
         return &itUniformInfo->second;
     }
+
+    const UniformInfo* Program::GetSamplerInfoByStage(uint8_t stage) const
+    {
+        for (const auto& [index, info] : m_uniformInfos)
+        {
+            if (info.Type == bgfx::UniformType::Sampler && info.Stage == stage)
+            {
+                return &info;
+            }
+        }
+
+        return nullptr;
+    }
 }

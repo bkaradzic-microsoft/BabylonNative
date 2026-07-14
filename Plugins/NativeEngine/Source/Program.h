@@ -70,6 +70,9 @@ namespace Babylon
 
         void SetUniform(bgfx::UniformHandle handle, gsl::span<const float> data, size_t elementLength = 1);
         const UniformInfo* GetUniformInfo(const std::string& name) const;
+        // Finds a sampler uniform whose bind stage matches (used by the compute-dispatch path to
+        // bind a texture to a given group/binding slot without knowing the sampler's name).
+        const UniformInfo* GetSamplerInfoByStage(uint8_t stage) const;
         bgfx::ProgramHandle Handle() const { return m_handle; }
         const std::map<uint16_t, UniformValue>& Uniforms() const { return m_uniforms; }
         const std::map<std::string, uint32_t>& VertexAttributeLocations() const { return m_vertexAttributeLocations; }

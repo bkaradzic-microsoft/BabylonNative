@@ -142,6 +142,22 @@ namespace Babylon::Graphics
         encoder.submit(m_viewId.value(), programHandle, 0, flags);
     }
 
+    void FrameBuffer::Compute(bgfx::Encoder& encoder, bgfx::ProgramHandle programHandle, uint32_t numX, uint32_t numY, uint32_t numZ)
+    {
+        // Dispatch the compute program on this framebuffer's view so that it is ordered (in the
+        // Sequential view established by Clear) before any subsequent draws in the same view that
+        // consume the compute results (e.g. a storage buffer aliased as a particle vertex buffer).
+        if (!m_viewId.has_value())
+        {
+            m_viewId = m_deviceContext.AcquireNewViewId();
+            bgfx::setViewMode(m_viewId.value(), bgfx::ViewMode::Sequential);
+            bgfx::setViewFrameBuffer(m_viewId.value(), m_handle);
+            bgfx::setViewRect(m_viewId.value(), 0, 0, Width(), Height());
+        }
+
+        encoder.dispatch(m_viewId.value(), programHandle, numX, numY, numZ);
+    }
+
     void FrameBuffer::Blit(bgfx::Encoder& encoder, bgfx::TextureHandle dst, uint16_t dstX, uint16_t dstY, bgfx::TextureHandle src, uint16_t srcX, uint16_t srcY, uint16_t width, uint16_t height)
     {
         // In order for Blit to work properly we need to force the creation of a new ViewID.

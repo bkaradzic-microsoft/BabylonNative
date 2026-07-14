@@ -885,6 +885,8 @@ namespace Babylon
                 StaticValue("COMMAND_DELETEVERTEXARRAY", Napi::FunctionPointer::Create(env, &NativeEngine::DeleteVertexArray)),
                 StaticValue("COMMAND_DELETEINDEXBUFFER", Napi::FunctionPointer::Create(env, &NativeEngine::DeleteIndexBuffer)),
                 StaticValue("COMMAND_DELETEVERTEXBUFFER", Napi::FunctionPointer::Create(env, &NativeEngine::DeleteVertexBuffer)),
+                StaticValue("COMMAND_DELETESTORAGEBUFFER", Napi::FunctionPointer::Create(env, &NativeEngine::DeleteStorageBuffer)),
+                StaticValue("COMMAND_COMPUTEDISPATCH", Napi::FunctionPointer::Create(env, &NativeEngine::ComputeDispatch)),
                 StaticValue("COMMAND_SETPROGRAM", Napi::FunctionPointer::Create(env, &NativeEngine::SetProgram)),
                 StaticValue("COMMAND_DELETEPROGRAM", Napi::FunctionPointer::Create(env, &NativeEngine::DeleteProgram)),
                 StaticValue("COMMAND_SETMATRICES", Napi::FunctionPointer::Create(env, &NativeEngine::SetMatrices)),
@@ -950,6 +952,9 @@ namespace Babylon
 
                 InstanceMethod("createProgram", &NativeEngine::CreateProgram),
                 InstanceMethod("createProgramAsync", &NativeEngine::CreateProgramAsync),
+                InstanceMethod("createComputeProgram", &NativeEngine::CreateComputeProgram),
+                InstanceMethod("createStorageBuffer", &NativeEngine::CreateStorageBuffer),
+                InstanceMethod("updateStorageBuffer", &NativeEngine::UpdateStorageBuffer),
                 InstanceMethod("getUniforms", &NativeEngine::GetUniforms),
                 InstanceMethod("getAttributes", &NativeEngine::GetAttributes),
 
@@ -1289,6 +1294,99 @@ namespace Babylon
             });
 
         return jsProgram;
+    }
+
+    // Compiles a GLSL ES 3.10 compute shader into a bgfx compute program (single CSH). Used by the
+    // native compute path (e.g. GPUParticleSystem). Throws (as a JS error) on compile failure so the
+    // JS side can surface it via ComputeEffect's isReady()/error flow.
+    Napi::Value NativeEngine::CreateComputeProgram(const Napi::CallbackInfo& info)
+    {
+        const std::string computeSource = info[0].As<Napi::String>().Utf8Value();
+        Program* program = new Program{m_deviceContext};
+        Napi::Value jsProgram = Napi::Pointer<Program>::Create(info.Env(), program, Napi::NapiPointerDeleter(program));
+        try
+        {
+            program->InitializeCompute(m_shaderProvider.GetCompute(computeSource));
+        }
+        catch (const std::exception& ex)
+        {
+            throw Napi::Error::New(info.Env(), ex.what());
+        }
+        return jsProgram;
+    }
+
+    // Creates a raw (ByteAddressBuffer) compute storage buffer. asVertexBuffer lets the same buffer
+    // double as a vertex stream (particles). The buffer is created lazily on first bind.
+    Napi::Value NativeEngine::CreateStorageBuffer(const Napi::CallbackInfo& info)
+    {
+        const uint32_t byteLength = info[0].As<Napi::Number>().Uint32Value();
+        const bool asVertexBuffer = info.Length() > 1 && info[1].As<Napi::Boolean>().Value();
+
+        StorageBuffer* storageBuffer = new StorageBuffer{m_deviceContext, byteLength, asVertexBuffer};
+        return Napi::Pointer<StorageBuffer>::Create(info.Env(), storageBuffer, Napi::NapiPointerDeleter(storageBuffer));
+    }
+
+    void NativeEngine::UpdateStorageBuffer(const Napi::CallbackInfo& info)
+    {
+        StorageBuffer* storageBuffer = info[0].As<Napi::Pointer<StorageBuffer>>().Get();
+        const Napi::ArrayBuffer dataBuffer = info[1].As<Napi::ArrayBuffer>();
+        const uint32_t dataByteOffset = info[2].As<Napi::Number>().Uint32Value();
+        const uint32_t dataByteLength = info[3].As<Napi::Number>().Uint32Value();
+        const uint32_t destByteOffset = info.Length() > 4 ? info[4].As<Napi::Number>().Uint32Value() : 0;
+
+        try
+        {
+            storageBuffer->Update(gsl::make_span(static_cast<uint8_t*>(dataBuffer.Data()) + dataByteOffset, dataByteLength), destByteOffset);
+        }
+        catch (const std::exception& ex)
+        {
+            JsConsoleLogger::LogError(info.Env(), ex.what());
+        }
+    }
+
+    void NativeEngine::DeleteStorageBuffer(NativeDataStream::Reader& data)
+    {
+        data.ReadPointer<StorageBuffer>()->Dispose();
+    }
+
+    // Replays a compute dispatch recorded into the command stream. Stream layout:
+    //   program, numX, numY, numZ,
+    //   bufferCount, [stage, StorageBuffer*, access]*,
+    //   textureCount, [stage, Graphics::Texture*]*
+    // Storage buffers are bound as UAVs (u#), textures as sampler resources (t#/s#), matching the
+    // SPIRV-Cross force_storage_buffer_as_uav compute compilation.
+    void NativeEngine::ComputeDispatch(NativeDataStream::Reader& data)
+    {
+        Program* program = data.ReadPointer<Program>();
+        const uint32_t numX = data.ReadUint32();
+        const uint32_t numY = data.ReadUint32();
+        const uint32_t numZ = data.ReadUint32();
+
+        bgfx::Encoder* encoder = GetEncoder();
+
+        const uint32_t bufferCount = data.ReadUint32();
+        for (uint32_t i = 0; i < bufferCount; ++i)
+        {
+            const uint8_t stage = static_cast<uint8_t>(data.ReadUint32());
+            StorageBuffer* buffer = data.ReadPointer<StorageBuffer>();
+            const uint32_t access = data.ReadUint32();
+            bgfx::Access::Enum bgfxAccess = access == 0 ? bgfx::Access::Read : (access == 1 ? bgfx::Access::Write : bgfx::Access::ReadWrite);
+            buffer->SetCompute(encoder, stage, bgfxAccess);
+        }
+
+        const uint32_t textureCount = data.ReadUint32();
+        for (uint32_t i = 0; i < textureCount; ++i)
+        {
+            const uint8_t stage = static_cast<uint8_t>(data.ReadUint32());
+            const Graphics::Texture* texture = data.ReadPointer<Graphics::Texture>();
+            const UniformInfo* samplerInfo = program->GetSamplerInfoByStage(stage);
+            if (samplerInfo != nullptr)
+            {
+                encoder->setTexture(stage, samplerInfo->Handle, texture->Handle(), texture->SamplerFlags());
+            }
+        }
+
+        GetBoundFrameBuffer().Compute(*encoder, program->Handle(), numX, numY, numZ);
     }
 
     Napi::Value NativeEngine::GetUniforms(const Napi::CallbackInfo& info)

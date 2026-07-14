@@ -72,6 +72,11 @@ namespace Babylon
         void UpdateDynamicVertexBuffer(const Napi::CallbackInfo& info);
         Napi::Value CreateProgram(const Napi::CallbackInfo& info);
         Napi::Value CreateProgramAsync(const Napi::CallbackInfo& info);
+        Napi::Value CreateComputeProgram(const Napi::CallbackInfo& info);
+        Napi::Value CreateStorageBuffer(const Napi::CallbackInfo& info);
+        void UpdateStorageBuffer(const Napi::CallbackInfo& info);
+        void DeleteStorageBuffer(NativeDataStream::Reader& data);
+        void ComputeDispatch(NativeDataStream::Reader& data);
         Napi::Value GetUniforms(const Napi::CallbackInfo& info);
         Napi::Value GetAttributes(const Napi::CallbackInfo& info);
         void SetProgram(NativeDataStream::Reader& data);
