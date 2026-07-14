@@ -6,6 +6,7 @@
 #include <string>
 
 #include "JsConsoleLogger.h"
+#include "StorageBuffer.h"
 
 #include <arcana/threading/task.h>
 #include <arcana/threading/task_schedulers.h>
@@ -3200,15 +3201,16 @@ void main() {
             constexpr uint16_t kSize = 4;
             constexpr uint32_t kCount = kSize * kSize;
 
-            bgfx::VertexLayout layout;
-            layout.begin().add(bgfx::Attrib::Position, 1, bgfx::AttribType::Float).end();
-            const bgfx::DynamicVertexBufferHandle buffer = bgfx::createDynamicVertexBuffer(
-                kCount, layout, BGFX_BUFFER_COMPUTE_READ_WRITE | BGFX_BUFFER_COMPUTE_RAW);
-
-            if (!bgfx::isValid(buffer))
+            // Exercise the StorageBuffer wrapper: seed via Update (CPU shadow), then let the
+            // compute passes overwrite/read it. Creation is lazy on first SetCompute.
+            auto storage = std::make_shared<StorageBuffer>(m_deviceContext, static_cast<uint32_t>(kCount * sizeof(uint32_t)), /*asVertexBuffer*/ true);
             {
-                std::fprintf(stderr, "[ComputeSelfTest] FAIL: raw compute buffer handle is invalid\n");
-                return;
+                std::array<uint32_t, kCount> seed{};
+                for (uint32_t i = 0; i < kCount; ++i)
+                {
+                    seed[i] = 0xFFFFFFFFu; // sentinel; pass 1 overwrites with i
+                }
+                storage->Update(gsl::make_span(reinterpret_cast<const uint8_t*>(seed.data()), seed.size() * sizeof(uint32_t)), 0);
             }
 
             const bgfx::TextureHandle texture = bgfx::createTexture2D(
@@ -3217,20 +3219,20 @@ void main() {
 
             {
                 bgfx::Encoder* encoder = GetEncoder();
-                // Pass 1: fill the raw buffer.
-                encoder->setBuffer(0, buffer, bgfx::Access::ReadWrite);
+                // Pass 1: fill the raw buffer (buf[i] = i).
+                storage->SetCompute(encoder, 0, bgfx::Access::ReadWrite);
                 encoder->dispatch(0, writeProgram->Handle(), kCount, 1, 1);
                 // Pass 2: read the raw buffer into the image.
                 encoder->setImage(0, texture, 0, bgfx::Access::Write, bgfx::TextureFormat::RGBA8);
-                encoder->setBuffer(1, buffer, bgfx::Access::ReadWrite);
+                storage->SetCompute(encoder, 1, bgfx::Access::ReadWrite);
                 encoder->dispatch(0, readProgram->Handle(), kSize, kSize, 1);
             }
 
-            std::fprintf(stderr, "[ComputeSelfTest] PASS: raw SSBO round-trip dispatched %ux%u (write CSH %zu, read CSH %zu bytes)\n",
+            std::fprintf(stderr, "[ComputeSelfTest] PASS: StorageBuffer raw SSBO round-trip dispatched %ux%u (write CSH %zu, read CSH %zu bytes)\n",
                 kSize, kSize, writeInfo->ComputeBytes.size(), readInfo->ComputeBytes.size());
 
             bgfx::destroy(texture);
-            bgfx::destroy(buffer);
+            storage->Dispose();
             (void)writeProgram;
             (void)readProgram;
         }

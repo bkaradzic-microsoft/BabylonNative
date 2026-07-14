@@ -13,6 +13,8 @@ set(SOURCES
     "Source/Program.h"
     "Source/ShaderProvider.h"
     "Source/ShaderProvider.cpp"
+    "Source/StorageBuffer.cpp"
+    "Source/StorageBuffer.h"
     "Source/VertexArray.cpp"
     "Source/VertexArray.h"
     "Source/VertexBuffer.cpp"
