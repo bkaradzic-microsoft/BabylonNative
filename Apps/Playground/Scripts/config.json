@@ -4458,8 +4458,6 @@
         {
             "title": "GPU Particles - Change - Size",
             "playgroundId": "#KF9X69#0",
-            "excludeFromAutomaticTesting": true,
-            "reason": "GPUParticleSystem throws TypeError: Unable to get property 'ARRAY_BUFFER' of undefined or null reference (thrown before pixel comparison, not a pixel-diff)",
             "referenceImage": "gpu-particles-change-size.png"
         },
         {
@@ -4470,36 +4468,26 @@
         {
             "title": "GPU Particles - Change - Speed",
             "playgroundId": "#KBHNCB#0",
-            "excludeFromAutomaticTesting": true,
-            "reason": "GPUParticleSystem throws TypeError: Unable to get property 'ARRAY_BUFFER' of undefined or null reference (thrown before pixel comparison, not a pixel-diff)",
             "referenceImage": "gpu-particles-change-speed.png"
         },
         {
             "title": "GPU Particles - Change - Speed Limit",
             "playgroundId": "#CTNM3R#0",
-            "excludeFromAutomaticTesting": true,
-            "reason": "GPUParticleSystem throws TypeError: Unable to get property 'ARRAY_BUFFER' of undefined or null reference (thrown before pixel comparison, not a pixel-diff)",
             "referenceImage": "gpu-particles-change-speed-limit.png"
         },
         {
             "title": "GPU Particles - Change - Angular Speed",
             "playgroundId": "#1NLEIC#0",
-            "excludeFromAutomaticTesting": true,
-            "reason": "GPUParticleSystem throws TypeError: Unable to get property 'ARRAY_BUFFER' of undefined or null reference (thrown before pixel comparison, not a pixel-diff)",
             "referenceImage": "gpu-particles-change-angular-speed.png"
         },
         {
             "title": "GPU Particles - Change - Drag",
             "playgroundId": "#02KAQL#0",
-            "excludeFromAutomaticTesting": true,
-            "reason": "GPUParticleSystem throws TypeError: Unable to get property 'ARRAY_BUFFER' of undefined or null reference (thrown before pixel comparison, not a pixel-diff)",
             "referenceImage": "gpu-particles-change-drag.png"
         },
         {
             "title": "GPU Particles - Change - Size Range",
             "playgroundId": "#4EWZJ9#0",
-            "excludeFromAutomaticTesting": true,
-            "reason": "GPUParticleSystem throws TypeError: Unable to get property 'ARRAY_BUFFER' of undefined or null reference (thrown before pixel comparison, not a pixel-diff)",
             "referenceImage": "gpu-particles-change-size-range.png"
         },
         {
@@ -4573,8 +4561,6 @@
         {
             "title": "GPU Particles - Multiply Blend",
             "playgroundId": "#D7LQAZ#0",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Cubemap load not implemented on Babylon Native: throws Error: Cannot load cubemap because 6 files were not defined (thrown before pixel comparison, not a pixel-diff)",
             "referenceImage": "gpu-particles-multiply-blend.png"
         },
         {
@@ -4585,8 +4571,6 @@
         {
             "title": "GPU Particles - Noise",
             "playgroundId": "#P6JQIP#0",
-            "excludeFromAutomaticTesting": true,
-            "reason": "GPUParticleSystem throws TypeError: Unable to get property 'ARRAY_BUFFER' of undefined or null reference (thrown before pixel comparison, not a pixel-diff)",
             "referenceImage": "gpu-particles-noise.png"
         },
         {
