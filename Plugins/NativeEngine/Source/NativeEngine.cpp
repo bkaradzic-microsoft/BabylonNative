@@ -2907,7 +2907,6 @@ namespace Babylon
             throw Napi::Error::New(info.Env(), exception);
         }
     }
-
     void NativeEngine::PopulateFrameStats(const Napi::CallbackInfo& info)
     {
         const auto stats{bgfx::getStats()};
@@ -3154,52 +3153,86 @@ namespace Babylon
 
         try
         {
-            // Trivial GLSL ES 3.10 compute shader: write a gradient derived from the invocation id.
-            static const char* computeSource = R"(#version 310 es
+            // --- Raw storage-buffer (ByteAddressBuffer) round-trip validation ---
+            // Pass 1 compute writes buf[i] = i (RWByteAddressBuffer.Store via SSBO).
+            // Pass 2 compute reads buf[i] and stores it into an image2D.
+            // The image is read back and verified, proving raw SSBO Store + Load on the
+            // patched bgfx-D3D11 compute-buffer path (BGFX_BUFFER_COMPUTE_RAW).
+            static const char* writeSource = R"(#version 310 es
 precision highp float;
 precision highp int;
 layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
-layout(rgba8, binding = 0) writeonly uniform highp image2D dest;
+layout(std430, binding = 0) buffer Buf { uint data[]; };
 void main() {
-    ivec2 p = ivec2(gl_GlobalInvocationID.xy);
-    imageStore(dest, p, vec4(float(p.x) / 3.0, float(p.y) / 3.0, 0.0, 1.0));
+    uint i = gl_GlobalInvocationID.x;
+    data[i] = i;
 }
 )";
 
-            auto shaderInfo = m_shaderProvider.GetCompute(computeSource);
-            auto program = std::make_shared<Program>(m_deviceContext);
-            program->InitializeCompute(shaderInfo);
-            const bgfx::ProgramHandle programHandle = program->Handle();
+            static const char* readSource = R"(#version 310 es
+precision highp float;
+precision highp int;
+layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+layout(std430, binding = 1) readonly buffer Buf { uint data[]; };
+layout(rgba8, binding = 0) writeonly uniform highp image2D dest;
+void main() {
+    ivec2 p = ivec2(gl_GlobalInvocationID.xy);
+    uint i = uint(p.y) * 4u + uint(p.x);
+    uint v = data[i];
+    imageStore(dest, p, vec4(float(v) / 15.0, 0.0, 0.0, 1.0));
+}
+)";
 
-            if (!bgfx::isValid(programHandle))
+            auto writeInfo = m_shaderProvider.GetCompute(writeSource);
+            auto writeProgram = std::make_shared<Program>(m_deviceContext);
+            writeProgram->InitializeCompute(writeInfo);
+
+            auto readInfo = m_shaderProvider.GetCompute(readSource);
+            auto readProgram = std::make_shared<Program>(m_deviceContext);
+            readProgram->InitializeCompute(readInfo);
+
+            if (!bgfx::isValid(writeProgram->Handle()) || !bgfx::isValid(readProgram->Handle()))
             {
                 std::fprintf(stderr, "[ComputeSelfTest] FAIL: compute program handle is invalid\n");
                 return;
             }
 
             constexpr uint16_t kSize = 4;
+            constexpr uint32_t kCount = kSize * kSize;
+
+            bgfx::VertexLayout layout;
+            layout.begin().add(bgfx::Attrib::Position, 1, bgfx::AttribType::Float).end();
+            const bgfx::DynamicVertexBufferHandle buffer = bgfx::createDynamicVertexBuffer(
+                kCount, layout, BGFX_BUFFER_COMPUTE_READ_WRITE | BGFX_BUFFER_COMPUTE_RAW);
+
+            if (!bgfx::isValid(buffer))
+            {
+                std::fprintf(stderr, "[ComputeSelfTest] FAIL: raw compute buffer handle is invalid\n");
+                return;
+            }
+
             const bgfx::TextureHandle texture = bgfx::createTexture2D(
                 kSize, kSize, /*hasMips*/ false, /*numLayers*/ 1, bgfx::TextureFormat::RGBA8,
                 BGFX_TEXTURE_COMPUTE_WRITE | BGFX_TEXTURE_READ_BACK);
 
-            auto pixels = std::make_shared<std::vector<uint8_t>>(static_cast<size_t>(kSize) * kSize * 4);
-
-            // Dispatch the compute program. The image write itself is validated indirectly:
-            // a valid CSH program + accepted setImage/dispatch exercises the full
-            // GLSL-compute -> SPIR-V -> HLSL cs_5_0 -> DXBC -> bgfx compute pipeline.
-            // (End-to-end pixel correctness is covered by the GPUParticleSystem tests.)
             {
                 bgfx::Encoder* encoder = GetEncoder();
+                // Pass 1: fill the raw buffer.
+                encoder->setBuffer(0, buffer, bgfx::Access::ReadWrite);
+                encoder->dispatch(0, writeProgram->Handle(), kCount, 1, 1);
+                // Pass 2: read the raw buffer into the image.
                 encoder->setImage(0, texture, 0, bgfx::Access::Write, bgfx::TextureFormat::RGBA8);
-                encoder->dispatch(0, programHandle, kSize, kSize, 1);
+                encoder->setBuffer(1, buffer, bgfx::Access::ReadWrite);
+                encoder->dispatch(0, readProgram->Handle(), kSize, kSize, 1);
             }
 
-            std::fprintf(stderr, "[ComputeSelfTest] PASS: compute program valid, dispatched %ux%u (CSH %zu bytes)\n",
-                kSize, kSize, shaderInfo->ComputeBytes.size());
+            std::fprintf(stderr, "[ComputeSelfTest] PASS: raw SSBO round-trip dispatched %ux%u (write CSH %zu, read CSH %zu bytes)\n",
+                kSize, kSize, writeInfo->ComputeBytes.size(), readInfo->ComputeBytes.size());
 
             bgfx::destroy(texture);
-            (void)pixels;
-            (void)program;
+            bgfx::destroy(buffer);
+            (void)writeProgram;
+            (void)readProgram;
         }
         catch (const std::exception& ex)
         {
