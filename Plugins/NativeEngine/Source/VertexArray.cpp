@@ -48,10 +48,10 @@ namespace Babylon
                 throw std::runtime_error{"Instancing is not supported"};
             }
 
-            // bgfx allows instancing on at most 4 vec4 attributes
-            if (m_vertexBufferInstances.size() > 4)
+            // bgfx supports up to caps.limits.maxInstanceData per-instance vec4 slots.
+            if (m_vertexBufferInstances.size() >= bgfx::getCaps()->limits.maxInstanceData)
             {
-                throw std::runtime_error{"Number of vertex buffer instances greater than 4 is not supported"};
+                throw std::runtime_error{"Number of vertex buffer instances exceeds the maximum supported instance-data slots"};
             }
 
             m_vertexBufferInstances[attrib] = {vertexBuffer, byteOffset, byteStride, static_cast<uint16_t>(sizeof(float) * numElements)};

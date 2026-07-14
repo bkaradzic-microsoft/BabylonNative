@@ -2977,15 +2977,23 @@ namespace Babylon
 
         // Divisor-driven instancing: a consumer-instanced attribute (divisor==1) recorded at a
         // base bgfx location below TexCoord3 was compiled to a per-vertex slot. bgfx can only feed
-        // per-instance data into i_data slots (TexCoord3..TexCoord7), so route those attributes to
-        // the correct i_data slot via a lazily-compiled program variant. The target location mirrors
-        // BuildInstanceDataBuffer's reverse-attrib packing: highest base attrib -> TexCoord7.
+        // per-instance data into i_data slots, so route those attributes to the correct i_data slot
+        // via a lazily-compiled program variant. The target location mirrors BuildInstanceDataBuffer's
+        // reverse-attrib packing: the highest base attrib is packed at byte offset 0, which bgfx
+        // delivers at the first instance semantic TEXCOORD(BGFX_CONFIG_INSTANCE_DATA_FIRST_TEXCOORD).
+        // Instance SPIRV locations are offset above the per-vertex range (see kInstanceLocationBase
+        // in ShaderCompilerTraversers), so slot 0 == kInstanceLocationBase.
         bgfx::ProgramHandle programHandle = m_currentProgram->Handle();
         if (m_boundVertexArray != nullptr)
         {
             const auto& instances = m_boundVertexArray->GetInstances();
             if (!instances.empty())
             {
+                // bgfx delivers instance slot k at TEXCOORD(31 - k); instance shader inputs are
+                // assigned SPIRV locations offset 16 above their semantic index so they stay
+                // distinct from per-vertex locations. Slot 0 (byte offset 0) therefore maps to
+                // location 31 + 16 == 47. Must match kInstanceLocationBase in ShaderCompilerTraversers.
+                constexpr uint32_t kInstanceLocationBase = 31 + 16;
                 std::map<std::string, uint32_t> genericInstancedAttributes;
                 const auto& attributeLocations = m_currentProgram->VertexAttributeLocations();
                 const size_t count = instances.size();
@@ -2996,7 +3004,7 @@ namespace Babylon
                     if (attrib < bgfx::Attrib::TexCoord3)
                     {
                         const size_t rank = count - 1 - ascendingIndex;
-                        const uint32_t targetLocation = static_cast<uint32_t>(bgfx::Attrib::TexCoord7) - static_cast<uint32_t>(rank);
+                        const uint32_t targetLocation = kInstanceLocationBase - static_cast<uint32_t>(rank);
                         for (const auto& [name, location] : attributeLocations)
                         {
                             if (location == static_cast<uint32_t>(attrib))

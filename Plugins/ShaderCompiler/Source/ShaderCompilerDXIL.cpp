@@ -205,6 +205,34 @@ namespace Babylon::Plugins
             {bgfx::Attrib::TexCoord5, "TEXCOORD5"   },
             {bgfx::Attrib::TexCoord6, "TEXCOORD6"   },
             {bgfx::Attrib::TexCoord7, "TEXCOORD7"   },
+            {bgfx::Attrib::TexCoord8,  "TEXCOORD8"  },
+            {bgfx::Attrib::TexCoord9,  "TEXCOORD9"  },
+            {bgfx::Attrib::TexCoord10, "TEXCOORD10" },
+            {bgfx::Attrib::TexCoord11, "TEXCOORD11" },
+            {bgfx::Attrib::TexCoord12, "TEXCOORD12" },
+            {bgfx::Attrib::TexCoord13, "TEXCOORD13" },
+            {bgfx::Attrib::TexCoord14, "TEXCOORD14" },
+            {bgfx::Attrib::TexCoord15, "TEXCOORD15" },
+            // Per-instance data (i_data slots). bgfx delivers instance slot k at descending
+            // semantic TEXCOORD(31 - k); these inputs are assigned SPIRV locations offset 16
+            // above their semantic index (see ShaderCompilerTraversers kInstanceLocationBase)
+            // so they stay distinct from per-vertex attribute locations in this remap.
+            {32u, "TEXCOORD16"},
+            {33u, "TEXCOORD17"},
+            {34u, "TEXCOORD18"},
+            {35u, "TEXCOORD19"},
+            {36u, "TEXCOORD20"},
+            {37u, "TEXCOORD21"},
+            {38u, "TEXCOORD22"},
+            {39u, "TEXCOORD23"},
+            {40u, "TEXCOORD24"},
+            {41u, "TEXCOORD25"},
+            {42u, "TEXCOORD26"},
+            {43u, "TEXCOORD27"},
+            {44u, "TEXCOORD28"},
+            {45u, "TEXCOORD29"},
+            {46u, "TEXCOORD30"},
+            {47u, "TEXCOORD31"},
         };
         // clang-format on
 
