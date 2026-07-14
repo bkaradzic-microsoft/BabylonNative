@@ -64,4 +64,15 @@ namespace Babylon
         throw std::runtime_error{"Shader compiler is not available"};
 #endif
     }
+
+    std::shared_ptr<Graphics::BgfxShaderInfo> ShaderProvider::GetCompute(std::string_view computeSource)
+    {
+#ifdef SHADER_COMPILER
+        CheckShaderCompilerAssumptions();
+        return std::make_shared<Graphics::BgfxShaderInfo>(m_shaderCompiler.CompileCompute(computeSource));
+#else
+        (void)computeSource;
+        throw std::runtime_error{"Shader compiler is not available"};
+#endif
+    }
 }

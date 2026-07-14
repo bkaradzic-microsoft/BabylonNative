@@ -68,6 +68,16 @@ namespace Babylon
         m_vertexAttributeLocations = shaderInfo->VertexAttributeLocations;
     }
 
+    void Program::InitializeCompute(std::shared_ptr<Graphics::BgfxShaderInfo> shaderInfo)
+    {
+        arcana::trace_region region{"Program::InitializeCompute"};
+
+        auto computeShader = CreateShader(shaderInfo, shaderInfo->ComputeBytes);
+        InitUniformInfos(computeShader, shaderInfo->UniformStages, m_uniformInfos, m_uniformNameToIndex);
+
+        m_handle = bgfx::createProgram(computeShader, true);
+    }
+
     void Program::SetSources(std::string vertexSource, std::string fragmentSource)
     {
         m_vertexSource = std::move(vertexSource);

@@ -126,6 +126,11 @@ if(NOT BABYLON_NATIVE_PLUGIN_NATIVEENGINE_LOAD_IMAGES)
     set(BABYLON_NATIVE_PLUGIN_NATIVEENGINE_WEBP OFF CACHE BOOL "Enable WebP image parsing in NativeEngine (via bimg)." FORCE)
 endif()
 option(BABYLON_NATIVE_PLUGIN_NATIVEENGINE_COMPILESHADERS "Include Babylon Native Plugin NativeEngine - Compile Shaders." ON)
+# Disable WebMin in glslang and SPIRV-Cross. WebMin strips those libraries down to the
+# WebGL2 GLSL subset, which excludes compute shaders: referencing any compute built-in
+# (e.g. gl_GlobalInvocationID) crashes the WebMin glslang. Compute support (GPUParticleSystem
+# on the native path) requires the full builds, so this defaults ON here.
+option(BABYLON_NATIVE_DISABLE_WEBMIN "Disable WebMin minimization in glslang and SPIRV-Cross (required for compute shaders)." ON)
 option(BABYLON_NATIVE_PLUGIN_NATIVEINPUT "Include Babylon Native Plugin NativeInput." ON)
 option(BABYLON_NATIVE_PLUGIN_NATIVEOPTIMIZATIONS "Include Babylon Native Plugin NativeOptimizations." ON)
 option(BABYLON_NATIVE_PLUGIN_NATIVETRACING "Include Babylon Native Plugin NativeTracing." ON)

@@ -53,6 +53,10 @@ namespace Babylon
         ~Program();
 
         void Initialize(std::shared_ptr<Graphics::BgfxShaderInfo> shaderInfo);
+
+        // Creates a bgfx compute program (single CSH shader) from shaderInfo->ComputeBytes.
+        void InitializeCompute(std::shared_ptr<Graphics::BgfxShaderInfo> shaderInfo);
+
         void Dispose();
 
         // Stores the original GLSL sources so divisor-driven instanced variants can be

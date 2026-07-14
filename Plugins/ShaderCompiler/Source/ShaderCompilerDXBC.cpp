@@ -22,7 +22,7 @@ namespace
 
         if (!shader.parse(defaultTBuiltInResource, 310, EProfile::EEsProfile, true, true, EShMsgDefault))
         {
-            throw std::runtime_error{shader.getInfoLog()};
+            throw std::runtime_error{std::string{shader.getInfoLog()} + " | debug: " + shader.getInfoDebugLog()};
         }
 
         program.addShader(&shader);
@@ -221,15 +221,25 @@ namespace Babylon::Plugins
         glslang::TProgram program;
 
         glslang::TShader computeShader{EShLangCompute};
-        AddShader(program, computeShader, computeSource);
+
+        const std::array<const char*, 1> sources{computeSource.data()};
+        computeShader.setStrings(sources.data(), gsl::narrow_cast<int>(sources.size()));
+
+        auto defaultTBuiltInResource = GetDefaultResources();
+        if (!computeShader.parse(defaultTBuiltInResource, 310, EProfile::EEsProfile, true, true, EShMsgDefault))
+        {
+            throw std::runtime_error{std::string{"compute parse: "} + computeShader.getInfoLog() + " | debug: " + computeShader.getInfoDebugLog()};
+        }
 
         glslang::SpvVersion spv{};
         spv.spv = 0x10000;
         computeShader.getIntermediate()->setSpv(spv);
 
+        program.addShader(&computeShader);
+
         if (!program.link(EShMsgDefault))
         {
-            throw std::runtime_error{program.getInfoLog()};
+            throw std::runtime_error{std::string{"link: "} + program.getInfoLog() + " | debug: " + program.getInfoDebugLog()};
         }
 
         Microsoft::WRL::ComPtr<ID3DBlob> computeBlob;

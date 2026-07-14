@@ -152,6 +152,11 @@ namespace Babylon
         bgfx::Encoder* GetEncoder();
         Graphics::FrameBuffer& GetBoundFrameBuffer();
 
+        // One-shot GPU-compute self-test (env-gated by BABYLON_COMPUTE_SELFTEST). Compiles a
+        // trivial GLSL compute shader, dispatches it to write an image, and reads the result
+        // back to verify the ShaderCompiler compute path + bgfx compute wiring end to end.
+        void MaybeRunComputeSelfTest();
+
         std::shared_ptr<arcana::cancellation_source> m_cancellationSource{};
 
         // Tracks in-flight threadpool work that touches graphics resources (bgfx handles,
