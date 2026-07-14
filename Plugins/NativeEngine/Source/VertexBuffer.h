@@ -14,6 +14,8 @@ namespace Babylon
         class DeviceContext;
     }
 
+    class StorageBuffer;
+
     class VertexBuffer final
     {
     public:
@@ -38,6 +40,12 @@ namespace Babylon
             uint32_t Offset{};
             uint32_t Stride{};
             uint32_t ElementSize{};
+
+            // When set, the per-instance source is a GPU compute-written storage buffer rather than
+            // a CPU-backed VertexBuffer. Offset/Stride/ElementSize are still expressed in bytes and
+            // describe the packing within the storage buffer. The CPU BuildInstanceDataBuffer path is
+            // skipped for these; NativeEngine repacks them on the GPU (see InstanceRepacker).
+            StorageBuffer* StorageSource{};
         };
 
         static void BuildInstanceDataBuffer(bgfx::InstanceDataBuffer& instanceDataBuffer, const std::map<bgfx::Attrib::Enum, InstanceInfo>& instances, uint32_t instanceCount);

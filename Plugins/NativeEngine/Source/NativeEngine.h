@@ -37,6 +37,8 @@ namespace Babylon
         class Texture;
     }
 
+    class InstanceRepacker;
+
     class NativeEngine final : public Napi::ObjectWrap<NativeEngine>
     {
         static constexpr auto JS_CLASS_NAME = "_NativeEngine";
@@ -69,6 +71,7 @@ namespace Babylon
         Napi::Value CreateVertexBuffer(const Napi::CallbackInfo& info);
         void DeleteVertexBuffer(NativeDataStream::Reader& data);
         void RecordVertexBuffer(const Napi::CallbackInfo& info);
+        void RecordStorageBuffer(const Napi::CallbackInfo& info);
         void UpdateDynamicVertexBuffer(const Napi::CallbackInfo& info);
         Napi::Value CreateProgram(const Napi::CallbackInfo& info);
         Napi::Value CreateProgramAsync(const Napi::CallbackInfo& info);
@@ -154,6 +157,12 @@ namespace Babylon
         void EndFrame(const Napi::CallbackInfo&);
         void DrawInternal(bgfx::Encoder* encoder, uint32_t fillMode);
 
+        // Dispatches the GPU instance-data repack for a vertex array whose per-instance sources are
+        // GPU storage buffers, returning the dynamic vertex buffer to bind as instance data (or an
+        // invalid handle when there is nothing to repack). Must be called before the draw bindings
+        // are set, since dispatch resets the encoder's pending draw state.
+        bgfx::DynamicVertexBufferHandle RepackStorageInstances(bgfx::Encoder* encoder, VertexArray* vertexArray, uint32_t instanceCount);
+
         bgfx::Encoder* GetEncoder();
         Graphics::FrameBuffer& GetBoundFrameBuffer();
 
@@ -236,6 +245,7 @@ namespace Babylon
         std::vector<Napi::FunctionReference> m_requestAnimationFrameCallbacks{};
 
         VertexArray* m_boundVertexArray{};
+        std::unique_ptr<InstanceRepacker> m_instanceRepacker{};
         Graphics::FrameBuffer m_defaultFrameBuffer;
         Graphics::FrameBuffer* m_boundFrameBuffer{};
         PerFrameValue<bool> m_boundFrameBufferNeedsRebinding;

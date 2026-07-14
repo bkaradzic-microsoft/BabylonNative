@@ -6,6 +6,7 @@
 #include <string>
 
 #include "JsConsoleLogger.h"
+#include "InstanceRepacker.h"
 #include "StorageBuffer.h"
 
 #include <arcana/threading/task.h>
@@ -948,6 +949,7 @@ namespace Babylon
 
                 InstanceMethod("createVertexBuffer", &NativeEngine::CreateVertexBuffer),
                 InstanceMethod("recordVertexBuffer", &NativeEngine::RecordVertexBuffer),
+                InstanceMethod("recordStorageBuffer", &NativeEngine::RecordStorageBuffer),
                 InstanceMethod("updateDynamicVertexBuffer", &NativeEngine::UpdateDynamicVertexBuffer),
 
                 InstanceMethod("createProgram", &NativeEngine::CreateProgram),
@@ -1087,7 +1089,12 @@ namespace Babylon
 
     void NativeEngine::DeleteVertexArray(NativeDataStream::Reader& data)
     {
-        data.ReadPointer<VertexArray>()->Dispose();
+        VertexArray* vertexArray = data.ReadPointer<VertexArray>();
+        if (m_instanceRepacker != nullptr)
+        {
+            m_instanceRepacker->Forget(vertexArray);
+        }
+        vertexArray->Dispose();
         // TODO: should we clear the m_boundVertexArray if it gets deleted?
         //assert(vertexArray != m_boundVertexArray);
     }
@@ -1218,6 +1225,29 @@ namespace Babylon
         catch (...)
         {
             JsConsoleLogger::LogError(info.Env(), "Failed to record vertex buffer");
+        }
+    }
+
+    void NativeEngine::RecordStorageBuffer(const Napi::CallbackInfo& info)
+    {
+        VertexArray* vertexArray = info[0].As<Napi::Pointer<VertexArray>>().Get();
+        StorageBuffer* storageBuffer = info[1].As<Napi::Pointer<StorageBuffer>>().Get();
+        const uint32_t location = info[2].As<Napi::Number>().Uint32Value();
+        const uint32_t byteOffset = info[3].As<Napi::Number>().Uint32Value();
+        const uint32_t byteStride = info[4].As<Napi::Number>().Uint32Value();
+        const uint32_t numElements = info[5].As<Napi::Number>().Uint32Value();
+
+        try
+        {
+            vertexArray->RecordStorageBuffer(storageBuffer, location, byteOffset, byteStride, numElements);
+        }
+        catch (std::exception& ex)
+        {
+            JsConsoleLogger::LogError(info.Env(), ex.what());
+        }
+        catch (...)
+        {
+            JsConsoleLogger::LogError(info.Env(), "Failed to record storage buffer");
         }
     }
 
@@ -2651,8 +2681,13 @@ namespace Babylon
         bgfx::Encoder* encoder = GetEncoder();
         if (m_boundVertexArray != nullptr)
         {
+            const bgfx::DynamicVertexBufferHandle repacked = RepackStorageInstances(encoder, m_boundVertexArray, instanceCount);
             m_boundVertexArray->SetIndexBuffer(encoder, indexStart, indexCount);
             m_boundVertexArray->SetVertexBuffers(encoder, 0, std::numeric_limits<uint32_t>::max(), instanceCount);
+            if (bgfx::isValid(repacked))
+            {
+                encoder->setInstanceDataBuffer(repacked, 0, instanceCount);
+            }
         }
         DrawInternal(encoder, fillMode);
     }
@@ -2683,7 +2718,15 @@ namespace Babylon
         bgfx::Encoder* encoder = GetEncoder();
         if (m_boundVertexArray != nullptr)
         {
+            // GPU compute-written instance sources (e.g. GPU particles) are repacked into bgfx
+            // i_data slots on the GPU. Dispatch first: encoder->dispatch resets the pending draw
+            // bindings, so the vertex/instance bindings below must be set afterwards.
+            const bgfx::DynamicVertexBufferHandle repacked = RepackStorageInstances(encoder, m_boundVertexArray, instanceCount);
             m_boundVertexArray->SetVertexBuffers(encoder, verticesStart, verticesCount, instanceCount);
+            if (bgfx::isValid(repacked))
+            {
+                encoder->setInstanceDataBuffer(repacked, 0, instanceCount);
+            }
         }
         DrawInternal(encoder, fillMode);
     }
@@ -3025,6 +3068,21 @@ namespace Babylon
     {
         // Encoder is managed by StartRenderingCurrentFrame/FinishRenderingCurrentFrame.
         // Nothing to do here.
+    }
+
+    bgfx::DynamicVertexBufferHandle NativeEngine::RepackStorageInstances(bgfx::Encoder* encoder, VertexArray* vertexArray, uint32_t instanceCount)
+    {
+        if (vertexArray == nullptr || instanceCount == 0 || !vertexArray->HasStorageInstances())
+        {
+            return BGFX_INVALID_HANDLE;
+        }
+
+        if (m_instanceRepacker == nullptr)
+        {
+            m_instanceRepacker = std::make_unique<InstanceRepacker>(m_deviceContext, m_shaderProvider);
+        }
+
+        return m_instanceRepacker->Repack(encoder, GetBoundFrameBuffer(), vertexArray, vertexArray->GetInstances(), instanceCount);
     }
 
     void NativeEngine::DrawInternal(bgfx::Encoder* encoder, uint32_t fillMode)

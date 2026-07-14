@@ -2,6 +2,8 @@ set(SOURCES
     "Include/Babylon/Plugins/NativeEngine.h"
     "Source/IndexBuffer.cpp"
     "Source/IndexBuffer.h"
+    "Source/InstanceRepacker.cpp"
+    "Source/InstanceRepacker.h"
     "Source/JsConsoleLogger.h"
     "Source/JsConsoleLogger.cpp"
     "Source/NativeDataStream.h"

@@ -74,6 +74,43 @@ namespace Babylon
         }
     }
 
+    void VertexArray::RecordStorageBuffer(StorageBuffer* storageBuffer, uint32_t location, uint32_t byteOffset, uint32_t byteStride, uint32_t numElements)
+    {
+        auto attrib = static_cast<bgfx::Attrib::Enum>(location);
+
+        // Check if instancing is supported.
+        const bool instancingSupported = 0 != (BGFX_CAPS_INSTANCING & bgfx::getCaps()->supported);
+        if (!instancingSupported)
+        {
+            throw std::runtime_error{"Instancing is not supported"};
+        }
+
+        if (m_vertexBufferInstances.size() >= bgfx::getCaps()->limits.maxInstanceData)
+        {
+            throw std::runtime_error{"Number of vertex buffer instances exceeds the maximum supported instance-data slots"};
+        }
+
+        VertexBuffer::InstanceInfo info{};
+        info.Buffer = nullptr;
+        info.Offset = byteOffset;
+        info.Stride = byteStride;
+        info.ElementSize = static_cast<uint32_t>(sizeof(float) * numElements);
+        info.StorageSource = storageBuffer;
+        m_vertexBufferInstances[attrib] = info;
+    }
+
+    bool VertexArray::HasStorageInstances() const
+    {
+        for (const auto& pair : m_vertexBufferInstances)
+        {
+            if (pair.second.StorageSource != nullptr)
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
     void VertexArray::SetIndexBuffer(bgfx::Encoder* encoder, uint32_t firstIndex, uint32_t numIndices)
     {
         if (m_indexBuffer != nullptr)
@@ -86,7 +123,7 @@ namespace Babylon
     {
         // Check if instancing is supported.
         const bool instancingSupported = 0 != (BGFX_CAPS_INSTANCING & bgfx::getCaps()->supported);
-        if (!m_vertexBufferInstances.empty() && instancingSupported)
+        if (!m_vertexBufferInstances.empty() && instancingSupported && !HasStorageInstances())
         {
             bgfx::InstanceDataBuffer instanceDataBuffer{};
             VertexBuffer::BuildInstanceDataBuffer(instanceDataBuffer, m_vertexBufferInstances, instanceCount);

@@ -4398,85 +4398,61 @@
         {
             "title": "GPU Particles - Basic Properties - Size",
             "playgroundId": "#3HLS3D#2",
-            "excludeFromAutomaticTesting": true,
-            "reason": "GPUParticleSystem throws TypeError: Unable to get property 'ARRAY_BUFFER' of undefined or null reference (thrown before pixel comparison, not a pixel-diff)",
             "referenceImage": "gpu-particles-basic-size.png"
         },
         {
             "title": "GPU Particles - Basic Properties - Scale",
             "playgroundId": "#52KBLI#0",
-            "excludeFromAutomaticTesting": true,
-            "reason": "GPUParticleSystem throws TypeError: Unable to get property 'ARRAY_BUFFER' of undefined or null reference (thrown before pixel comparison, not a pixel-diff)",
             "referenceImage": "gpu-particles-basic-scale.png"
         },
         {
             "title": "GPU Particles - Basic Properties - Color",
             "playgroundId": "#30PAK9#0",
-            "excludeFromAutomaticTesting": true,
-            "reason": "GPUParticleSystem throws TypeError: Unable to get property 'ARRAY_BUFFER' of undefined or null reference (thrown before pixel comparison, not a pixel-diff)",
             "referenceImage": "gpu-particles-basic-color.png"
         },
         {
             "title": "GPU Particles - Basic Properties - Speed",
             "playgroundId": "#KU4I4J#0",
-            "excludeFromAutomaticTesting": true,
-            "reason": "GPUParticleSystem throws TypeError: Unable to get property 'ARRAY_BUFFER' of undefined or null reference (thrown before pixel comparison, not a pixel-diff)",
             "referenceImage": "gpu-particles-basic-speed.png"
         },
         {
             "title": "GPU Particles - Basic Properties - Angular Speed",
             "playgroundId": "#9MOFU4#0",
-            "excludeFromAutomaticTesting": true,
-            "reason": "GPUParticleSystem throws TypeError: Unable to get property 'ARRAY_BUFFER' of undefined or null reference (thrown before pixel comparison, not a pixel-diff)",
             "referenceImage": "gpu-particles-basic-angular-speed.png"
         },
         {
             "title": "GPU Particles - Basic Properties - Rotation",
             "playgroundId": "#DEVC42#0",
-            "excludeFromAutomaticTesting": true,
-            "reason": "GPUParticleSystem throws TypeError: Unable to get property 'ARRAY_BUFFER' of undefined or null reference (thrown before pixel comparison, not a pixel-diff)",
             "referenceImage": "gpu-particles-basic-rotation.png"
         },
         {
             "title": "GPU Particles - Basic Properties - Translation Pivot",
             "playgroundId": "#QC8XA2#0",
-            "excludeFromAutomaticTesting": true,
-            "reason": "GPUParticleSystem throws TypeError: Unable to get property 'ARRAY_BUFFER' of undefined or null reference (thrown before pixel comparison, not a pixel-diff)",
             "referenceImage": "gpu-particles-basic-translation-pivot.png"
         },
         {
             "title": "GPU Particles - Basic Properties - Direction",
             "playgroundId": "#M6QEUB#0",
-            "excludeFromAutomaticTesting": true,
-            "reason": "GPUParticleSystem throws TypeError: Unable to get property 'ARRAY_BUFFER' of undefined or null reference (thrown before pixel comparison, not a pixel-diff)",
             "referenceImage": "gpu-particles-basic-direction.png"
         },
         {
             "title": "GPU Particles - Basic Properties - Gravity",
             "playgroundId": "#9AGK0W#0",
-            "excludeFromAutomaticTesting": true,
-            "reason": "GPUParticleSystem throws TypeError: Unable to get property 'ARRAY_BUFFER' of undefined or null reference (thrown before pixel comparison, not a pixel-diff)",
             "referenceImage": "gpu-particles-basic-gravity.png"
         },
         {
             "title": "GPU Particles - Basic Properties - Emit Rate",
             "playgroundId": "#IBWI36#0",
-            "excludeFromAutomaticTesting": true,
-            "reason": "GPUParticleSystem throws TypeError: Unable to get property 'ARRAY_BUFFER' of undefined or null reference (thrown before pixel comparison, not a pixel-diff)",
             "referenceImage": "gpu-particles-basic-emit-rate.png"
         },
         {
             "title": "GPU Particles - Basic Properties - Lifetime",
             "playgroundId": "#RL6BAK#0",
-            "excludeFromAutomaticTesting": true,
-            "reason": "GPUParticleSystem throws TypeError: Unable to get property 'ARRAY_BUFFER' of undefined or null reference (thrown before pixel comparison, not a pixel-diff)",
             "referenceImage": "gpu-particles-basic-lifetime.png"
         },
         {
             "title": "GPU Particles - Basic Properties - Target Stop Duration",
             "playgroundId": "#4AJC72#0",
-            "excludeFromAutomaticTesting": true,
-            "reason": "GPUParticleSystem throws TypeError: Unable to get property 'ARRAY_BUFFER' of undefined or null reference (thrown before pixel comparison, not a pixel-diff)",
             "referenceImage": "gpu-particles-basic-target-stop.png"
         },
         {
@@ -4489,8 +4465,6 @@
         {
             "title": "GPU Particles - Change - Color",
             "playgroundId": "#UWRCY4#0",
-            "excludeFromAutomaticTesting": true,
-            "reason": "GPUParticleSystem throws TypeError: Unable to get property 'ARRAY_BUFFER' of undefined or null reference (thrown before pixel comparison, not a pixel-diff)",
             "referenceImage": "gpu-particles-change-color.png"
         },
         {
@@ -4531,22 +4505,16 @@
         {
             "title": "GPU Particles - Change - Color Range",
             "playgroundId": "#3M1JEJ#0",
-            "excludeFromAutomaticTesting": true,
-            "reason": "GPUParticleSystem throws TypeError: Unable to get property 'ARRAY_BUFFER' of undefined or null reference (thrown before pixel comparison, not a pixel-diff)",
             "referenceImage": "gpu-particles-change-color-range.png"
         },
         {
             "title": "GPU Particles - Emitters - Point",
             "playgroundId": "#PS8GQ3#0",
-            "excludeFromAutomaticTesting": true,
-            "reason": "GPUParticleSystem throws TypeError: Unable to get property 'ARRAY_BUFFER' of undefined or null reference (thrown before pixel comparison, not a pixel-diff)",
             "referenceImage": "gpu-particles-emitters-point.png"
         },
         {
             "title": "GPU Particles - Emitters - Box",
             "playgroundId": "#2XD9BC#0",
-            "excludeFromAutomaticTesting": true,
-            "reason": "GPUParticleSystem throws TypeError: Unable to get property 'ARRAY_BUFFER' of undefined or null reference (thrown before pixel comparison, not a pixel-diff)",
             "referenceImage": "gpu-particles-emitters-box.png"
         },
         {
@@ -4559,8 +4527,6 @@
         {
             "title": "GPU Particles - Emitters - Directed Sphere",
             "playgroundId": "#0H1ATM#0",
-            "excludeFromAutomaticTesting": true,
-            "reason": "GPUParticleSystem throws TypeError: Unable to get property 'ARRAY_BUFFER' of undefined or null reference (thrown before pixel comparison, not a pixel-diff)",
             "referenceImage": "gpu-particles-emitters-directed-sphere.png"
         },
         {
@@ -4587,29 +4553,21 @@
         {
             "title": "GPU Particles - Emitters - Cone",
             "playgroundId": "#W73H92#0",
-            "excludeFromAutomaticTesting": true,
-            "reason": "GPUParticleSystem throws TypeError: Unable to get property 'ARRAY_BUFFER' of undefined or null reference (thrown before pixel comparison, not a pixel-diff)",
             "referenceImage": "gpu-particles-emitters-cone.png"
         },
         {
             "title": "GPU Particles - Emitters - Directed Cone",
             "playgroundId": "#GSYICK#0",
-            "excludeFromAutomaticTesting": true,
-            "reason": "GPUParticleSystem throws TypeError: Unable to get property 'ARRAY_BUFFER' of undefined or null reference (thrown before pixel comparison, not a pixel-diff)",
             "referenceImage": "gpu-particles-emitters-directed-cone.png"
         },
         {
             "title": "GPU Particles - Billboard Y",
             "playgroundId": "#8QHGVT#0",
-            "excludeFromAutomaticTesting": true,
-            "reason": "GPUParticleSystem throws TypeError: Unable to get property 'ARRAY_BUFFER' of undefined or null reference (thrown before pixel comparison, not a pixel-diff)",
             "referenceImage": "gpu-particles-billboard-y.png"
         },
         {
             "title": "GPU Particles - Billboard Stretched",
             "playgroundId": "#0612KX#0",
-            "excludeFromAutomaticTesting": true,
-            "reason": "GPUParticleSystem throws TypeError: Unable to get property 'ARRAY_BUFFER' of undefined or null reference (thrown before pixel comparison, not a pixel-diff)",
             "referenceImage": "gpu-particles-billboard-stretched.png"
         },
         {
@@ -4622,8 +4580,6 @@
         {
             "title": "GPU Particles - Animations",
             "playgroundId": "#B0EJQY#0",
-            "excludeFromAutomaticTesting": true,
-            "reason": "GPUParticleSystem throws TypeError: Unable to get property 'ARRAY_BUFFER' of undefined or null reference (thrown before pixel comparison, not a pixel-diff)",
             "referenceImage": "gpu-particles-animations.png"
         },
         {
@@ -4643,8 +4599,6 @@
         {
             "title": "GPU Particles - Local Space",
             "playgroundId": "#NK19TU#0",
-            "excludeFromAutomaticTesting": true,
-            "reason": "GPUParticleSystem throws TypeError: Unable to get property 'ARRAY_BUFFER' of undefined or null reference (thrown before pixel comparison, not a pixel-diff)",
             "referenceImage": "gpu-particles-local-space.png"
         },
         {
