@@ -82,4 +82,10 @@ namespace Babylon::ShaderCompilerCommon
     };
 
     Graphics::BgfxShaderInfo CreateBgfxShader(ShaderInfo vertexShaderInfo, ShaderInfo fragmentShaderInfo);
+
+    /// Assembles a bgfx CSH (compute) shader binary from a compiled compute shader. The binary
+    /// layout mirrors the per-shader block of CreateBgfxShader (fourcc 'CSH' + hashes + uniform
+    /// table + samplers + blob) but with zero vertex attributes. Storage buffers are intentionally
+    /// absent from the binary; they bind at dispatch via bgfx::setBuffer(stage,...).
+    Graphics::BgfxShaderInfo CreateBgfxComputeShader(ShaderInfo computeShaderInfo);
 }

@@ -335,4 +335,49 @@ namespace Babylon::ShaderCompilerCommon
 
         return bgfxShaderInfo;
     }
+
+    Graphics::BgfxShaderInfo CreateBgfxComputeShader(ShaderInfo computeShaderInfo)
+    {
+        Graphics::BgfxShaderInfo bgfxShaderInfo{};
+
+        constexpr uint8_t BGFX_SHADER_BIN_VERSION{6};
+
+        // Compute shaders have no vertex-varying interface, so both interface hashes are zero
+        // (bgfx's own shaderc writes 0 for the compute input hash).
+        constexpr uint32_t inputHash{0};
+        constexpr uint32_t outputHash{0};
+
+        std::vector<uint8_t>& computeBytes{bgfxShaderInfo.ComputeBytes};
+
+        const spirv_cross::Compiler& compiler{*computeShaderInfo.Compiler};
+        const spirv_cross::ShaderResources resources{compiler.get_shader_resources()};
+        const auto uniformsInfo{CollectNonSamplerUniforms(*computeShaderInfo.Parser, compiler)};
+#if __APPLE__
+        const spirv_cross::SmallVector<spirv_cross::Resource>& samplers{resources.separate_images};
+#elif OPENGL
+        const spirv_cross::SmallVector<spirv_cross::Resource>& samplers = resources.sampled_images;
+#else
+        const spirv_cross::SmallVector<spirv_cross::Resource>& samplers = resources.separate_samplers;
+#endif
+        const size_t numUniforms{uniformsInfo.Uniforms.size() + samplers.size()};
+
+        AppendBytes(computeBytes, BX_MAKEFOURCC('C', 'S', 'H', BGFX_SHADER_BIN_VERSION));
+        AppendBytes(computeBytes, inputHash);
+        AppendBytes(computeBytes, outputHash);
+
+        AppendBytes(computeBytes, static_cast<uint16_t>(numUniforms));
+        AppendUniformBuffer(computeBytes, uniformsInfo, false);
+        AppendSamplers(computeBytes, compiler, samplers, bgfxShaderInfo.UniformStages);
+
+        AppendBytes(computeBytes, static_cast<uint32_t>(computeShaderInfo.Bytes.size()));
+        AppendBytes(computeBytes, computeShaderInfo.Bytes);
+        AppendBytes(computeBytes, static_cast<uint8_t>(0));
+
+        // Compute shaders have no vertex attributes.
+        AppendBytes(computeBytes, static_cast<uint8_t>(0));
+
+        AppendBytes(computeBytes, static_cast<uint16_t>(uniformsInfo.ByteSize));
+
+        return bgfxShaderInfo;
+    }
 }

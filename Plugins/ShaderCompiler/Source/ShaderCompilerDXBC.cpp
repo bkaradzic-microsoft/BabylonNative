@@ -65,6 +65,43 @@ namespace
 
         return {std::move(parser), std::move(compiler)};
     }
+
+    std::pair<std::unique_ptr<spirv_cross::Parser>, std::unique_ptr<spirv_cross::Compiler>> CompileComputeShader(glslang::TProgram& program, ID3DBlob** blob)
+    {
+        std::vector<uint32_t> spirv;
+        glslang::GlslangToSpv(*program.getIntermediate(EShLangCompute), spirv);
+
+        auto parser = std::make_unique<spirv_cross::Parser>(std::move(spirv));
+        parser->parse();
+
+        auto compiler = std::make_unique<spirv_cross::CompilerHLSL>(parser->get_parsed_ir());
+
+        // Compute requires Shader Model 5.0 (cs_5_0). Force read-write storage buffers to be
+        // emitted as UAVs so bgfx::setBuffer(...ACCESS_READWRITE) binds them to the u# registers.
+        spirv_cross::CompilerHLSL::Options hlslOptions{};
+        hlslOptions.shader_model = 50;
+        hlslOptions.force_storage_buffer_as_uav = true;
+        compiler->set_hlsl_options(hlslOptions);
+
+        Babylon::ShaderCompilerCommon::AssignUniformBufferBindings(*compiler);
+
+        std::string hlsl = compiler->compile();
+
+        Microsoft::WRL::ComPtr<ID3DBlob> errorMsgs;
+
+        UINT flags = 0;
+
+#ifdef _DEBUG
+        flags |= D3DCOMPILE_DEBUG;
+#endif
+
+        if (FAILED(D3DCompile(hlsl.data(), hlsl.size(), nullptr, nullptr, nullptr, "main", "cs_5_0", flags, 0, blob, &errorMsgs)))
+        {
+            throw std::runtime_error{static_cast<const char*>(errorMsgs->GetBufferPointer())};
+        }
+
+        return {std::move(parser), std::move(compiler)};
+    }
 }
 
 namespace Babylon::Plugins
@@ -177,5 +214,32 @@ namespace Babylon::Plugins
             {}};
 
         return CreateBgfxShader(std::move(vertexShaderInfo), std::move(fragmentShaderInfo));
+    }
+
+    Graphics::BgfxShaderInfo ShaderCompiler::CompileCompute(std::string_view computeSource)
+    {
+        glslang::TProgram program;
+
+        glslang::TShader computeShader{EShLangCompute};
+        AddShader(program, computeShader, computeSource);
+
+        glslang::SpvVersion spv{};
+        spv.spv = 0x10000;
+        computeShader.getIntermediate()->setSpv(spv);
+
+        if (!program.link(EShMsgDefault))
+        {
+            throw std::runtime_error{program.getInfoLog()};
+        }
+
+        Microsoft::WRL::ComPtr<ID3DBlob> computeBlob;
+        auto [computeParser, computeCompiler] = CompileComputeShader(program, &computeBlob);
+        ShaderInfo computeShaderInfo{
+            std::move(computeParser),
+            std::move(computeCompiler),
+            gsl::make_span(static_cast<uint8_t*>(computeBlob->GetBufferPointer()), computeBlob->GetBufferSize()),
+            {}};
+
+        return CreateBgfxComputeShader(std::move(computeShaderInfo));
     }
 }
