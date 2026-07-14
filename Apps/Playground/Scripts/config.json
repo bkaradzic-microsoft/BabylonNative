@@ -1185,15 +1185,11 @@
         {
             "title": "Textured - Area Lights - Standard Material",
             "playgroundId": "#T7FXR8#103",
-            "excludeFromAutomaticTesting": true,
-            "reason": "NativeEngine throws RuntimeError: Unsupported texture format or type: format 5, type 3553. (missing format-converter entry; thrown before pixel comparison, not a pixel-diff)",
             "referenceImage": "textureAreaLightStandard.png"
         },
         {
             "title": "Textured - Area Lights - PBR",
             "playgroundId": "#T7FXR8#102",
-            "excludeFromAutomaticTesting": true,
-            "reason": "NativeEngine throws RuntimeError: Unsupported texture format or type: format 5, type 3553. (missing format-converter entry; thrown before pixel comparison, not a pixel-diff)",
             "referenceImage": "texturedAreaLightsPBR.png"
         },
         {
