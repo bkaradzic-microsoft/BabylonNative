@@ -267,8 +267,8 @@
             "title": "Fresnel",
             "playgroundId": "#603JUZ#1",
             "referenceImage": "fresnel.png",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Suspected to corrupt state causing later Win32 D3D11 cascade crash; also pixel diff fail on Linux"
+            "excludedGraphicsApis": ["OpenGL"],
+            "reason": "Cascade crash resolved; passes on Win32 D3D11. Pixel diff fail on Linux OpenGL."
         },
         {
             "title": "Unindexed mesh",
@@ -888,9 +888,7 @@
         {
             "title": "Node Geometry - Building generator",
             "playgroundId": "#7RWIUU#29",
-            "referenceImage": "nodeGeometryBuildingGenerator.png",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Hangs on Win32 V8 (procedural node-geometry generator never completes, >150s); passed on Chakra. Quarantined during Chakra->V8 engine switch pending V8 hang investigation."
+            "referenceImage": "nodeGeometryBuildingGenerator.png"
         },
         {
             "title": "GreasedLine - non camera facing",
@@ -1164,8 +1162,8 @@
             "title": "Fresnel",
             "playgroundId": "#603JUZ#3",
             "referenceImage": "fresnel.png",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Suspected to corrupt state causing later Win32 D3D11 cascade crash; also pixel diff fail on Linux"
+            "excludedGraphicsApis": ["OpenGL"],
+            "reason": "Cascade crash resolved; passes on Win32 D3D11. Pixel diff fail on Linux OpenGL."
         },
         {
             "title": "Highlights",
@@ -1190,8 +1188,8 @@
         {
             "title": "Textured - Area Lights - PBR",
             "playgroundId": "#T7FXR8#102",
-            "excludeFromAutomaticTesting": true,
-            "reason": "scene.whenReadyAsync() never resolves (silent 120s ready-timeout, no error) on the single heaviest permutation (PBR ground + 3 textured RectAreaLights + prefilter). Passed green (0.164%) at commit 83e0a4c7; regressed coincident with landing bgfx PR #3832. Not caused by the instance-data C++ wiring (193 is non-instanced; ShaderCompiler diff only touches instance lines). Textured-Standard (192) and untextured-PBR (194) area lights still pass. Needs separate root-cause (suspected bgfx #3832 interaction).",
+            "excludedGraphicsApis": ["OpenGL"],
+            "reason": "whenReadyAsync ready-timeout resolved; passes on Win32 D3D11. Area-light LTC path renders black on Linux OpenGL.",
             "referenceImage": "texturedAreaLightsPBR.png"
         },
         {
@@ -1726,16 +1724,12 @@
         {
             "title": "glTF to OBJ (LH)",
             "playgroundId": "#HYZWGK#3",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Hangs on Win32 Chakra D3D11 - glTF to OBJ round trip",
             "referenceImage": "gltfToObjLH.png"
         },
         {
             "title": "glTF to OBJ (RH)",
             "playgroundId": "#HYZWGK#3",
             "replace": "//options//, useRightHandedSystem = true;",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Hangs on Win32 Chakra D3D11 - glTF to OBJ round trip",
             "referenceImage": "gltfToObjRH.png"
         },
         {
@@ -2405,8 +2399,6 @@
         {
             "title": "Vertex buffers with non aligned strides",
             "playgroundId": "#U1CZV3#32",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Test crashes or hangs on Babylon Native",
             "referenceImage": "VertexBuffer-non-aligned-strides.png"
         },
         {
@@ -2446,8 +2438,8 @@
             "title": "Command encoder order in WebGPU 2",
             "playgroundId": "#CMH5VF#7",
             "referenceImage": "CommandEncodedWebGPU2.png",
-            "excludeFromAutomaticTesting": true,
-            "reason": "ASSERT/crash (exit 133) on Linux OpenGL after newly synced from Babylon.js."
+            "excludedGraphicsApis": ["OpenGL"],
+            "reason": "Passes on Win32 D3D11; ASSERT/crash (exit 133) on Linux OpenGL after Babylon.js sync."
         },
         {
             "title": "edge-renderer-and-zOffset",
