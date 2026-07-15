@@ -1951,8 +1951,6 @@
             "title": "Prepass SSAO + MSAA",
             "playgroundId": "#12MKMN#7",
             "renderCount": 10,
-            "excludeFromAutomaticTesting": true,
-            "reason": "Test crashes or hangs on Babylon Native",
             "referenceImage": "prepass-ssao-msaa.png"
         },
         {

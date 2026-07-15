@@ -18,6 +18,14 @@
 #include <napi/pointer.h>
 
 #include <bgfx/bgfx.h>
+#include <bx/error.h>
+
+namespace bgfx
+{
+    // Internal bgfx API (declared in bgfx_p.h) with external linkage; forward-declared here so the
+    // NativeEngine diagnostic can surface the exact frame buffer validation failure reason.
+    void isFrameBufferValid(uint8_t _num, const Attachment* _attachment, bx::Error* _err);
+}
 
 #ifdef BABYLON_NATIVE_PLUGIN_NATIVEENGINE_LOAD_IMAGES
 #include <bimg/bimg.h>
@@ -1731,7 +1739,13 @@ namespace Babylon
         auto flags = BGFX_TEXTURE_NONE;
         if (renderTarget)
         {
-            flags |= BGFX_TEXTURE_RT | RenderTargetSamplesToBgfxMsaaFlag(samples);
+            // BGFX_TEXTURE_RT and the BGFX_TEXTURE_RT_MSAA_X* levels all live in a single exclusive
+            // 3-bit field (BGFX_TEXTURE_RT_MASK): RT(=1, no MSAA), X2(=2), X4(=3), X8(=4), X16(=5).
+            // They must NOT be OR'd together, or e.g. RT|X8 (0x1|0x4) silently becomes X16 (0x5),
+            // giving this texture a different sample count than the matching depth attachment and
+            // making bgfx::createFrameBuffer reject the frame buffer ("Mismatch in texture sample count").
+            const uint64_t msaaFlag = RenderTargetSamplesToBgfxMsaaFlag(samples);
+            flags |= (msaaFlag != BGFX_TEXTURE_NONE) ? msaaFlag : BGFX_TEXTURE_RT;
         }
         if (srgb)
         {
@@ -2579,7 +2593,12 @@ namespace Babylon
 
             // A standalone depth/stencil texture must be readable; render-target-only depth attachments stay
             // write-only (cheaper, and the resolve path below relies on it).
-            auto flags = (requestDepthStencilTexture ? BGFX_TEXTURE_RT : BGFX_TEXTURE_RT_WRITE_ONLY) | RenderTargetSamplesToBgfxMsaaFlag(samples);
+            // BGFX_TEXTURE_RT and the BGFX_TEXTURE_RT_MSAA_X* levels share one exclusive field, so pick the
+            // MSAA-level flag when multisampled and the plain RT flag otherwise — never OR them (RT|X8 becomes
+            // X16). BGFX_TEXTURE_RT_WRITE_ONLY is orthogonal and can be OR'd freely.
+            const uint64_t depthMsaaFlag = RenderTargetSamplesToBgfxMsaaFlag(samples);
+            const uint64_t depthRtFlag = (depthMsaaFlag != BGFX_TEXTURE_NONE) ? depthMsaaFlag : BGFX_TEXTURE_RT;
+            auto flags = requestDepthStencilTexture ? depthRtFlag : (BGFX_TEXTURE_RT_WRITE_ONLY | depthMsaaFlag);
 
             // bgfx rejects an MSAA depth attachment that is not write-only unless it is flagged as an
             // MSAA-sample texture (MSAA depth cannot be resolved to a single-sample texture; see
@@ -2623,7 +2642,15 @@ namespace Babylon
                 bgfx::destroy(depthStencilTextureHandle);
             }
 
-            throw Napi::Error::New(env, "Failed to create frame buffer");
+            // Surface the exact bgfx validation reason (e.g. "Mismatch in texture sample count.") instead of a
+            // generic message, which makes frame buffer configuration bugs far easier to diagnose.
+            bx::Error fbErr;
+            bgfx::isFrameBufferValid(numAttachments, attachments.data(), &fbErr);
+            const bx::StringView reason = fbErr.getMessage();
+            char message[512];
+            snprintf(message, sizeof(message), "Failed to create frame buffer: %.*s",
+                static_cast<int>(reason.getLength()), reason.getPtr());
+            throw Napi::Error::New(env, message);
         }
 
         // Stencil-without-depth still allocates a combined depth/stencil attachment above, so the framebuffer
