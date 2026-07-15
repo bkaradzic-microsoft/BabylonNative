@@ -2066,8 +2066,6 @@
             "title": "Reverse depth buffer and CSM shadows",
             "playgroundId": "#IIZ9UU#248",
             "renderCount": 10,
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
             "referenceImage": "reverseDepthBufferCSMShadows.png"
         },
         {
