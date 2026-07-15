@@ -742,8 +742,6 @@
         {
             "title": "EXT_lights_ies",
             "playgroundId": "#UIAXAU#19",
-            "excludeFromAutomaticTesting": true,
-            "reason": "'name is not defined' ReferenceError fixed in EXT_lights_ies loader (name hoisted out of loadNodeAsync callback closure); still excluded because the .ies IInternalTextureLoader path relies on dynamic import() of iesTextureLoader which hangs on Babylon Native",
             "referenceImage": "ext-lights-ies.png"
         },
         {
