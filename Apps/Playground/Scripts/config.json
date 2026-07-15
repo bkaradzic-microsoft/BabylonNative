@@ -1472,7 +1472,7 @@
             "title": "GLTF Buggy with Meshopt Compression",
             "playgroundId": "#CIYTF6#0",
             "excludeFromAutomaticTesting": true,
-            "reason": "NativeEngine throws RuntimeError: Unable to load from https://assets.babylonjs.com/meshes/Buggy/glTF-MeshOpt/Buggy.gltf: Object doesn't support property or method 'createObjectURL' (missing DOM API; thrown before pixel comparison)",
+            "reason": "MeshOpt decompression uses a WASM decoder (EXT_meshopt_compression) not yet ported to native C++; URL.createObjectURL is now implemented but the load stalls in meshopt decode.",
             "referenceImage": "gltfBuggyMeshopt.png"
         },
         {
@@ -2298,8 +2298,6 @@
         {
             "title": "Load babylon files with same geometry uniqueId",
             "playgroundId": "#3UCFHS",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Test crashes or hangs on Babylon Native",
             "referenceImage": "Load-babylon-files-with-same-geometry-uniqueId.png"
         },
         {
