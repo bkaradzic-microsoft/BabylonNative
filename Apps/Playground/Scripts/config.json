@@ -1453,8 +1453,6 @@
         {
             "title": "GLTF Buggy with Meshopt Compression",
             "playgroundId": "#CIYTF6#0",
-            "excludeFromAutomaticTesting": true,
-            "reason": "MeshOpt decompression uses a WASM decoder (EXT_meshopt_compression) not yet ported to native C++; URL.createObjectURL is now implemented but the load stalls in meshopt decode.",
             "referenceImage": "gltfBuggyMeshopt.png"
         },
         {
