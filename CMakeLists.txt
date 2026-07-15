@@ -45,6 +45,10 @@ FetchContent_Declare(glslang
     GIT_REPOSITORY https://github.com/bkaradzic-microsoft/glslang.git
     GIT_TAG shotgun
     EXCLUDE_FROM_ALL)
+FetchContent_Declare(draco
+    GIT_REPOSITORY https://github.com/google/draco.git
+    GIT_TAG 1.5.7
+    EXCLUDE_FROM_ALL)
 FetchContent_Declare(googletest
     URL "https://github.com/google/googletest/archive/refs/tags/v1.17.0.tar.gz"
     EXCLUDE_FROM_ALL)
