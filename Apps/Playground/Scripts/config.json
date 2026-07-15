@@ -1279,8 +1279,6 @@
         {
             "title": "Draco Decoder/Encoder roundtrip",
             "playgroundId": "#JNW207#4",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Draco decoder wasm fails to instantiate in the full suite (LinkError: Import 'a.e' is invalid. Expected type Function) after ~139 prior tests; passes only in isolation. Order-dependent JsRuntimeHost wasm state issue.",
             "referenceImage": "dracoRoundtrip.png"
         },
         {
@@ -1337,8 +1335,6 @@
         {
             "title": "GLTF Serializer KHR draco mesh compression",
             "playgroundId": "#F8BF8N#3",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Draco loader passes 'utf8' label; BN TextDecoder only accepts 'utf-8' (WHATWG label normalization not implemented)",
             "referenceImage": "glTFSerializerKhrDracoMeshCompression.png"
         },
         {
