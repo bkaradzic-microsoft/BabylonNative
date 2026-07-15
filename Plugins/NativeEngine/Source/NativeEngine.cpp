@@ -2576,6 +2576,19 @@ namespace Babylon
             // A standalone depth/stencil texture must be readable; render-target-only depth attachments stay
             // write-only (cheaper, and the resolve path below relies on it).
             auto flags = (requestDepthStencilTexture ? BGFX_TEXTURE_RT : BGFX_TEXTURE_RT_WRITE_ONLY) | RenderTargetSamplesToBgfxMsaaFlag(samples);
+
+            // bgfx rejects an MSAA depth attachment that is not write-only unless it is flagged as an
+            // MSAA-sample texture (MSAA depth cannot be resolved to a single-sample texture; see
+            // isFrameBufferValid). A sampleable (readable) MSAA depth request must therefore be marked
+            // BGFX_TEXTURE_MSAA_SAMPLE so it is sampled per-sample rather than resolved.
+            if (requestDepthStencilTexture)
+            {
+                const uint64_t msaaBits = (flags & BGFX_TEXTURE_RT_MSAA_MASK) >> BGFX_TEXTURE_RT_MSAA_SHIFT;
+                if (msaaBits > 1)
+                {
+                    flags |= BGFX_TEXTURE_MSAA_SAMPLE;
+                }
+            }
 #ifdef ANDROID
             // On Android with Mali GPU (Oppo Find x5 lite, Google Pixel 8, Samsung Galaxy Tab Active 3, ...)
             // D32 depth buffer gives glitches. Everything is fine with D24S8.
