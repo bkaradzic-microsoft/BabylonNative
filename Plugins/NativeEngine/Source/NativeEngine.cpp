@@ -1723,6 +1723,10 @@ namespace Babylon
         const bool srgb = info[6].As<Napi::Boolean>();
         const uint32_t samples = info[7].IsUndefined() ? 1 : info[7].As<Napi::Number>().Uint32Value();
         const bool isCube = info.Length() > 8 && !info[8].IsUndefined() && info[8].As<Napi::Boolean>();
+        // Optional array-layer count for a 2D texture array (e.g. cascaded shadow maps). Defaults to a
+        // single layer. bgfx::createTexture2D(width, height, hasMips, numLayers, ...) produces an array
+        // texture when numLayers > 1, which the shader samples as a Texture2DArray/sampler2DArray.
+        const uint16_t numLayers = (info.Length() > 9 && !info[9].IsUndefined()) ? static_cast<uint16_t>(info[9].As<Napi::Number>().Uint32Value()) : 1;
 
         auto flags = BGFX_TEXTURE_NONE;
         if (renderTarget)
@@ -1741,7 +1745,7 @@ namespace Babylon
         }
         else
         {
-            texture->Create2D(width, height, hasMips, 1, format, flags);
+            texture->Create2D(width, height, hasMips, numLayers > 0 ? numLayers : 1, format, flags);
         }
     }
 

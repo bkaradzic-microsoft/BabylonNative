@@ -2580,8 +2580,6 @@
             "title": "cascaded-shadow-maps-and-flying-saucers",
             "playgroundId": "#IIZ9UU#63",
             "renderCount": 10,
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
             "referenceImage": "cascaded-shadow-maps-and-flying-saucers.png"
         },
         {
