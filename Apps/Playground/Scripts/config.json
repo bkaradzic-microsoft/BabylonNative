@@ -1624,8 +1624,6 @@
             "title": "Realtime Filtering",
             "playgroundId": "#FEEK7G#118",
             "renderCount": 5,
-            "excludeFromAutomaticTesting": true,
-            "reason": "Native crash: readPixels() on a cube face returns null -> ConvertCubeMapToSphericalPolynomial(null); dynamic-cube SH readback unsupported on Native",
             "referenceImage": "realtimeFiltering.png"
         },
         {
@@ -1951,7 +1949,7 @@
             "playgroundId": "#RJN64I#5",
             "renderCount": 1,
             "excludeFromAutomaticTesting": true,
-            "reason": "Native crash: readPixels() on a cube face returns null -> ConvertCubeMapToSphericalPolynomial(null); dynamic-cube SH readback unsupported on Native",
+            "reason": "Pixel diff ~18% in the parallax-corrected local-cubemap refraction region (background/environment matches). Native cube-face readback + SH now work; crash fixed. Remaining diff is a local-cubemap refraction correctness gap.",
             "referenceImage": "refraction-local-pbr.png"
         },
         {
