@@ -741,15 +741,11 @@
         {
             "title": "IES Profile",
             "playgroundId": "#UIAXAU#6",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Test crashes or hangs on Babylon Native",
             "referenceImage": "iesprofile.png"
         },
         {
             "title": "IES Profile2",
             "playgroundId": "#UIAXAU#31",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Test crashes or hangs on Babylon Native",
             "referenceImage": "iesprofile2.png"
         },
         {
@@ -1748,8 +1744,6 @@
             "title": "Prepass SSAO + particles",
             "playgroundId": "#65MUMZ#47",
             "renderCount": 50,
-            "excludeFromAutomaticTesting": true,
-            "reason": "SSAO2 blur post-process shader fails to compile on desktop GL (samples uniform used as int loop bound); unrelated to instancing.",
             "referenceImage": "prepass-ssao-particles.png"
         },
         {
@@ -1836,8 +1830,6 @@
         {
             "title": "Prepass SSAO + GUI",
             "playgroundId": "#LLVZ90#4",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Order-dependent state leak: passes in isolation but produces ~6000-px diff (right at 2.5% errorRatio threshold, flaky in CI) when run after sibling Prepass-SSAO tests in the full sweep on Win32 D3D11. OpenGL also fails (BGFX FATAL 'mediump float' shader compile in PrePassRenderer fragment shader). Re-enable after the order-dependent SSAO state cleanup is investigated.",
             "renderCount": 10,
             "referenceImage": "prepass-ssao-gui.png"
         },
