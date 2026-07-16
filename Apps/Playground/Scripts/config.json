@@ -595,8 +595,6 @@
             "title": "Gaussian Splatting viewports",
             "playgroundId": "#CG8GO3#1",
             "renderCount": 15,
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails on Linux (large diff)",
             "referenceImage": "gsplat-viewports.png"
         },
         {
@@ -823,8 +821,6 @@
         {
             "title": "Volumetric Light Scattering Post Process with Morph Targets",
             "playgroundId": "#5E318S#7",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails on Linux (large diff)",
             "referenceImage": "volumetricLightScatteringMorphTargets.png"
         },
         {
@@ -963,8 +959,6 @@
         {
             "title": "Node material 2",
             "playgroundId": "#WYM31D#13",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails on Linux (7283 px diff)",
             "referenceImage": "node-material2.png"
         },
         {
@@ -975,8 +969,6 @@
         {
             "title": "Node material 4",
             "playgroundId": "#ZYGRII#1",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails on Linux (6347 px diff)",
             "referenceImage": "node-material4.png"
         },
         {
@@ -987,15 +979,11 @@
         {
             "title": "Node material 6",
             "playgroundId": "#2XY3Z4#3",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails on Linux (68783 px diff)",
             "referenceImage": "node-material6.png"
         },
         {
             "title": "Node material 7",
             "playgroundId": "#10I31V#323",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails on Linux (77539 px diff)",
             "referenceImage": "node-material7.png"
         },
         {
@@ -1479,9 +1467,7 @@
             "title": "Depth of field",
             "playgroundId": "#IDSQK2#86",
             "renderCount": 20,
-            "referenceImage": "depthOfField.png",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails on Linux (10675 px diff)"
+            "referenceImage": "depthOfField.png"
         },
         {
             "title": "Default pipeline",
@@ -1540,21 +1526,21 @@
             "title": "PBR shader code coverage 1",
             "playgroundId": "#QI7TL3#63",
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
+            "reason": "Native crash: access violation in NativeEngine LoadTextureFromImage during texture upload (Create2D)",
             "referenceImage": "pbr-codecoverage1.png"
         },
         {
             "title": "PBR shader code coverage 2",
             "playgroundId": "#QI7TL3#64",
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
+            "reason": "Native crash: access violation in NativeEngine LoadTextureFromImage during texture upload (Create2D)",
             "referenceImage": "pbr-codecoverage2.png"
         },
         {
             "title": "PBR shader code coverage 3",
             "playgroundId": "#QI7TL3#65",
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
+            "reason": "Native crash: access violation in NativeEngine LoadTextureFromImage during texture upload (Create2D)",
             "referenceImage": "pbr-codecoverage3.png"
         },
         {
@@ -1595,9 +1581,7 @@
             "title": "Local cubemaps",
             "playgroundId": "#RNASML#4",
             "renderCount": 2,
-            "referenceImage": "local-cubemaps.png",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails on Linux (125368 px diff)"
+            "referenceImage": "local-cubemaps.png"
         },
         {
             "title": "TGA",
@@ -1643,7 +1627,7 @@
             "playgroundId": "#FEEK7G#118",
             "renderCount": 5,
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
+            "reason": "Native crash: readPixels() on a cube face returns null -> ConvertCubeMapToSphericalPolynomial(null); dynamic-cube SH readback unsupported on Native",
             "referenceImage": "realtimeFiltering.png"
         },
         {
@@ -1969,7 +1953,7 @@
             "playgroundId": "#RJN64I#5",
             "renderCount": 1,
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
+            "reason": "Native crash: readPixels() on a cube face returns null -> ConvertCubeMapToSphericalPolynomial(null); dynamic-cube SH readback unsupported on Native",
             "referenceImage": "refraction-local-pbr.png"
         },
         {
@@ -2195,7 +2179,7 @@
             "playgroundId": "#PCMH7A#2",
             "renderCount": 120,
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
+            "reason": "Native crash: uses DOM-based FluidRendererGUI overlay (document.getElementById); not supported headless",
             "referenceImage": "fluidBoxSphere.png"
         },
         {
@@ -2409,7 +2393,7 @@
             "title": "Command encoder order in WebGPU 1",
             "playgroundId": "#064AUB#125",
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
+            "reason": "WebGPU-only test; HDR prefiltering not available on the Native (WebGL1) filtering path",
             "referenceImage": "CommandEncodedWebGPU1.png"
         },
         {
