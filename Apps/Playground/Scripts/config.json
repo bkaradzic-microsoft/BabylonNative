@@ -887,8 +887,6 @@
         {
             "title": "GreasedLine - non camera facing",
             "playgroundId": "#FJRQ8N#150",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
             "referenceImage": "greased-line-non-camera-facing.png"
         },
         {
@@ -1141,8 +1139,6 @@
             "title": "Yeti",
             "playgroundId": "#QATUCH#32",
             "renderCount": 150,
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails: 239982/240000 pixels differ (99.99%) on Babylon Native (renders essentially blank)",
             "referenceImage": "yeti.png"
         },
         {
@@ -1670,8 +1666,6 @@
             "title": "Prefiltering Irradiance on load",
             "playgroundId": "#FEEK7G#1111",
             "renderCount": 5,
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
             "referenceImage": "prefilteringIrradiance.png"
         },
         {
@@ -1803,16 +1797,12 @@
             "title": "Prepass + mirror, without postprocess",
             "playgroundId": "#PIZ1GK#1084",
             "renderCount": 10,
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
             "referenceImage": "prepass-mirror-without-pp.png"
         },
         {
             "title": "Prepass + mirror, with postprocesses",
             "playgroundId": "#PIZ1GK#1085",
             "renderCount": 10,
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
             "referenceImage": "prepass-mirror-with-pp.png"
         },
         {
@@ -2129,8 +2119,6 @@
         {
             "title": "Material Plugin",
             "playgroundId": "#22HT5Z#10",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
             "referenceImage": "materialPlugin.png"
         },
         {
@@ -2546,8 +2534,6 @@
             "title": "custom-handling-of-materials-for-render-target-pass",
             "playgroundId": "#FIVL25#21",
             "renderCount": 60,
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
             "referenceImage": "custom-handling-of-materials-for-render-target-pass.png"
         },
         {
@@ -3260,22 +3246,16 @@
         {
             "title": "Atmosphere Day (Ray Marching)",
             "playgroundId": "#VO1Z0C#41",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
             "referenceImage": "atmosphere-day-ray-marching.png"
         },
         {
             "title": "Atmosphere Sunset",
             "playgroundId": "#VO1Z0C#42",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
             "referenceImage": "atmosphere-sunset.png"
         },
         {
             "title": "Atmosphere Sunset (Planet Origin)",
             "playgroundId": "#VO1Z0C#43",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
             "referenceImage": "atmosphere-sunset.png"
         },
         {
@@ -3295,8 +3275,6 @@
         {
             "title": "Atmosphere Space View",
             "playgroundId": "#VO1Z0C#47",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
             "referenceImage": "atmosphere-space-view.png"
         },
         {
@@ -4159,8 +4137,6 @@
             "title": "Particles - Emitters - Directed Cylinder",
             "playgroundId": "#WLX2I2#14",
             "renderCount": 120,
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
             "referenceImage": "particles-emitters-directed-cylinder.png"
         },
         {
@@ -4221,8 +4197,6 @@
             "title": "Particles - Billboard Y",
             "playgroundId": "#T3ZCP7#5",
             "renderCount": 180,
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
             "referenceImage": "particles-billboard-y.png"
         },
         {
