@@ -2839,7 +2839,7 @@
             "title": "FrameGraph nrge clustered lights (simple)",
             "playgroundId": "#1QCA2M#37",
             "excludeFromAutomaticTesting": true,
-            "reason": "Renders black on Native: clustered tile-mask proxy discards fragments by gl_FragCoord.y in WebGL bottom-left RTT convention, but Native D3D gl_FragCoord.y is top-left, so all proxy fragments fall outside their per-batch band and are discarded, giving an empty tile mask and no clustered contribution. Needs gl_FragCoord.y/RTT-orientation fix (V8 parses the snippet; not a Chakra issue).",
+            "reason": "Renders black on Native: the clustered tile-mask is empty. Root cause is the tile-mask WRITE, not gl_FragCoord.y. The lightProxy proxy mesh renders into an R32F RenderTargetTexture, but texelFetch(tileMaskTexture) reads 0 in the material pass even when the proxy fragment is forced to output a constant with no discard, so the proxy RTT render/integer-texelFetch readback path is broken on Native. The read/lighting path is correct: forcing the shader mask to all-ones renders the std-material variants at <1%. Needs the Native proxy tile-mask (render-to-R32F + integer texelFetch) path fixed; node-material/Sponza/FrameGraph variants have additional issues beyond the mask.",
             "referenceImage": "FrameGraph-nrge-clustered-lights-simple-.png"
         },
         {
@@ -3170,70 +3170,70 @@
             "title": "Sponza Clustered Lighting (node material std)",
             "playgroundId": "#QY98Z3#16",
             "excludeFromAutomaticTesting": true,
-            "reason": "Renders black on Native: clustered tile-mask proxy discards fragments by gl_FragCoord.y in WebGL bottom-left RTT convention, but Native D3D gl_FragCoord.y is top-left, so all proxy fragments fall outside their per-batch band and are discarded, giving an empty tile mask and no clustered contribution. Needs gl_FragCoord.y/RTT-orientation fix (V8 parses the snippet; not a Chakra issue).",
+            "reason": "Renders black on Native: the clustered tile-mask is empty. Root cause is the tile-mask WRITE, not gl_FragCoord.y. The lightProxy proxy mesh renders into an R32F RenderTargetTexture, but texelFetch(tileMaskTexture) reads 0 in the material pass even when the proxy fragment is forced to output a constant with no discard, so the proxy RTT render/integer-texelFetch readback path is broken on Native. The read/lighting path is correct: forcing the shader mask to all-ones renders the std-material variants at <1%. Needs the Native proxy tile-mask (render-to-R32F + integer texelFetch) path fixed; node-material/Sponza/FrameGraph variants have additional issues beyond the mask.",
             "referenceImage": "Sponza-Clustered-Lighting-node-material-std-.png"
         },
         {
             "title": "Sponza Clustered Lighting (node material pbr)",
             "playgroundId": "#QY98Z3#17",
             "excludeFromAutomaticTesting": true,
-            "reason": "Renders black on Native: clustered tile-mask proxy discards fragments by gl_FragCoord.y in WebGL bottom-left RTT convention, but Native D3D gl_FragCoord.y is top-left, so all proxy fragments fall outside their per-batch band and are discarded, giving an empty tile mask and no clustered contribution. Needs gl_FragCoord.y/RTT-orientation fix (V8 parses the snippet; not a Chakra issue).",
+            "reason": "Renders black on Native: the clustered tile-mask is empty. Root cause is the tile-mask WRITE, not gl_FragCoord.y. The lightProxy proxy mesh renders into an R32F RenderTargetTexture, but texelFetch(tileMaskTexture) reads 0 in the material pass even when the proxy fragment is forced to output a constant with no discard, so the proxy RTT render/integer-texelFetch readback path is broken on Native. The read/lighting path is correct: forcing the shader mask to all-ones renders the std-material variants at <1%. Needs the Native proxy tile-mask (render-to-R32F + integer texelFetch) path fixed; node-material/Sponza/FrameGraph variants have additional issues beyond the mask.",
             "referenceImage": "Sponza-Clustered-Lighting-node-material-pbr-.png"
         },
         {
             "title": "Clustered Lighting (lhs std material)",
             "playgroundId": "#CSCJO2#59",
             "excludeFromAutomaticTesting": true,
-            "reason": "Renders black on Native: clustered tile-mask proxy discards fragments by gl_FragCoord.y in WebGL bottom-left RTT convention, but Native D3D gl_FragCoord.y is top-left, so all proxy fragments fall outside their per-batch band and are discarded, giving an empty tile mask and no clustered contribution. Needs gl_FragCoord.y/RTT-orientation fix (V8 parses the snippet; not a Chakra issue).",
+            "reason": "Renders black on Native: the clustered tile-mask is empty. Root cause is the tile-mask WRITE, not gl_FragCoord.y. The lightProxy proxy mesh renders into an R32F RenderTargetTexture, but texelFetch(tileMaskTexture) reads 0 in the material pass even when the proxy fragment is forced to output a constant with no discard, so the proxy RTT render/integer-texelFetch readback path is broken on Native. The read/lighting path is correct: forcing the shader mask to all-ones renders the std-material variants at <1%. Needs the Native proxy tile-mask (render-to-R32F + integer texelFetch) path fixed; node-material/Sponza/FrameGraph variants have additional issues beyond the mask.",
             "referenceImage": "Clustered-Lighting-lhs-std-material-.png"
         },
         {
             "title": "Clustered Lighting (lhs pbr material)",
             "playgroundId": "#CSCJO2#60",
             "excludeFromAutomaticTesting": true,
-            "reason": "Renders black on Native: clustered tile-mask proxy discards fragments by gl_FragCoord.y in WebGL bottom-left RTT convention, but Native D3D gl_FragCoord.y is top-left, so all proxy fragments fall outside their per-batch band and are discarded, giving an empty tile mask and no clustered contribution. Needs gl_FragCoord.y/RTT-orientation fix (V8 parses the snippet; not a Chakra issue).",
+            "reason": "Renders black on Native: the clustered tile-mask is empty. Root cause is the tile-mask WRITE, not gl_FragCoord.y. The lightProxy proxy mesh renders into an R32F RenderTargetTexture, but texelFetch(tileMaskTexture) reads 0 in the material pass even when the proxy fragment is forced to output a constant with no discard, so the proxy RTT render/integer-texelFetch readback path is broken on Native. The read/lighting path is correct: forcing the shader mask to all-ones renders the std-material variants at <1%. Needs the Native proxy tile-mask (render-to-R32F + integer texelFetch) path fixed; node-material/Sponza/FrameGraph variants have additional issues beyond the mask.",
             "referenceImage": "Clustered-Lighting-lhs-pbr-material-.png"
         },
         {
             "title": "Clustered Lighting (lhs std nodematerial)",
             "playgroundId": "#CSCJO2#64",
             "excludeFromAutomaticTesting": true,
-            "reason": "Renders black on Native: clustered tile-mask proxy discards fragments by gl_FragCoord.y in WebGL bottom-left RTT convention, but Native D3D gl_FragCoord.y is top-left, so all proxy fragments fall outside their per-batch band and are discarded, giving an empty tile mask and no clustered contribution. Needs gl_FragCoord.y/RTT-orientation fix (V8 parses the snippet; not a Chakra issue).",
+            "reason": "Renders black on Native: the clustered tile-mask is empty. Root cause is the tile-mask WRITE, not gl_FragCoord.y. The lightProxy proxy mesh renders into an R32F RenderTargetTexture, but texelFetch(tileMaskTexture) reads 0 in the material pass even when the proxy fragment is forced to output a constant with no discard, so the proxy RTT render/integer-texelFetch readback path is broken on Native. The read/lighting path is correct: forcing the shader mask to all-ones renders the std-material variants at <1%. Needs the Native proxy tile-mask (render-to-R32F + integer texelFetch) path fixed; node-material/Sponza/FrameGraph variants have additional issues beyond the mask.",
             "referenceImage": "Clustered-Lighting-lhs-std-nodematerial-.png"
         },
         {
             "title": "Clustered Lighting (lhs pbr nodematerial)",
             "playgroundId": "#CSCJO2#62",
             "excludeFromAutomaticTesting": true,
-            "reason": "Renders black on Native: clustered tile-mask proxy discards fragments by gl_FragCoord.y in WebGL bottom-left RTT convention, but Native D3D gl_FragCoord.y is top-left, so all proxy fragments fall outside their per-batch band and are discarded, giving an empty tile mask and no clustered contribution. Needs gl_FragCoord.y/RTT-orientation fix (V8 parses the snippet; not a Chakra issue).",
+            "reason": "Renders black on Native: the clustered tile-mask is empty. Root cause is the tile-mask WRITE, not gl_FragCoord.y. The lightProxy proxy mesh renders into an R32F RenderTargetTexture, but texelFetch(tileMaskTexture) reads 0 in the material pass even when the proxy fragment is forced to output a constant with no discard, so the proxy RTT render/integer-texelFetch readback path is broken on Native. The read/lighting path is correct: forcing the shader mask to all-ones renders the std-material variants at <1%. Needs the Native proxy tile-mask (render-to-R32F + integer texelFetch) path fixed; node-material/Sponza/FrameGraph variants have additional issues beyond the mask.",
             "referenceImage": "Clustered-Lighting-lhs-pbr-nodematerial-.png"
         },
         {
             "title": "Clustered Lighting (rhs std material)",
             "playgroundId": "#CSCJO2#69",
             "excludeFromAutomaticTesting": true,
-            "reason": "Renders black on Native: clustered tile-mask proxy discards fragments by gl_FragCoord.y in WebGL bottom-left RTT convention, but Native D3D gl_FragCoord.y is top-left, so all proxy fragments fall outside their per-batch band and are discarded, giving an empty tile mask and no clustered contribution. Needs gl_FragCoord.y/RTT-orientation fix (V8 parses the snippet; not a Chakra issue).",
+            "reason": "Renders black on Native: the clustered tile-mask is empty. Root cause is the tile-mask WRITE, not gl_FragCoord.y. The lightProxy proxy mesh renders into an R32F RenderTargetTexture, but texelFetch(tileMaskTexture) reads 0 in the material pass even when the proxy fragment is forced to output a constant with no discard, so the proxy RTT render/integer-texelFetch readback path is broken on Native. The read/lighting path is correct: forcing the shader mask to all-ones renders the std-material variants at <1%. Needs the Native proxy tile-mask (render-to-R32F + integer texelFetch) path fixed; node-material/Sponza/FrameGraph variants have additional issues beyond the mask.",
             "referenceImage": "Clustered-Lighting-rhs-std-material-.png"
         },
         {
             "title": "Clustered Lighting (rhs pbr material)",
             "playgroundId": "#CSCJO2#70",
             "excludeFromAutomaticTesting": true,
-            "reason": "Renders black on Native: clustered tile-mask proxy discards fragments by gl_FragCoord.y in WebGL bottom-left RTT convention, but Native D3D gl_FragCoord.y is top-left, so all proxy fragments fall outside their per-batch band and are discarded, giving an empty tile mask and no clustered contribution. Needs gl_FragCoord.y/RTT-orientation fix (V8 parses the snippet; not a Chakra issue).",
+            "reason": "Renders black on Native: the clustered tile-mask is empty. Root cause is the tile-mask WRITE, not gl_FragCoord.y. The lightProxy proxy mesh renders into an R32F RenderTargetTexture, but texelFetch(tileMaskTexture) reads 0 in the material pass even when the proxy fragment is forced to output a constant with no discard, so the proxy RTT render/integer-texelFetch readback path is broken on Native. The read/lighting path is correct: forcing the shader mask to all-ones renders the std-material variants at <1%. Needs the Native proxy tile-mask (render-to-R32F + integer texelFetch) path fixed; node-material/Sponza/FrameGraph variants have additional issues beyond the mask.",
             "referenceImage": "Clustered-Lighting-rhs-pbr-material-.png"
         },
         {
             "title": "Clustered Lighting (rhs std nodematerial)",
             "playgroundId": "#CSCJO2#71",
             "excludeFromAutomaticTesting": true,
-            "reason": "Renders black on Native: clustered tile-mask proxy discards fragments by gl_FragCoord.y in WebGL bottom-left RTT convention, but Native D3D gl_FragCoord.y is top-left, so all proxy fragments fall outside their per-batch band and are discarded, giving an empty tile mask and no clustered contribution. Needs gl_FragCoord.y/RTT-orientation fix (V8 parses the snippet; not a Chakra issue).",
+            "reason": "Renders black on Native: the clustered tile-mask is empty. Root cause is the tile-mask WRITE, not gl_FragCoord.y. The lightProxy proxy mesh renders into an R32F RenderTargetTexture, but texelFetch(tileMaskTexture) reads 0 in the material pass even when the proxy fragment is forced to output a constant with no discard, so the proxy RTT render/integer-texelFetch readback path is broken on Native. The read/lighting path is correct: forcing the shader mask to all-ones renders the std-material variants at <1%. Needs the Native proxy tile-mask (render-to-R32F + integer texelFetch) path fixed; node-material/Sponza/FrameGraph variants have additional issues beyond the mask.",
             "referenceImage": "Clustered-Lighting-rhs-std-nodematerial-.png"
         },
         {
             "title": "Clustered Lighting (rhs pbr nodematerial)",
             "playgroundId": "#CSCJO2#72",
             "excludeFromAutomaticTesting": true,
-            "reason": "Renders black on Native: clustered tile-mask proxy discards fragments by gl_FragCoord.y in WebGL bottom-left RTT convention, but Native D3D gl_FragCoord.y is top-left, so all proxy fragments fall outside their per-batch band and are discarded, giving an empty tile mask and no clustered contribution. Needs gl_FragCoord.y/RTT-orientation fix (V8 parses the snippet; not a Chakra issue).",
+            "reason": "Renders black on Native: the clustered tile-mask is empty. Root cause is the tile-mask WRITE, not gl_FragCoord.y. The lightProxy proxy mesh renders into an R32F RenderTargetTexture, but texelFetch(tileMaskTexture) reads 0 in the material pass even when the proxy fragment is forced to output a constant with no discard, so the proxy RTT render/integer-texelFetch readback path is broken on Native. The read/lighting path is correct: forcing the shader mask to all-ones renders the std-material variants at <1%. Needs the Native proxy tile-mask (render-to-R32F + integer texelFetch) path fixed; node-material/Sponza/FrameGraph variants have additional issues beyond the mask.",
             "referenceImage": "Clustered-Lighting-rhs-pbr-nodematerial-.png"
         },
         {
@@ -4575,7 +4575,7 @@
             "title": "FrameGraph nrge clustered lights",
             "playgroundId": "#1QCA2M#36",
             "excludeFromAutomaticTesting": true,
-            "reason": "Renders black on Native: clustered tile-mask proxy discards fragments by gl_FragCoord.y in WebGL bottom-left RTT convention, but Native D3D gl_FragCoord.y is top-left, so all proxy fragments fall outside their per-batch band and are discarded, giving an empty tile mask and no clustered contribution. Needs gl_FragCoord.y/RTT-orientation fix (V8 parses the snippet; not a Chakra issue).",
+            "reason": "Renders black on Native: the clustered tile-mask is empty. Root cause is the tile-mask WRITE, not gl_FragCoord.y. The lightProxy proxy mesh renders into an R32F RenderTargetTexture, but texelFetch(tileMaskTexture) reads 0 in the material pass even when the proxy fragment is forced to output a constant with no discard, so the proxy RTT render/integer-texelFetch readback path is broken on Native. The read/lighting path is correct: forcing the shader mask to all-ones renders the std-material variants at <1%. Needs the Native proxy tile-mask (render-to-R32F + integer texelFetch) path fixed; node-material/Sponza/FrameGraph variants have additional issues beyond the mask.",
             "referenceImage": "FrameGraph-nrge-clustered-lights.png"
         },
         {
@@ -4587,7 +4587,7 @@
             "title": "Clustered lights - debug markers",
             "playgroundId": "#1QCA2M#47",
             "excludeFromAutomaticTesting": true,
-            "reason": "Renders black on Native: clustered tile-mask proxy discards fragments by gl_FragCoord.y in WebGL bottom-left RTT convention, but Native D3D gl_FragCoord.y is top-left, so all proxy fragments fall outside their per-batch band and are discarded, giving an empty tile mask and no clustered contribution. Needs gl_FragCoord.y/RTT-orientation fix (V8 parses the snippet; not a Chakra issue).",
+            "reason": "Renders black on Native: the clustered tile-mask is empty. Root cause is the tile-mask WRITE, not gl_FragCoord.y. The lightProxy proxy mesh renders into an R32F RenderTargetTexture, but texelFetch(tileMaskTexture) reads 0 in the material pass even when the proxy fragment is forced to output a constant with no discard, so the proxy RTT render/integer-texelFetch readback path is broken on Native. The read/lighting path is correct: forcing the shader mask to all-ones renders the std-material variants at <1%. Needs the Native proxy tile-mask (render-to-R32F + integer texelFetch) path fixed; node-material/Sponza/FrameGraph variants have additional issues beyond the mask.",
             "referenceImage": "Clustered-lights---debug-markers.png"
         },
         {
