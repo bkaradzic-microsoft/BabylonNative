@@ -719,8 +719,6 @@
             "title": "OpenPBR Base Diffuse Roughness SH IBL",
             "playgroundId": "#MXACV7#32",
             "renderCount": 2,
-            "excludeFromAutomaticTesting": true,
-            "reason": "CDF renderer / IBL prefiltering fails with 'FLOAT' undefined",
             "referenceImage": "openpbr-base-diffuse-roughness-spherical-harmonics.png"
         },
         {
@@ -1680,8 +1678,6 @@
             "title": "Prefiltering Irradiance on load with CDF",
             "playgroundId": "#FEEK7G#1110",
             "renderCount": 5,
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
             "referenceImage": "prefilteringIrradianceCDF.png"
         },
         {
@@ -3545,22 +3541,16 @@
         {
             "title": "OpenPBR Thin Film Weight VS IOR - Furnace Test",
             "playgroundId": "#GRQHVV#199",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
             "referenceImage": "OpenPBR-Thin-Film-Weight-VS-IOR---Furnace-Test.png"
         },
         {
             "title": "OpenPBR Thin Film Thickness VS IOR - Furnace Test",
             "playgroundId": "#GRQHVV#200",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
             "referenceImage": "OpenPBR-Thin-Film-Thickness-VS-IOR---Furnace-Test.png"
         },
         {
             "title": "OpenPBR Thin Film Thickness VS IOR Metal - Furnace Test",
             "playgroundId": "#GRQHVV#201",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
             "referenceImage": "OpenPBR-Thin-Film-Thickness-VS-IOR-Metal---Furnace-Test.png"
         },
         {
@@ -3637,8 +3627,6 @@
         {
             "title": "OpenPBR Fuzz Weight vs Fuzz Roughness - Furnace Test",
             "playgroundId": "#GRQHVV#207",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
             "referenceImage": "OpenPBR-Fuzz-Weight-vs-Fuzz-Roughness---Furnace-Test.png"
         },
         {
