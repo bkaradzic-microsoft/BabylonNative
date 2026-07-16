@@ -1687,8 +1687,6 @@
             "title": "Realtime Filtering",
             "playgroundId": "#FEEK7G#118",
             "renderCount": 5,
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
             "referenceImage": "realtimeFiltering.png"
         },
         {
@@ -2042,7 +2040,7 @@
             "playgroundId": "#RJN64I#5",
             "renderCount": 1,
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
+            "reason": "Pixel diff ~18% in the parallax-corrected local-cubemap refraction region (background/environment matches). Native cube-face readback + SH now work; crash fixed. Remaining diff is a local-cubemap refraction correctness gap.",
             "referenceImage": "refraction-local-pbr.png"
         },
         {
