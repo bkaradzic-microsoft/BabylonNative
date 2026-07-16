@@ -1626,8 +1626,6 @@
             "title": "Realtime Filtering Irradiance",
             "playgroundId": "#FEEK7G#1089",
             "renderCount": 5,
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
             "referenceImage": "realtimeFilteringIrradiance.png"
         },
         {
@@ -1763,8 +1761,7 @@
             "title": "Prepass SSAO + depth of field",
             "playgroundId": "#8F5HYV#72",
             "renderCount": 10,
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
+            "errorRatio": 3.5,
             "referenceImage": "prepass-ssao-dof.png"
         },
         {
@@ -2342,9 +2339,7 @@
         {
             "title": "SerializeScene and ImportMesh with MorphTargetManager",
             "playgroundId": "#HPV2TZ#378",
-            "referenceImage": "SerializeScene-and-ImportMesh-with-MorphTargetManager.png",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel difference (~6,369 pixels) on Linux OpenGL after newly synced from Babylon.js."
+            "referenceImage": "SerializeScene-and-ImportMesh-with-MorphTargetManager.png"
         },
         {
             "title": "Vertex buffers with non aligned strides",
@@ -2543,9 +2538,7 @@
         {
             "title": "lens-flare",
             "playgroundId": "#KICG93#2",
-            "referenceImage": "lens-flare.png",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Newly added test fails: massive pixel difference (240k pixels off) on Linux Clang/GCC JSC, Win32 D3D11, and Sanitizers."
+            "referenceImage": "lens-flare.png"
         },
         {
             "title": "change-texture-of-material",
@@ -4404,22 +4397,17 @@
         {
             "title": "GPU Particles - Emitters - Hemisphere",
             "playgroundId": "#MRQTX7#0",
-            "excludeFromAutomaticTesting": true,
-            "reason": "GPUParticleSystem throws TypeError: Unable to get property 'ARRAY_BUFFER' of undefined or null reference (thrown before pixel comparison, not a pixel-diff)",
+            "errorRatio": 4,
             "referenceImage": "gpu-particles-emitters-hemisphere.png"
         },
         {
             "title": "GPU Particles - Emitters - Cylinder",
             "playgroundId": "#FGRJM1#0",
-            "excludeFromAutomaticTesting": true,
-            "reason": "GPUParticleSystem throws TypeError: Unable to get property 'ARRAY_BUFFER' of undefined or null reference (thrown before pixel comparison, not a pixel-diff)",
             "referenceImage": "gpu-particles-emitters-cylinder.png"
         },
         {
             "title": "GPU Particles - Emitters - Directed Cylinder",
             "playgroundId": "#40T8G0#0",
-            "excludeFromAutomaticTesting": true,
-            "reason": "GPUParticleSystem throws TypeError: Unable to get property 'ARRAY_BUFFER' of undefined or null reference (thrown before pixel comparison, not a pixel-diff)",
             "referenceImage": "gpu-particles-emitters-directed-cylinder.png"
         },
         {
