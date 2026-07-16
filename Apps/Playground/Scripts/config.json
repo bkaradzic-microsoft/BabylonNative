@@ -3700,9 +3700,7 @@
         {
             "title": "OpenPBR Transmission Scatter Anisotropy Reflect - Analytic Lights",
             "playgroundId": "#GRQHVV#268",
-            "referenceImage": "OpenPBR-Transmission-Scatter-Anisotropy-Reflect---Analytic-Lights.png",
-            "excludeFromAutomaticTesting": true,
-            "reason": "OpenPBR analytic-lights right-column spheres render saturated red where reference shows subsurface scattering (spirv-cross HLSL emit gap for OpenPBR Anisotropy/SSS BSDF)."
+            "referenceImage": "OpenPBR-Transmission-Scatter-Anisotropy-Reflect---Analytic-Lights.png"
         },
         {
             "title": "OpenPBR Transmission Scatter Roughness - Analytic Lights",
@@ -3728,9 +3726,7 @@
         {
             "title": "OpenPBR Subsurface Radius vs Anisotropy - Analytic Lights",
             "playgroundId": "#GRQHVV#272",
-            "referenceImage": "OpenPBR-Subsurface-Radius-vs-Anisotropy---Analytic-Lights.png",
-            "excludeFromAutomaticTesting": true,
-            "reason": "OpenPBR analytic-lights right-column spheres render saturated red where reference shows subsurface scattering (spirv-cross HLSL emit gap for OpenPBR Anisotropy/SSS BSDF)."
+            "referenceImage": "OpenPBR-Subsurface-Radius-vs-Anisotropy---Analytic-Lights.png"
         },
         {
             "title": "OpenPBR Subsurface Radius vs Radius Scale - IBL",
