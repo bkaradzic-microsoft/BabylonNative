@@ -2640,7 +2640,7 @@
             "playgroundId": "#8R5SSE#796",
             "renderCount": 15,
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
+            "reason": "Crash fixed (bgfx 8-color-attachment RTV overflow); now renders but voxel-grid soft shadows are under-occluded (~11% pixel diff)",
             "referenceImage": "voxelShadows.png"
         },
         {
@@ -2653,7 +2653,7 @@
             "playgroundId": "#8R5SSE#797",
             "renderCount": 15,
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
+            "reason": "Crash fixed (bgfx 8-color-attachment RTV overflow); now renders but voxel-grid soft shadows are under-occluded (~14% pixel diff)",
             "referenceImage": "voxelShadowsRightHanded.png"
         },
         {
@@ -2661,23 +2661,19 @@
             "playgroundId": "#8R5SSE#798",
             "renderCount": 15,
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
+            "reason": "Crash fixed (bgfx 8-color-attachment RTV overflow); now renders but voxel-grid soft shadows are under-occluded (~15% pixel diff)",
             "referenceImage": "voxelShadowsLeftHanded.png"
         },
         {
             "title": "IBL Screen-space Shadowing Left-Handed",
             "playgroundId": "#8R5SSE#799",
             "renderCount": 15,
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
             "referenceImage": "ssShadowsLeftHanded.png"
         },
         {
             "title": "IBL Screen-space Shadowing Right-Handed",
             "playgroundId": "#8R5SSE#800",
             "renderCount": 15,
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
             "referenceImage": "ssShadowsRightHanded.png"
         },
         {

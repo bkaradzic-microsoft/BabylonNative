@@ -1752,6 +1752,9 @@ namespace Babylon
         // single layer. bgfx::createTexture2D(width, height, hasMips, numLayers, ...) produces an array
         // texture when numLayers > 1, which the shader samples as a Texture2DArray/sampler2DArray.
         const uint16_t numLayers = (info.Length() > 9 && !info[9].IsUndefined()) ? static_cast<uint16_t>(info[9].As<Napi::Number>().Uint32Value()) : 1;
+        // Optional flag marking a 3D (volume) render target: info[9] is then reused as the volume depth.
+        // Rendered to one Z-slice at a time via per-slice framebuffers (IBL voxel grid + its mip chain).
+        const bool is3D = info.Length() > 10 && !info[10].IsUndefined() && info[10].As<Napi::Boolean>();
 
         auto flags = BGFX_TEXTURE_NONE;
         if (renderTarget)
@@ -1773,6 +1776,12 @@ namespace Babylon
         {
             // Cube render target: width is the per-face size.
             texture->CreateCube(width, hasMips, 1, format, flags);
+        }
+        else if (is3D)
+        {
+            // 3D (volume) render target: numLayers carries the depth. bgfx renders to a single Z-slice per
+            // framebuffer (see CreateFrameBufferImpl's layer attachment) and samples the volume as sampler3D.
+            texture->Create3D(width, height, numLayers > 0 ? numLayers : 1, hasMips, format, flags);
         }
         else
         {
@@ -2610,12 +2619,14 @@ namespace Babylon
         const uint32_t samples = info[5].IsUndefined() ? 1 : info[5].As<Napi::Number>().Uint32Value();
         // Optional cube-face / array layer for the color attachment (single-face cube render targets).
         const uint16_t layer = (info.Length() > 6 && !info[6].IsUndefined()) ? static_cast<uint16_t>(info[6].As<Napi::Number>().Uint32Value()) : 0;
+        // Optional mip level for the color attachment (IBL voxel-grid mip-copy renders into a specific mip).
+        const uint16_t mip = (info.Length() > 7 && !info[7].IsUndefined()) ? static_cast<uint16_t>(info[7].As<Napi::Number>().Uint32Value()) : 0;
 
         // A single render target is just the zero-or-one color attachment case of the shared implementation.
         Graphics::Texture* const colorTextures[]{texture};
         const gsl::span<Graphics::Texture* const> colorAttachments{colorTextures, texture != nullptr ? 1u : 0u};
 
-        return CreateFrameBufferImpl(info.Env(), colorAttachments, width, height, generateStencilBuffer, generateDepth, samples, layer);
+        return CreateFrameBufferImpl(info.Env(), colorAttachments, width, height, generateStencilBuffer, generateDepth, samples, layer, mip);
     }
 
     Napi::Value NativeEngine::CreateMultiFrameBuffer(const Napi::CallbackInfo& info)
@@ -2640,10 +2651,25 @@ namespace Babylon
             colorTextures[i] = colorTexturesArray.Get(i).As<Napi::Pointer<Graphics::Texture>>().Get();
         }
 
-        return CreateFrameBufferImpl(info.Env(), gsl::span<Graphics::Texture* const>{colorTextures.data(), colorCount}, width, height, generateStencilBuffer, generateDepth, samples);
+        // Optional per-attachment layer array: lets each color attachment target a distinct layer of a shared
+        // texture (IBL voxelization renders N draw buffers into N Z-slices of one 3D voxel grid).
+        std::array<uint16_t, 8> perAttachmentLayers{};
+        uint32_t layerCount = 0;
+        if (info.Length() > 6 && info[6].IsArray())
+        {
+            const auto layersArray = info[6].As<Napi::Array>();
+            const uint32_t rawLayerCount = layersArray.Length();
+            layerCount = rawLayerCount < static_cast<uint32_t>(perAttachmentLayers.size()) ? rawLayerCount : static_cast<uint32_t>(perAttachmentLayers.size());
+            for (uint32_t i = 0; i < layerCount; ++i)
+            {
+                perAttachmentLayers[i] = static_cast<uint16_t>(layersArray.Get(i).As<Napi::Number>().Uint32Value());
+            }
+        }
+
+        return CreateFrameBufferImpl(info.Env(), gsl::span<Graphics::Texture* const>{colorTextures.data(), colorCount}, width, height, generateStencilBuffer, generateDepth, samples, 0, 0, gsl::span<const uint16_t>{perAttachmentLayers.data(), layerCount});
     }
 
-    Napi::Value NativeEngine::CreateFrameBufferImpl(Napi::Env env, gsl::span<Graphics::Texture* const> colorTextures, uint16_t width, uint16_t height, bool generateStencilBuffer, bool generateDepth, uint32_t samples, uint16_t layer)
+    Napi::Value NativeEngine::CreateFrameBufferImpl(Napi::Env env, gsl::span<Graphics::Texture* const> colorTextures, uint16_t width, uint16_t height, bool generateStencilBuffer, bool generateDepth, uint32_t samples, uint16_t layer, uint16_t mip, gsl::span<const uint16_t> perAttachmentLayers)
     {
         const bgfx::Caps* caps = bgfx::getCaps();
         const uint32_t colorCount = static_cast<uint32_t>(colorTextures.size());
@@ -2666,8 +2692,12 @@ namespace Babylon
         // (b) create a readable depth attachment and alias it back into the supplied texture so it can be sampled.
         Graphics::Texture* depthStencilTextureRequest = nullptr;
 
+        uint32_t colorIndex = 0;
         for (Graphics::Texture* texture : colorTextures)
         {
+            const uint16_t attachmentLayer = (colorIndex < perAttachmentLayers.size()) ? perAttachmentLayers[colorIndex] : layer;
+            ++colorIndex;
+
             if (texture == nullptr)
             {
                 continue;
@@ -2684,7 +2714,9 @@ namespace Babylon
             // bgfx validation now asserts when trying to use BGFX_RESOLVE_AUTO_GEN_MIPS with a texture that doesn't have the BGFX_CAPS_FORMAT_TEXTURE_MIP_AUTOGEN flag,
             // but before it would just ignore the flag and not generate mips without any warning. This prevents validation assert, but rendering might be broken if autogen
             // mips were expected. Basically this change preserves previous behavior.
-            attachments[numAttachments++].init(texture->Handle(), bgfx::Access::Write, layer, 1, 0
+            // layer selects the cube face / array layer / 3D Z-slice; mip selects the target mip level
+            // (used by the IBL voxel-grid mip-copy pass, which renders into a specific volume mip).
+            attachments[numAttachments++].init(texture->Handle(), bgfx::Access::Write, attachmentLayer, 1, mip
                 , 0 != (caps->formats[texture->Format()] & BGFX_CAPS_FORMAT_TEXTURE_MIP_AUTOGEN) ? BGFX_RESOLVE_AUTO_GEN_MIPS : BGFX_RESOLVE_NONE
                 );
         }
@@ -3243,6 +3275,7 @@ namespace Babylon
     void NativeEngine::DrawInternal(bgfx::Encoder* encoder, uint32_t fillMode)
     {
         uint64_t fillModeState{0}; // indexed triangle list
+
         switch (fillMode)
         {
             case 0: // MATERIAL_TriangleFillMode
