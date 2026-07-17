@@ -77,6 +77,19 @@ namespace Babylon::Graphics
     {
         Dispose();
 
+        // bgfx's D3D11 backend classifies a texture as Texture3D only when its depth is > 1 (see
+        // renderer_d3d11.cpp: `else if (imageContainer.m_depth > 1) m_type = Texture3D;`). A depth-1
+        // volume (e.g. the IBL 1x1x1 dummy/empty voxel grid, or the smallest mip of a voxel mip chain)
+        // would otherwise be created as a Texture2D with a 2D shader-resource view. Binding such a view
+        // to a sampler3D slot triggers a D3D "SRV dimension (TEXTURE3D) does not match TEXTURE2D"
+        // error and a driver access violation on the following texelFetch/textureSize. Pad the depth to
+        // a minimum of 2 so bgfx always creates a genuine 3D texture (the extra slice is never sampled
+        // for content-bearing volumes and is harmless for placeholders).
+        if (depth < 2)
+        {
+            depth = 2;
+        }
+
         m_handle = bgfx::createTexture3D(width, height, depth, hasMips, format, flags);
         if (!bgfx::isValid(m_handle))
         {
