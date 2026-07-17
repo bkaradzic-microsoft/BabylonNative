@@ -232,7 +232,7 @@
             "playgroundId": "#WCDZS#531",
             "renderCount": 150,
             "referenceImage": "sps.png",
-            "errorRatio": 6.0
+            "errorRatio": 6
         },
         {
             "title": "LightFalloff",
@@ -255,7 +255,7 @@
             "renderCount": 10,
             "playgroundId": "#FFMFW5#0",
             "referenceImage": "lod.png",
-            "errorRatio": 7.0
+            "errorRatio": 7
         },
         {
             "title": "Capsule",
@@ -267,7 +267,9 @@
             "title": "Fresnel",
             "playgroundId": "#603JUZ#1",
             "referenceImage": "fresnel.png",
-            "excludedGraphicsApis": ["OpenGL"],
+            "excludedGraphicsApis": [
+                "OpenGL"
+            ],
             "reason": "Cascade crash resolved; passes on Win32 D3D11. Pixel diff fail on Linux OpenGL."
         },
         {
@@ -309,7 +311,9 @@
             "playgroundId": "#W7E7CF#34",
             "replace": "//options//, hardwareScalingLevel = 0.9;",
             "referenceImage": "scissor-test-2.png",
-            "excludedGraphicsApis": ["OpenGL"],
+            "excludedGraphicsApis": [
+                "OpenGL"
+            ],
             "reason": "State-leak cascade fixed in validation_native.js (stencil/scissor reset between tests); pixel diff fail on Linux OpenGL (56223 px) under 0.9 hardware scaling; passes on Win32 D3D11."
         },
         {
@@ -442,21 +446,21 @@
             "playgroundId": "#DS8AA7#27",
             "replace": "__folder__, Material_SpecularGlossiness, __page__, 1, __disableSRGBBuffers__, 0",
             "referenceImage": "gltfMaterialSpecularGlossiness1.png",
-            "errorRatio": 5.0
+            "errorRatio": 5
         },
         {
             "title": "GLTF Mesh Primitive Mode (0)",
             "playgroundId": "#DS8AA7#27",
             "replace": "__folder__, Mesh_PrimitiveMode, __page__, 0, __disableSRGBBuffers__, 0",
             "referenceImage": "gltfMeshPrimitiveMode0.png",
-            "errorRatio": 8.0
+            "errorRatio": 8
         },
         {
             "title": "GLTF Mesh Primitive Mode (1)",
             "playgroundId": "#DS8AA7#27",
             "replace": "__folder__, Mesh_PrimitiveMode, __page__, 1, __disableSRGBBuffers__, 0",
             "referenceImage": "gltfMeshPrimitiveMode1.png",
-            "errorRatio": 8.0
+            "errorRatio": 8
         },
         {
             "title": "GLTF Mesh Primitives",
@@ -804,7 +808,9 @@
         },
         {
             "title": "Convolution Post Process",
-            "excludedGraphicsApis": ["Metal"],
+            "excludedGraphicsApis": [
+                "Metal"
+            ],
             "reason": "Metal: pixel comparison against the reference image fails on macOS.",
             "playgroundId": "#FBH4J7#281",
             "referenceImage": "convolution.png"
@@ -1051,7 +1057,9 @@
             "title": "GUI Near Menu",
             "playgroundId": "#2YZFA0#302",
             "renderCount": 60,
-            "excludedGraphicsApis": ["OpenGL"],
+            "excludedGraphicsApis": [
+                "OpenGL"
+            ],
             "reason": "OpenGL: BGFX FATAL shader compile error in GUI fragment shader ('=' : cannot convert from 'highp float' to 'bool'). Re-enabled on D3D11 post BabylonJS/BabylonNative#1695 (original 'V8 D3D11 crash' no longer reproduces under Chakra; original 'hangs on OpenGL' is now this clean shader-compile failure surfaced by the BabylonJS/BabylonNative#1688 BgfxCallback).",
             "referenceImage": "guiNearMenu.png"
         },
@@ -1136,7 +1144,9 @@
             "title": "Fresnel",
             "playgroundId": "#603JUZ#3",
             "referenceImage": "fresnel.png",
-            "excludedGraphicsApis": ["OpenGL"],
+            "excludedGraphicsApis": [
+                "OpenGL"
+            ],
             "reason": "Cascade crash resolved; passes on Win32 D3D11. Pixel diff fail on Linux OpenGL."
         },
         {
@@ -1150,7 +1160,9 @@
         {
             "title": "Area Lights - Standard Material",
             "playgroundId": "#T7FXR8#67",
-            "excludedGraphicsApis": ["OpenGL"],
+            "excludedGraphicsApis": [
+                "OpenGL"
+            ],
             "reason": "Renders black on Linux desktop OpenGL (area-light LTC path unsupported); passes on Win32 D3D11.",
             "referenceImage": "areaLightsStandardMaterial.png"
         },
@@ -1162,14 +1174,18 @@
         {
             "title": "Textured - Area Lights - PBR",
             "playgroundId": "#T7FXR8#102",
-            "excludedGraphicsApis": ["OpenGL"],
+            "excludedGraphicsApis": [
+                "OpenGL"
+            ],
             "reason": "whenReadyAsync ready-timeout resolved; passes on Win32 D3D11. Area-light LTC path renders black on Linux OpenGL.",
             "referenceImage": "texturedAreaLightsPBR.png"
         },
         {
             "title": "Area Lights - PBR",
             "playgroundId": "#T7FXR8#12",
-            "excludedGraphicsApis": ["OpenGL"],
+            "excludedGraphicsApis": [
+                "OpenGL"
+            ],
             "reason": "Renders black on Linux desktop OpenGL (area-light LTC path unsupported); passes on Win32 D3D11.",
             "referenceImage": "areaLightsPBRMaterial.png"
         },
@@ -1319,7 +1335,9 @@
         {
             "title": "GLTF Serializer KHR gpu instancing",
             "playgroundId": "#1Q2BWN#10",
-            "excludedGraphicsApis": ["OpenGL"],
+            "excludedGraphicsApis": [
+                "OpenGL"
+            ],
             "reason": "Pixel diff 3.4% on OpenGL backend (Linux JSC); passes on D3D11.",
             "referenceImage": "glTFSerializerKhrGpuInstancing.png"
         },
@@ -1338,7 +1356,9 @@
         {
             "title": "GLTF Serializer Camera, left-handed",
             "playgroundId": "#O0M0J9#25",
-            "excludedGraphicsApis": ["OpenGL"],
+            "excludedGraphicsApis": [
+                "OpenGL"
+            ],
             "reason": "Camera roundtrip diverges on OpenGL backend (Linux JSC), 21% pixel diff; passes on D3D11.",
             "replace": "//options//, roundtripCount = 1; useRightHandedSystem = false;",
             "referenceImage": "glTFSerializerCameraLeftHand.png"
@@ -1346,7 +1366,9 @@
         {
             "title": "GLTF Serializer Camera, right-handed",
             "playgroundId": "#O0M0J9#25",
-            "excludedGraphicsApis": ["OpenGL"],
+            "excludedGraphicsApis": [
+                "OpenGL"
+            ],
             "reason": "Camera roundtrip diverges on OpenGL backend; passes on D3D11.",
             "replace": "//options//, roundtripCount = 1; useRightHandedSystem = true;",
             "referenceImage": "glTFSerializerCameraRightHand.png"
@@ -1354,7 +1376,9 @@
         {
             "title": "GLTF Serializer Camera, left-handed, round trip twice",
             "playgroundId": "#O0M0J9#25",
-            "excludedGraphicsApis": ["OpenGL"],
+            "excludedGraphicsApis": [
+                "OpenGL"
+            ],
             "reason": "Camera roundtrip diverges on OpenGL backend; passes on D3D11.",
             "replace": "//options//, roundtripCount = 2; useRightHandedSystem = false;",
             "referenceImage": "glTFSerializerCameraLeftHand.png"
@@ -1362,7 +1386,9 @@
         {
             "title": "GLTF Serializer Camera, right-handed, round trip twice",
             "playgroundId": "#O0M0J9#25",
-            "excludedGraphicsApis": ["OpenGL"],
+            "excludedGraphicsApis": [
+                "OpenGL"
+            ],
             "reason": "Camera roundtrip diverges on OpenGL backend; passes on D3D11.",
             "replace": "//options//, roundtripCount = 2; useRightHandedSystem = true;",
             "referenceImage": "glTFSerializerCameraRightHand.png"
@@ -1779,7 +1805,9 @@
         {
             "title": "Prepass SSAO + sprites",
             "playgroundId": "#9RI8CG#187",
-            "excludedGraphicsApis": ["OpenGL"],
+            "excludedGraphicsApis": [
+                "OpenGL"
+            ],
             "reason": "OpenGL: BGFX FATAL shader compile error (mediump float vs int conversion in PrePassRenderer fragment shader). Fixable separately; tracked for OpenGL backend follow-up.",
             "renderCount": 10,
             "referenceImage": "prepass-ssao-sprites.png"
@@ -1803,7 +1831,9 @@
         {
             "title": "Prepass SSAO + line edges renderer",
             "playgroundId": "#T90MQ4#3",
-            "excludedGraphicsApis": ["OpenGL"],
+            "excludedGraphicsApis": [
+                "OpenGL"
+            ],
             "reason": "OpenGL: BGFX FATAL shader compile error (mediump float vs int conversion in PrePassRenderer fragment shader). Fixable separately; tracked for OpenGL backend follow-up.",
             "renderCount": 10,
             "referenceImage": "prepass-ssao-line-edges.png"
@@ -1916,7 +1946,9 @@
             "playgroundId": "#W7E7CF#38",
             "replace": "//options//, hardwareScalingLevel = 0.9;",
             "referenceImage": "scissor-test-2.png",
-            "excludedGraphicsApis": ["OpenGL"],
+            "excludedGraphicsApis": [
+                "OpenGL"
+            ],
             "reason": "State-leak cascade fixed in validation_native.js (stencil/scissor reset between tests); pixel diff fail on Linux OpenGL (56223 px) under 0.9 hardware scaling; passes on Win32 D3D11."
         },
         {
@@ -2383,7 +2415,9 @@
             "title": "Command encoder order in WebGPU 2",
             "playgroundId": "#CMH5VF#7",
             "referenceImage": "CommandEncodedWebGPU2.png",
-            "excludedGraphicsApis": ["OpenGL"],
+            "excludedGraphicsApis": [
+                "OpenGL"
+            ],
             "reason": "Passes on Win32 D3D11; ASSERT/crash (exit 133) on Linux OpenGL after Babylon.js sync."
         },
         {
@@ -2423,7 +2457,9 @@
         {
             "title": "sphere-with-custom-shader-to-display-wireframe-using-glow-layer",
             "playgroundId": "#Y05E2C#6",
-            "excludedGraphicsApis": ["OpenGL"],
+            "excludedGraphicsApis": [
+                "OpenGL"
+            ],
             "reason": "OpenGL: pixel diff out of tolerance (90900 px) -- likely glow-layer + custom-shader interaction differs from D3D11. Tracked for OpenGL backend follow-up.",
             "renderCount": 5,
             "referenceImage": "sphere-with-custom-shader-to-display-wireframe-using-glow-layer.png"
@@ -2681,8 +2717,6 @@
         {
             "title": "FrameGraph nrge shadows",
             "playgroundId": "#JWKDME#185",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Test crashes or hangs on Babylon Native",
             "referenceImage": "FrameGraph-nrge-shadows.png"
         },
         {
@@ -2703,8 +2737,6 @@
         {
             "title": "FrameGraph nrge custom rendering",
             "playgroundId": "#1QCA2M#35",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
             "referenceImage": "FrameGraph-nrge-custom-rendering.png"
         },
         {
@@ -2724,8 +2756,6 @@
         {
             "title": "FrameGraph nrge highlight layer",
             "playgroundId": "#QZYNMK#3",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
             "referenceImage": "FrameGraph-nrge-highlight-layer.png"
         },
         {
@@ -2859,8 +2889,6 @@
         {
             "title": "FrameGraph nrg gui bloom",
             "playgroundId": "#3LB017#3",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
             "referenceImage": "FrameGraph-nrg-gui-bloom.png"
         },
         {
@@ -2873,8 +2901,6 @@
         {
             "title": "FrameGraph highlight layer",
             "playgroundId": "#PV8OLY#33",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
             "referenceImage": "FrameGraph-highlight-layer.png"
         },
         {
@@ -2894,8 +2920,6 @@
         {
             "title": "FrameGraph image processing",
             "playgroundId": "#PV8OLY#34",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
             "referenceImage": "FrameGraph-image-processing.png"
         },
         {
@@ -2925,8 +2949,6 @@
         {
             "title": "FrameGraph convolution post process",
             "playgroundId": "#SYQW69#1365",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
             "referenceImage": "FrameGraph-convolution-post-process.png"
         },
         {
@@ -2946,8 +2968,6 @@
         {
             "title": "FrameGraph custom post process",
             "playgroundId": "#R33LVG#5",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
             "referenceImage": "FrameGraph-custom-post-process.png"
         },
         {
@@ -3463,14 +3483,18 @@
         {
             "title": "OpenPBR Thin Film Weight VS IOR - Analytic Lights",
             "playgroundId": "#GRQHVV#87",
-            "excludedGraphicsApis": ["OpenGL"],
+            "excludedGraphicsApis": [
+                "OpenGL"
+            ],
             "reason": "Thin-film renders as background on Linux desktop OpenGL (28798 px diff); passes on Win32 D3D11.",
             "referenceImage": "OpenPBR-Thin-Film-Weight-VS-IOR---Analytic-Lights.png"
         },
         {
             "title": "OpenPBR Thin Film Thickness VS IOR - Analytic Lights",
             "playgroundId": "#GRQHVV#88",
-            "excludedGraphicsApis": ["OpenGL"],
+            "excludedGraphicsApis": [
+                "OpenGL"
+            ],
             "reason": "Thin-film renders as background on Linux desktop OpenGL; passes on Win32 D3D11.",
             "referenceImage": "OpenPBR-Thin-Film-Thickness-VS-IOR---Analytic-Lights.png"
         },
@@ -3499,14 +3523,18 @@
         {
             "title": "OpenPBR Thin Film and Specular Weight - Analytic Lights",
             "playgroundId": "#GRQHVV#95",
-            "excludedGraphicsApis": ["OpenGL"],
+            "excludedGraphicsApis": [
+                "OpenGL"
+            ],
             "reason": "Thin-film renders as background on Linux desktop OpenGL; passes on Win32 D3D11.",
             "referenceImage": "OpenPBR-Thin-Film-and-Specular-Weight---Analytic-Lights.png"
         },
         {
             "title": "OpenPBR Thin Film and Specular Weight Metals - Analytic Lights",
             "playgroundId": "#GRQHVV#96",
-            "excludedGraphicsApis": ["OpenGL"],
+            "excludedGraphicsApis": [
+                "OpenGL"
+            ],
             "reason": "Thin-film renders as background on Linux desktop OpenGL; passes on Win32 D3D11.",
             "referenceImage": "OpenPBR-Thin-Film-and-Specular-Weight-Metals---Analytic-Lights.png"
         },
@@ -3541,14 +3569,18 @@
         },
         {
             "title": "OpenPBR Fuzz Weight vs Fuzz Roughness - Analytic Lights",
-            "excludedGraphicsApis": ["Metal"],
+            "excludedGraphicsApis": [
+                "Metal"
+            ],
             "reason": "Metal: pixel comparison against the reference image fails on macOS.",
             "playgroundId": "#GRQHVV#112",
             "referenceImage": "OpenPBR-Fuzz-Weight-vs-Fuzz-Roughness---Analytic-Lights.png"
         },
         {
             "title": "OpenPBR Fuzz Weight vs Coat Weight with Normal Maps - Analytic Lights",
-            "excludedGraphicsApis": ["Metal"],
+            "excludedGraphicsApis": [
+                "Metal"
+            ],
             "reason": "Metal: pixel comparison against the reference image fails on macOS.",
             "playgroundId": "#GRQHVV#109",
             "referenceImage": "OpenPBR-Fuzz-Weight-vs-Coat-Weight-with-Normal-Maps---Analytic-Lights.png"
