@@ -2572,9 +2572,7 @@
             "title": "Render to 3D RT",
             "playgroundId": "#XSNYAU#83",
             "renderCount": 5,
-            "referenceImage": "Render to 3D RT.png",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Test fails locally on Win32 D3D11 sweep; disabled until BabylonNative fixes are made."
+            "referenceImage": "Render to 3D RT.png"
         },
         {
             "title": "Shadows in RHS mode",
