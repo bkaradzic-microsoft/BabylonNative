@@ -523,10 +523,18 @@ namespace Babylon::Graphics
 
         std::unique_lock lock{m_frameSyncMutex};
 
-        // Only request a flush while a frame is actually open (gate not blocked);
-        // otherwise the render thread is not waiting to service the request and the
-        // JS thread would block indefinitely.
-        if (m_frameBlocked)
+        // The mid-frame flush advances a bgfx frame on the render thread, which
+        // can only be serviced while the render thread is parked in
+        // FinishRenderingCurrentFrame waiting for frame scopes to drain. That is
+        // only guaranteed while at least one FrameCompletionScope is active (the
+        // normal requestAnimationFrame render path). When a snippet drives frames
+        // manually (e.g. setInterval + engine.beginFrame/scene.render/
+        // engine.endFrame) there is no frame scope, the render thread is not
+        // parked to service the request, and parking the JS thread on
+        // m_flushCompleteCV would deadlock. Skip the flush in that case; the hard
+        // cap in AcquireNewViewId remains as a backstop. Likewise skip if the gate
+        // is currently closed (bgfx::frame() in progress).
+        if (m_frameBlocked || m_pendingFrameScopes == 0)
         {
             return;
         }

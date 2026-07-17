@@ -1103,8 +1103,6 @@
             "title": "Particle Helper",
             "playgroundId": "#1VGT5D#2",
             "renderCount": 50,
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel diff after #1691 instance-data stride fix; not stride-related, needs follow-up.",
             "referenceImage": "particle-helper.png"
         },
         {
@@ -1555,9 +1553,7 @@
             "title": "MultiSample render targets",
             "playgroundId": "#12MKMN#0",
             "renderCount": 20,
-            "referenceImage": "MultiSample-render-targets.png",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Disabled to land sync PR; newly-added test in cascade path of Win32 V8 D3D11 ACCESS_VIOLATION (-1073741819). Will be re-enabled in follow-up fix PR."
+            "referenceImage": "MultiSample-render-targets.png"
         },
         {
             "title": "Default rendering pipeline",
@@ -4178,16 +4174,12 @@
             "title": "Particles - Billboard False",
             "playgroundId": "#XWG0HV#4",
             "renderCount": 120,
-            "referenceImage": "particles-billboard-false.png",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel diff after #1691 instance-data stride fix; not stride-related, needs follow-up."
+            "referenceImage": "particles-billboard-false.png"
         },
         {
             "title": "Particles - Multiply Blend",
             "playgroundId": "#M1HYFH#6",
             "renderCount": 120,
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
             "referenceImage": "particles-multiply-blend.png"
         },
         {
@@ -4221,8 +4213,6 @@
             "title": "Particles - Helper - Fire",
             "playgroundId": "#I2D9MM#18",
             "renderCount": 120,
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
             "referenceImage": "particles-helper-fire.png"
         },
         {

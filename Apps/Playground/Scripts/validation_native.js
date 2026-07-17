@@ -425,11 +425,35 @@
                             currentScene = eval(code + "\r\ncreateScene(engine)");
 
                             if (currentScene.then) {
-                                // Handle if createScene returns a promise
+                                // Handle if createScene returns a promise. Guard against a
+                                // snippet whose promise never resolves (e.g. a scene whose
+                                // utility-layer executeWhenReady never fires on Native): the
+                                // onReadyTimeout safety net lives inside processCurrentScene
+                                // and only applies AFTER the promise resolves, so without this
+                                // a pending createScene promise hangs the whole suite. Mirror
+                                // onReadyTimeoutDuration and convert it to a fast failure.
+                                // Note: this only fires if the JS event loop keeps running; a
+                                // snippet that blocks the JS thread natively (e.g. manual
+                                // setInterval frame-driving) is not rescued by this.
+                                let sceneSettled = false;
+                                const createSceneTimeoutMs = 10 * 60 * 1000;
+                                const createSceneTimeoutId = setTimeout(function () {
+                                    if (sceneSettled) { return; }
+                                    sceneSettled = true;
+                                    console.error("createScene promise for " + test.playgroundId +
+                                        " did not resolve within " + (createSceneTimeoutMs / 1000) + "s.");
+                                    failTest(done);
+                                }, createSceneTimeoutMs);
                                 currentScene.then(function (scene) {
+                                    if (sceneSettled) { return; }
+                                    sceneSettled = true;
+                                    clearTimeout(createSceneTimeoutId);
                                     currentScene = scene;
                                     processCurrentScene(test, referenceImage, done, compareFunction);
                                 }).catch(function (e) {
+                                    if (sceneSettled) { return; }
+                                    sceneSettled = true;
+                                    clearTimeout(createSceneTimeoutId);
                                     console.error(e);
                                     failTest(done);
                                 });
