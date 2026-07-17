@@ -32,6 +32,9 @@ namespace Playground
 
     void LoadBootstrapScripts(Babylon::Embedding::Runtime& runtime)
     {
+        // Environment shims (global/name) must run before any Babylon bundle so
+        // that UMD side-bundles can merge into BABYLON and snippets see `name`.
+        runtime.LoadScript("app:///Scripts/native_env.js");
         runtime.LoadScript("app:///Scripts/ammo.js");
         // Commenting out recast.js for now because v8jsi is incompatible with asm.js.
         // runtime.LoadScript("app:///Scripts/recast.js");
@@ -41,8 +44,12 @@ namespace Playground
         runtime.LoadScript("app:///Scripts/babylonjs.addons.js");
         runtime.LoadScript("app:///Scripts/babylonjs.loaders.js");
         runtime.LoadScript("app:///Scripts/babylonjs.materials.js");
+        // Procedural-textures library (Fire/Wood/Marble/... ProceduralTexture).
+        runtime.LoadScript("app:///Scripts/babylonjs.proceduralTextures.js");
         runtime.LoadScript("app:///Scripts/babylon.gui.js");
         runtime.LoadScript("app:///Scripts/meshwriter.min.js");
+        // earcut polygon triangulation, used by MeshBuilder.CreateText and others.
+        runtime.LoadScript("app:///Scripts/earcut.min.js");
         runtime.LoadScript("app:///Scripts/babylonjs.serializers.js");
     }
 

@@ -900,8 +900,6 @@
         {
             "title": "MeshBuilder.CreateText",
             "playgroundId": "#6I2RMN#2",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
             "referenceImage": "createText.png"
         },
         {
@@ -2108,8 +2106,6 @@
             "title": "DepthRenderer rhs",
             "playgroundId": "#1PHYB0#138",
             "renderCount": 5,
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
             "referenceImage": "depthRendererRHS.png"
         },
         {
@@ -2434,8 +2430,6 @@
         {
             "title": "water-material",
             "playgroundId": "#EUH2VL#1",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
             "referenceImage": "water-material.png"
         },
         {
@@ -2561,8 +2555,6 @@
             "title": "depth-renderer",
             "playgroundId": "#1PHYB0#112",
             "renderCount": 5,
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
             "referenceImage": "depth-renderer.png"
         },
         {

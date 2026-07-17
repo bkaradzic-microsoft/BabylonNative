@@ -14,6 +14,9 @@ set(DEPENDENCIES
     "../Dependencies/recast.js")
 
 set(SCRIPTS
+    "Scripts/native_env.js"
+    "Scripts/babylonjs.proceduralTextures.js"
+    "Scripts/earcut.min.js"
     "Scripts/experience.js"
     "Scripts/playground_runner.js"
     "Scripts/validation_native.js"
