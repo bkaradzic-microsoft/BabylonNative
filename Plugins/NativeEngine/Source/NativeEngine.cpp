@@ -3316,7 +3316,15 @@ namespace Babylon
                 for (const auto& instance : instances)
                 {
                     const bgfx::Attrib::Enum attrib = instance.first;
-                    if (attrib < bgfx::Attrib::TexCoord3)
+                    // Reroute every consumer-instanced attribute that was compiled to a real
+                    // per-vertex bgfx Attrib slot (Position..TexCoord7, i.e. < Attrib::Count).
+                    // Named i_data attributes (world0-3, splatIndex*, etc.) are assigned synthetic
+                    // locations at/above kInstanceLocationBase (>= 44), so they compare >= Count and
+                    // are correctly skipped here since they are already delivered as instance data.
+                    // Using the earlier TexCoord3 boundary dropped generic instanced attributes at
+                    // TexCoord3..TexCoord7 (e.g. sprite cellInfo -> TexCoord3), leaving them reading
+                    // per-vertex garbage even though BuildInstanceDataBuffer still packed them.
+                    if (attrib < bgfx::Attrib::Count)
                     {
                         const size_t rank = count - 1 - ascendingIndex;
                         const uint32_t targetLocation = kInstanceLocationBase - static_cast<uint32_t>(rank);

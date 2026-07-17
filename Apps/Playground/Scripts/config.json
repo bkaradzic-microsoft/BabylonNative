@@ -646,29 +646,21 @@
         {
             "title": "MSDF",
             "playgroundId": "#6RLCWP#20",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
             "referenceImage": "msdf.png"
         },
         {
             "title": "MSDF Screen projected",
             "playgroundId": "#6RLCWP#48",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
             "referenceImage": "msdf-projected.png"
         },
         {
             "title": "MSDF Billboard",
             "playgroundId": "#6RLCWP#23",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
             "referenceImage": "msdf-billboard.png"
         },
         {
             "title": "MSDF Stroke",
             "playgroundId": "#6RLCWP#41",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
             "referenceImage": "msdf-stroke.png"
         },
         {
