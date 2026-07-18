@@ -1214,9 +1214,7 @@
         {
             "title": "Displacement map",
             "playgroundId": "#WZ8JL4#0",
-            "referenceImage": "displacementMap.png",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Disabled to land sync PR; newly-added test in cascade path of Win32 V8 D3D11 ACCESS_VIOLATION (-1073741819). Will be re-enabled in follow-up fix PR."
+            "referenceImage": "displacementMap.png"
         },
         {
             "title": "Custom render target",
