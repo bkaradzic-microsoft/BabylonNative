@@ -2827,8 +2827,6 @@
         {
             "title": "FrameGraph nrge multi-render targets",
             "playgroundId": "#XSNYAU#160",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Test crashes or hangs on Babylon Native",
             "referenceImage": "FrameGraph-nrge-multi-render-targets.png"
         },
         {
@@ -2947,8 +2945,6 @@
         {
             "title": "FrameGraph multi-render targets",
             "playgroundId": "#XSNYAU#165",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
             "referenceImage": "FrameGraph-multi-render-targets.png"
         },
         {
