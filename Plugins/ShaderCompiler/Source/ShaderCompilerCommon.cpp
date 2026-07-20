@@ -72,12 +72,21 @@ namespace Babylon::ShaderCompilerCommon
         }
     }
 
-    void AppendSamplers(std::vector<uint8_t>& bytes, const spirv_cross::Compiler& compiler, const spirv_cross::SmallVector<spirv_cross::Resource>& samplers, std::map<std::string, uint8_t>& stages)
+    void AppendSamplers(std::vector<uint8_t>& bytes, const spirv_cross::Compiler& compiler, const spirv_cross::ParsedIR& originalIr, const spirv_cross::SmallVector<spirv_cross::Resource>& samplers, std::map<std::string, uint8_t>& stages)
     {
         for (const spirv_cross::Resource& sampler : samplers)
         {
-            AppendBytes(bytes, static_cast<uint8_t>(sampler.name.size()));
-            AppendBytes(bytes, sampler.name);
+            // SPIRV-Cross's HLSL/MSL backends rename resources whose name collides with a reserved
+            // keyword of the target language (e.g. a GLSL sampler named "Texture2D" or "Texture2DArray"
+            // becomes "_Texture2D" because those are HLSL built-in object types). bgfx's uniform table
+            // and Babylon.js look samplers up by their original GLSL name, so the renamed identifier would
+            // never bind (the sampler silently samples nothing). Recover the pre-transpile name from the
+            // parser's ParsedIR (the Compiler transpiles a private copy, leaving the parser's names intact).
+            const std::string& originalName = originalIr.get_name(sampler.id);
+            const std::string& name = originalName.empty() ? sampler.name : originalName;
+
+            AppendBytes(bytes, static_cast<uint8_t>(name.size()));
+            AppendBytes(bytes, name);
             AppendBytes(bytes, static_cast<uint8_t>(bgfx::UniformType::Sampler | BGFX_UNIFORM_SAMPLERBIT));
 
             // TODO : These values (num, regIndex, regCount) are only used by Vulkan and should be set for that API
@@ -88,9 +97,9 @@ namespace Babylon::ShaderCompilerCommon
 #if OPENGL
             BX_UNUSED(compiler);
             const auto stage{static_cast<uint8_t>(stages.size())};
-            stages[sampler.name] = stage;
+            stages[name] = stage;
 #else
-            stages[sampler.name] = static_cast<uint8_t>(compiler.get_decoration(sampler.id, spv::DecorationBinding));
+            stages[name] = static_cast<uint8_t>(compiler.get_decoration(sampler.id, spv::DecorationBinding));
 #endif
         }
     }
@@ -269,7 +278,7 @@ namespace Babylon::ShaderCompilerCommon
 
             AppendBytes(vertexBytes, static_cast<uint16_t>(numUniforms));
             AppendUniformBuffer(vertexBytes, uniformsInfo, false);
-            AppendSamplers(vertexBytes, compiler, samplers, bgfxShaderInfo.UniformStages);
+            AppendSamplers(vertexBytes, compiler, vertexShaderInfo.Parser->get_parsed_ir(), samplers, bgfxShaderInfo.UniformStages);
 
             AppendBytes(vertexBytes, static_cast<uint32_t>(vertexShaderInfo.Bytes.size()));
             AppendBytes(vertexBytes, vertexShaderInfo.Bytes);
@@ -310,7 +319,7 @@ namespace Babylon::ShaderCompilerCommon
 
             AppendBytes(fragmentBytes, static_cast<uint16_t>(numUniforms));
             AppendUniformBuffer(fragmentBytes, uniformsInfo, true);
-            AppendSamplers(fragmentBytes, compiler, samplers, bgfxShaderInfo.UniformStages);
+            AppendSamplers(fragmentBytes, compiler, fragmentShaderInfo.Parser->get_parsed_ir(), samplers, bgfxShaderInfo.UniformStages);
 
             AppendBytes(fragmentBytes, static_cast<uint32_t>(fragmentShaderInfo.Bytes.size()));
             AppendBytes(fragmentBytes, fragmentShaderInfo.Bytes);
@@ -356,7 +365,7 @@ namespace Babylon::ShaderCompilerCommon
 
         AppendBytes(computeBytes, static_cast<uint16_t>(numUniforms));
         AppendUniformBuffer(computeBytes, uniformsInfo, false);
-        AppendSamplers(computeBytes, compiler, samplers, bgfxShaderInfo.UniformStages);
+        AppendSamplers(computeBytes, compiler, computeShaderInfo.Parser->get_parsed_ir(), samplers, bgfxShaderInfo.UniformStages);
 
         AppendBytes(computeBytes, static_cast<uint32_t>(computeShaderInfo.Bytes.size()));
         AppendBytes(computeBytes, computeShaderInfo.Bytes);
