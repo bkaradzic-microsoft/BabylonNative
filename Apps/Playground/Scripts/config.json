@@ -2745,8 +2745,6 @@
         {
             "title": "FrameGraph nrge SSR neon",
             "playgroundId": "#Z6C5EF#5",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Test crashes or hangs on Babylon Native",
             "referenceImage": "FrameGraph-nrge-SSR-neon.png"
         },
         {
@@ -2896,24 +2894,18 @@
             "title": "FrameGraph motion blur screen based",
             "playgroundId": "#YB006J#787",
             "renderCount": 10,
-            "excludeFromAutomaticTesting": true,
-            "reason": "Test crashes or hangs on Babylon Native",
             "referenceImage": "FrameGraph-motion-blur-screen-based.png"
         },
         {
             "title": "FrameGraph motion blur object based",
             "playgroundId": "#YB006J#788",
             "renderCount": 10,
-            "excludeFromAutomaticTesting": true,
-            "reason": "Test crashes or hangs on Babylon Native",
             "referenceImage": "FrameGraph-motion-blur-object-based.png"
         },
         {
             "title": "FrameGraph motion blur skinned",
             "playgroundId": "#YB006J#789",
             "renderCount": 40,
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
             "referenceImage": "FrameGraph-motion-blur-skinned.png"
         },
         {

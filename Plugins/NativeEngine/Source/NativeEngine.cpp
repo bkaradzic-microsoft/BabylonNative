@@ -1766,6 +1766,17 @@ namespace Babylon
             // making bgfx::createFrameBuffer reject the frame buffer ("Mismatch in texture sample count").
             const uint64_t msaaFlag = RenderTargetSamplesToBgfxMsaaFlag(samples);
             flags |= (msaaFlag != BGFX_TEXTURE_NONE) ? msaaFlag : BGFX_TEXTURE_RT;
+
+            // A multisampled depth render target that is later attached to a framebuffer (e.g. the FrameGraph
+            // geometry-buffer depth, shared between the standalone depth-clear pass and the geometry MRT) must
+            // be flagged BGFX_TEXTURE_MSAA_SAMPLE. bgfx rejects a framebuffer whose MSAA depth attachment is
+            // neither write-only nor MSAA-sampleable, because a multisampled depth buffer cannot be resolved to
+            // a single-sample texture. bgfx's depth formats (D16..D0S8) form one contiguous enum block.
+            const bool isDepthFormat = (format >= bgfx::TextureFormat::D16 && format <= bgfx::TextureFormat::D0S8);
+            if (msaaFlag != BGFX_TEXTURE_NONE && isDepthFormat)
+            {
+                flags |= BGFX_TEXTURE_MSAA_SAMPLE;
+            }
         }
         if (srgb)
         {
@@ -2666,10 +2677,21 @@ namespace Babylon
             }
         }
 
-        return CreateFrameBufferImpl(info.Env(), gsl::span<Graphics::Texture* const>{colorTextures.data(), colorCount}, width, height, generateStencilBuffer, generateDepth, samples, 0, 0, gsl::span<const uint16_t>{perAttachmentLayers.data(), layerCount});
+        // Optional explicit shared depth-stencil texture (info[7]). Used by the FrameGraph geometry-buffer
+        // path so the separately-scheduled depth-clear pass and the geometry MRT render share ONE depth
+        // buffer (matching WebGL/WebGPU, where the geometry MRT's depth attachment IS the shared depth
+        // texture). Without this the MRT auto-generates its own depth and the depth clear is misdirected,
+        // leaving the prepass geometry buffer empty (breaks SSR / motion blur / curvature / SSAO).
+        Graphics::Texture* explicitDepthTexture = nullptr;
+        if (info.Length() > 7 && !info[7].IsUndefined() && !info[7].IsNull())
+        {
+            explicitDepthTexture = info[7].As<Napi::Pointer<Graphics::Texture>>().Get();
+        }
+
+        return CreateFrameBufferImpl(info.Env(), gsl::span<Graphics::Texture* const>{colorTextures.data(), colorCount}, width, height, generateStencilBuffer, generateDepth, samples, 0, 0, gsl::span<const uint16_t>{perAttachmentLayers.data(), layerCount}, explicitDepthTexture);
     }
 
-    Napi::Value NativeEngine::CreateFrameBufferImpl(Napi::Env env, gsl::span<Graphics::Texture* const> colorTextures, uint16_t width, uint16_t height, bool generateStencilBuffer, bool generateDepth, uint32_t samples, uint16_t layer, uint16_t mip, gsl::span<const uint16_t> perAttachmentLayers)
+    Napi::Value NativeEngine::CreateFrameBufferImpl(Napi::Env env, gsl::span<Graphics::Texture* const> colorTextures, uint16_t width, uint16_t height, bool generateStencilBuffer, bool generateDepth, uint32_t samples, uint16_t layer, uint16_t mip, gsl::span<const uint16_t> perAttachmentLayers, Graphics::Texture* explicitDepthTexture)
     {
         const bgfx::Caps* caps = bgfx::getCaps();
         const uint32_t colorCount = static_cast<uint32_t>(colorTextures.size());
@@ -2721,13 +2743,32 @@ namespace Babylon
                 );
         }
 
+        // Explicit shared depth-stencil texture (FrameGraph geometry buffer). The SAME depth texture is
+        // shared between the depth-clear pass and the geometry MRT so the separately-scheduled depth clear
+        // targets the exact buffer the geometry render depth-tests against. The first framebuffer to be
+        // built OWNS the depth (invalid handle -> created + aliased back below); every later framebuffer
+        // BORROWS it (valid handle -> attached read/write but not owned, so Dispose() must not destroy it).
+        bool borrowedExplicitDepth = false;
+        if (explicitDepthTexture != nullptr)
+        {
+            if (bgfx::isValid(explicitDepthTexture->Handle()))
+            {
+                attachments[numAttachments++].init(explicitDepthTexture->Handle(), bgfx::Access::Write, 0, 1, 0, BGFX_RESOLVE_NONE);
+                borrowedExplicitDepth = true;
+            }
+            else
+            {
+                depthStencilTextureRequest = explicitDepthTexture;
+            }
+        }
+
         const bool requestDepthStencilTexture = (depthStencilTextureRequest != nullptr);
 
         bgfx::TextureHandle depthStencilTextureHandle = BGFX_INVALID_HANDLE;
         int8_t depthStencilAttachmentIndex = -1;
         bgfx::TextureFormat::Enum depthStencilTextureFormat = bgfx::TextureFormat::Unknown;
         uint64_t depthStencilTextureFlags = 0;
-        if (generateStencilBuffer || generateDepth)
+        if ((generateStencilBuffer || generateDepth) && !borrowedExplicitDepth)
         {
             if (generateStencilBuffer && !generateDepth)
             {
@@ -2799,7 +2840,7 @@ namespace Babylon
         // Stencil-without-depth still allocates a combined depth/stencil attachment above, so the framebuffer
         // genuinely has depth in that case too. Report hasDepth accordingly, otherwise Clear/DrawInternal would
         // skip depth clear and Z-writes against a depth buffer that actually exists.
-        const bool hasDepthAttachment = generateDepth || generateStencilBuffer;
+        const bool hasDepthAttachment = generateDepth || generateStencilBuffer || borrowedExplicitDepth;
         Graphics::FrameBuffer* frameBuffer = new Graphics::FrameBuffer(m_deviceContext, frameBufferHandle, width, height, false, hasDepthAttachment, generateStencilBuffer, depthStencilAttachmentIndex);
 
         // For a standalone depth/stencil texture request, alias the framebuffer's readable depth attachment back
