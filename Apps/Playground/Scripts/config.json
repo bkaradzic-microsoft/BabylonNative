@@ -3017,15 +3017,11 @@
         {
             "title": "Furnace Test (Legacy) for Spec-Gloss",
             "playgroundId": "#KQYNYS#20",
-            "excludeFromAutomaticTesting": true,
-            "reason": "CDF renderer / IBL prefiltering fails with 'FLOAT' undefined",
             "referenceImage": "Furnace-Test-Legacy-for-Spec-Gloss.png"
         },
         {
             "title": "Furnace Test (Legacy) for Metal-Rough",
             "playgroundId": "#KQYNYS#21",
-            "excludeFromAutomaticTesting": true,
-            "reason": "CDF renderer / IBL prefiltering fails with 'FLOAT' undefined",
             "referenceImage": "Furnace-Test-Legacy-for-Metal-Rough.png"
         },
         {
@@ -3211,8 +3207,6 @@
         {
             "title": "OpenPBR IBL Reflectance with IOR",
             "playgroundId": "#KQYNYS#56",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
             "referenceImage": "OpenPBR-IBL-Reflectance-with-IOR.png"
         },
         {
@@ -3237,15 +3231,11 @@
         {
             "title": "OpenPBR IBL Specular IOR vs Coat IOR",
             "playgroundId": "#GRQHVV#39",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
             "referenceImage": "OpenPBR-IBL-Specular-IOR-vs-Coat-IOR.png"
         },
         {
             "title": "OpenPBR IBL Metalness vs Coat IOR",
             "playgroundId": "#GRQHVV#176",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
             "referenceImage": "OpenPBR-IBL-Metalness-vs-Coat-IOR.png"
         },
         {
@@ -3420,8 +3410,6 @@
         {
             "title": "OpenPBR Thin Film Weight VS IOR - IBL",
             "playgroundId": "#GRQHVV#197",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
             "referenceImage": "OpenPBR-Thin-Film-Weight-VS-IOR---IBL.png"
         },
         {
@@ -3584,8 +3572,6 @@
         {
             "title": "OpenPBR Transmission Anisotropy Roughness vs IOR - IBL",
             "playgroundId": "#GRQHVV#131",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
             "referenceImage": "OpenPBR-Transmission-Anisotropy-Roughness-vs-IOR---IBL.png"
         },
         {
