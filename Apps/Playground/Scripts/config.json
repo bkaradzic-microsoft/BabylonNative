@@ -2960,8 +2960,6 @@
         {
             "title": "IBL radiance roughness",
             "playgroundId": "#RNO672#10",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
             "referenceImage": "IBL-radiance-roughness.png"
         },
         {
@@ -3234,8 +3232,6 @@
         {
             "title": "OpenPBR IBL Furnace Test for Metal-Rough",
             "playgroundId": "#KQYNYS#47",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
             "referenceImage": "OpenPBR-IBL-Furnace-Test-for-Metal-Rough.png"
         },
         {
