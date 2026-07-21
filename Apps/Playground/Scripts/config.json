@@ -3027,15 +3027,11 @@
         {
             "title": "Furnace Test for Spec-Gloss",
             "playgroundId": "#KQYNYS#40",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
             "referenceImage": "Furnace-Test-for-Spec-Gloss.png"
         },
         {
             "title": "Furnace Test for Metal-Rough",
             "playgroundId": "#KQYNYS#39",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
             "referenceImage": "Furnace-Test-for-Metal-Rough.png"
         },
         {
@@ -3241,16 +3237,16 @@
         {
             "title": "OpenPBR IBL Specular IOR vs Coat Weight",
             "playgroundId": "#GRQHVV#182",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
-            "referenceImage": "OpenPBR-IBL-Specular-IOR-vs-Coat-Weight.png"
+            "referenceImage": "OpenPBR-IBL-Specular-IOR-vs-Coat-Weight.png",
+            "errorRatio": 5,
+            "note": "Native diffuse IBL uses CPU spherical harmonics because GPU irradiance-texture prefiltering loses ~40-50% energy on bgfx (see thinNativeEngine allowIrradianceTexturePrefiltering). The small deterministic residual vs the WebGL GPU-irradiance reference is within the allowed errorRatio."
         },
         {
             "title": "OpenPBR IBL Specular Roughness vs Coat Roughness",
             "playgroundId": "#GRQHVV#183",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
-            "referenceImage": "OpenPBR-IBL-Specular-Roughness-vs-Coat-Roughness.png"
+            "referenceImage": "OpenPBR-IBL-Specular-Roughness-vs-Coat-Roughness.png",
+            "errorRatio": 5,
+            "note": "Native diffuse IBL uses CPU spherical harmonics because GPU irradiance-texture prefiltering loses ~40-50% energy on bgfx (see thinNativeEngine allowIrradianceTexturePrefiltering). The small deterministic residual vs the WebGL GPU-irradiance reference is within the allowed errorRatio."
         },
         {
             "title": "OpenPBR Analytic Lights Specular Roughness vs Coat Roughness",
@@ -3275,9 +3271,9 @@
         {
             "title": "OpenPBR IBL Normal and Coat Normal Mapping",
             "playgroundId": "#GRQHVV#184",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
-            "referenceImage": "OpenPBR-IBL-Normal-and-Coat-Normal-Mapping.png"
+            "referenceImage": "OpenPBR-IBL-Normal-and-Coat-Normal-Mapping.png",
+            "errorRatio": 5,
+            "note": "Native diffuse IBL uses CPU spherical harmonics because GPU irradiance-texture prefiltering loses ~40-50% energy on bgfx (see thinNativeEngine allowIrradianceTexturePrefiltering). The small deterministic residual vs the WebGL GPU-irradiance reference is within the allowed errorRatio."
         },
         {
             "title": "OpenPBR IBL Coat Darkening",
@@ -3351,16 +3347,16 @@
         {
             "title": "OpenPBR IBL Anisotropy Dielectric",
             "playgroundId": "#GRQHVV#210",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
-            "referenceImage": "OpenPBR-IBL-Anisotropy-Dielectric.png"
+            "referenceImage": "OpenPBR-IBL-Anisotropy-Dielectric.png",
+            "errorRatio": 5,
+            "note": "Native diffuse IBL uses CPU spherical harmonics because GPU irradiance-texture prefiltering loses ~40-50% energy on bgfx (see thinNativeEngine allowIrradianceTexturePrefiltering). The small deterministic residual vs the WebGL GPU-irradiance reference is within the allowed errorRatio."
         },
         {
             "title": "OpenPBR Anisotropy - glTF style",
             "playgroundId": "#GRQHVV#189",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
-            "referenceImage": "OpenPBR-Anisotropy---glTF-style.png"
+            "referenceImage": "OpenPBR-Anisotropy---glTF-style.png",
+            "errorRatio": 5,
+            "note": "Native diffuse IBL uses CPU spherical harmonics because GPU irradiance-texture prefiltering loses ~40-50% energy on bgfx (see thinNativeEngine allowIrradianceTexturePrefiltering). The small deterministic residual vs the WebGL GPU-irradiance reference is within the allowed errorRatio."
         },
         {
             "title": "OpenPBR Anisotropy - Realtime Filtered IBL",
@@ -3488,9 +3484,9 @@
             "title": "OpenPBR Thin Film Textures - IBL",
             "playgroundId": "#GRQHVV#174",
             "renderCount": 2,
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
-            "referenceImage": "OpenPBR-Thin-Film-Textures---IBL.png"
+            "referenceImage": "OpenPBR-Thin-Film-Textures---IBL.png",
+            "errorRatio": 5,
+            "note": "Native diffuse IBL uses CPU spherical harmonics because GPU irradiance-texture prefiltering loses ~40-50% energy on bgfx (see thinNativeEngine allowIrradianceTexturePrefiltering). The small deterministic residual vs the WebGL GPU-irradiance reference is within the allowed errorRatio."
         },
         {
             "title": "OpenPBR Fuzz Weight vs Fuzz Roughness - IBL",
@@ -3666,9 +3662,9 @@
             "title": "OpenPBR Subsurface Radius vs Anisotropy - IBL",
             "playgroundId": "#GRQHVV#271",
             "renderCount": 2,
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
-            "referenceImage": "OpenPBR-Subsurface-Radius-vs-Anisotropy---IBL.png"
+            "referenceImage": "OpenPBR-Subsurface-Radius-vs-Anisotropy---IBL.png",
+            "errorRatio": 5,
+            "note": "Native diffuse IBL uses CPU spherical harmonics because GPU irradiance-texture prefiltering loses ~40-50% energy on bgfx (see thinNativeEngine allowIrradianceTexturePrefiltering). The small deterministic residual vs the WebGL GPU-irradiance reference is within the allowed errorRatio."
         },
         {
             "title": "OpenPBR Subsurface Radius vs Anisotropy - Analytic Lights",
