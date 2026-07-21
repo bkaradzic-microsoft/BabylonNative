@@ -559,7 +559,7 @@
             "playgroundId": "#RKKCHG#15",
             "renderCount": 15,
             "excludeFromAutomaticTesting": true,
-            "reason": "GaussianSplatting throws Uncaught Error: Invalid argument on Babylon Native (thrown before pixel comparison, not a pixel-diff)",
+            "reason": "Runtime error on Native: [Uncaught Error] Error: Invalid argument [reeval 2026-07-21]",
             "referenceImage": "gsplat-splat-modify.png"
         },
         {
@@ -572,7 +572,7 @@
             "playgroundId": "#GU7A98#0",
             "renderCount": 15,
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
+            "reason": "Pixel comparison fails: 84.138% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "gsplat-splat-bake-transforms.png"
         },
         {
@@ -592,7 +592,7 @@
             "playgroundId": "#XSNFXP#2",
             "renderCount": 15,
             "excludeFromAutomaticTesting": true,
-            "reason": "NativeEngine throws RuntimeError: Unable to load from https://raw.githubusercontent.com/CedricGuillemet/dump/master/hornedlizard/hornedlizard.spz: Unknown error opening URL (asset returns HTTP 200 via curl; BN HTTPS layer cannot open it; thrown before pixel comparison)",
+            "reason": "Runtime error on Native: RuntimeError: Unable to load from https://raw.githubusercontent.com/CedricGuillemet/dump/master/hornedlizard/hornedlizard.spz: Error opening URL: Unab [reeval 2026-07-21]",
             "referenceImage": "gsplat-spz-sh.png"
         },
         {
@@ -616,7 +616,7 @@
             "title": "SPZ v3 - Splat",
             "playgroundId": "#V7CV8W#4",
             "excludeFromAutomaticTesting": true,
-            "reason": "NativeEngine throws RuntimeError: Unable to load from https://assets.babylonjs.com/splats/combined_SPZv3.spz: Unknown error opening URL (asset returns HTTP 200 via curl; BN HTTPS layer cannot open it; thrown before pixel comparison)",
+            "reason": "Runtime error on Native: RuntimeError: Unable to load from https://assets.babylonjs.com/splats/combined_SPZv3.spz: Error opening URL: Unable to open URL 'import createSpzModul [reeval 2026-07-21]",
             "referenceImage": "gsplat-spz-v3.png"
         },
         {
@@ -690,7 +690,7 @@
             "playgroundId": "#MXACV7#29",
             "renderCount": 15,
             "excludeFromAutomaticTesting": true,
-            "reason": "CDF renderer / IBL prefiltering fails with 'FLOAT' undefined",
+            "reason": "Pixel comparison fails: 44.768% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "openpbr-base-diffuse-roughness-realtime-ibl.png"
         },
         {
@@ -698,7 +698,7 @@
             "playgroundId": "#MXACV7#28",
             "renderCount": 5,
             "excludeFromAutomaticTesting": true,
-            "reason": "CDF renderer / IBL prefiltering fails with 'FLOAT' undefined",
+            "reason": "Pixel comparison fails: 35.685% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "openpbr-base-diffuse-roughness-prefiltered-ibl-with-cdf.png"
         },
         {
@@ -706,7 +706,7 @@
             "playgroundId": "#MXACV7#27",
             "renderCount": 5,
             "excludeFromAutomaticTesting": true,
-            "reason": "CDF renderer / IBL prefiltering fails with 'FLOAT' undefined",
+            "reason": "Pixel comparison fails: 34.132% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "openpbr-base-diffuse-roughness-prefiltered-ibl.png"
         },
         {
@@ -749,7 +749,7 @@
             "playgroundId": "#WXWJKN#4",
             "renderCount": 15,
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
+            "reason": "Pixel comparison fails: 24.457% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "gsplat-nme.png"
         },
         {
@@ -793,7 +793,7 @@
             "playgroundId": "#9BVW2S#101",
             "renderCount": 50,
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
+            "reason": "Hangs on Babylon Native (no exit within 45s) [reeval 2026-07-21]",
             "referenceImage": "decal-map-pp.png"
         },
         {
@@ -830,7 +830,7 @@
             "playgroundId": "#BCNJD4#61",
             "renderCount": 2,
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
+            "reason": "Runtime error on Native: TypeError: Cannot read properties of undefined (reading 'setUInt') [reeval 2026-07-21]",
             "referenceImage": "bbhelper.png"
         },
         {
@@ -842,7 +842,7 @@
             "title": "GPUPicker",
             "playgroundId": "#1RWFMT#8",
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel diff after #1691 instance-data stride fix; not stride-related, needs follow-up.",
+            "reason": "Pixel comparison fails: 97.765% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "gpuPicker.png"
         },
         {
@@ -854,7 +854,7 @@
             "title": "GUI Input Text Area with Placeholder",
             "playgroundId": "#NVAEWD#364",
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
+            "reason": "Pixel comparison fails: 100.000% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "gui-inputtextarea-withplaceholder.png"
         },
         {
@@ -921,7 +921,7 @@
             "title": "CSGVertColor",
             "playgroundId": "#R0H1IX#4",
             "excludeFromAutomaticTesting": true,
-            "reason": "NativeEngine throws Error: Unknown error opening URL loading a remote https:// asset (asset reachable via curl; BN HTTPS layer cannot open it; thrown before pixel comparison)",
+            "reason": "Runtime error on Native: Error: Error opening URL: Unable to open URL ' [reeval 2026-07-21]",
             "referenceImage": "csgVertColor.png"
         },
         {
@@ -929,14 +929,14 @@
             "playgroundId": "#1LK70I#40",
             "renderCount": 50,
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
+            "reason": "Pixel comparison fails: 9.385% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "subemitters.png"
         },
         {
             "title": "Node material 0",
             "playgroundId": "#M5VQE9#41",
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails on Linux (large diff)",
+            "reason": "Pixel comparison fails: 14.465% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "node-material0.png"
         },
         {
@@ -944,7 +944,7 @@
             "playgroundId": "#QJ71C6#5",
             "referenceImage": "node-material1.png",
             "excludeFromAutomaticTesting": true,
-            "reason": "GUI text labels render with red text on red background instead of green (BN GUI color regression affecting many GUI tests)."
+            "reason": "Pixel comparison fails: 6.093% of pixels differ from reference on Native [reeval 2026-07-21]"
         },
         {
             "title": "Node material 2",
@@ -980,14 +980,14 @@
             "title": "Node material PBR 1",
             "playgroundId": "#D8AK3Z#121",
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
+            "reason": "Pixel comparison fails: 22.651% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "node-material-pbr-1.png"
         },
         {
             "title": "Basis loader",
             "playgroundId": "#4RN0VF#102",
             "excludeFromAutomaticTesting": true,
-            "reason": "Test crashes or hangs on Babylon Native",
+            "reason": "Pixel comparison fails: 60.546% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "basis.png"
         },
         {
@@ -1001,7 +1001,7 @@
             "title": "Nested BBG",
             "playgroundId": "#ZG0C8B#12",
             "excludeFromAutomaticTesting": true,
-            "reason": "Test crashes or hangs on Babylon Native",
+            "reason": "Hangs on Babylon Native (no exit within 45s) [reeval 2026-07-21]",
             "referenceImage": "nested-BBG.png"
         },
         {
@@ -1024,7 +1024,7 @@
             "playgroundId": "#BS60AB#0",
             "referenceImage": "TransformStackPanel.png",
             "excludeFromAutomaticTesting": true,
-            "reason": "GUI Transform StackPanel buttons render orange/red instead of green (BN GUI color regression)."
+            "reason": "Pixel comparison fails: 10.503% of pixels differ from reference on Native [reeval 2026-07-21]"
         },
         {
             "title": "GUI StackPanel",
@@ -1038,7 +1038,7 @@
             "playgroundId": "#2YZFA0#277",
             "renderCount": 60,
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
+            "reason": "Runtime error on Native: Failed to evaluate playground snippet #2YZFA0#277: Error: The data size does not match width, height, and format [reeval 2026-07-21]",
             "referenceImage": "guiSlate.png"
         },
         {
@@ -1055,7 +1055,7 @@
             "title": "Camera rig",
             "playgroundId": "#ATL1CS#12",
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
+            "reason": "Runtime error on Native: Failed to evaluate playground snippet #ATL1CS#12: TypeError: Cannot read properties of undefined (reading 'orientation') [reeval 2026-07-21]",
             "referenceImage": "cameraRig.png"
         },
         {
@@ -1064,13 +1064,13 @@
             "renderCount": 50,
             "referenceImage": "LineEdgesRenderer.png",
             "excludeFromAutomaticTesting": true,
-            "reason": "LineEdgesRenderer emits extra red lines not present in reference (likely Vector3.Cross precision or duplicate-edge dedup gap)."
+            "reason": "Pixel comparison fails: 15.412% of pixels differ from reference on Native [reeval 2026-07-21]"
         },
         {
             "title": "Simulate pointer",
             "playgroundId": "#8MGKWK#574",
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
+            "reason": "Runtime error on Native: ReferenceError: PointerEvent is not defined [reeval 2026-07-21]",
             "referenceImage": "simulatePointer.png"
         },
         {
@@ -1090,7 +1090,7 @@
             "title": "ShadowOnlyMaterial",
             "playgroundId": "#1KF7V1#18",
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
+            "reason": "Runtime error on Native: Failed to evaluate playground snippet #1KF7V1#18: TypeError: Cannot set properties of undefined (setting 'background') [reeval 2026-07-21]",
             "referenceImage": "shadowOnlyMaterial.png"
         },
         {
@@ -1123,7 +1123,7 @@
             "title": "CSG",
             "playgroundId": "#R0H1IX#8",
             "excludeFromAutomaticTesting": true,
-            "reason": "NativeEngine throws Error: Unknown error opening URL loading a remote https:// asset (asset reachable via curl; BN HTTPS layer cannot open it; thrown before pixel comparison)",
+            "reason": "Runtime error on Native: Error: Error opening URL: Unable to open URL ' [reeval 2026-07-21]",
             "referenceImage": "csg.png"
         },
         {
@@ -1140,7 +1140,7 @@
             "playgroundId": "#P7N8YW#1",
             "renderCount": 5,
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
+            "reason": "Pixel comparison fails: 70.786% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "highlights.png"
         },
         {
@@ -1200,7 +1200,7 @@
             "title": "point light shadows",
             "playgroundId": "#XDNVAY#1",
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
+            "reason": "Pixel comparison fails: 37.502% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "pointLightShadows.png"
         },
         {
@@ -1208,7 +1208,7 @@
             "playgroundId": "#PNQRY1#73",
             "renderCount": 20,
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
+            "reason": "Pixel comparison fails: 10.429% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "shadowDepthWrappers.png"
         },
         {
@@ -1313,7 +1313,7 @@
             "title": "GLTF Serializer KHR materials clearcoat",
             "playgroundId": "#9N6CLU#23",
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
+            "reason": "Pixel comparison fails: 20.641% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "glTFSerializerKhrMaterialsClearcoat.png"
         },
         {
@@ -1419,7 +1419,7 @@
             "playgroundId": "#8NTR5X#8",
             "replace": "//options//, roundtrip = true;",
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
+            "reason": "Hangs on Babylon Native (no exit within 45s) [reeval 2026-07-21]",
             "referenceImage": "glTFSerializerTextureExport.png"
         },
         {
@@ -1450,7 +1450,7 @@
             "playgroundId": "#YG3BBF#48",
             "renderCount": 5,
             "excludeFromAutomaticTesting": true,
-            "reason": "Test crashes or hangs on Babylon Native",
+            "reason": "Pixel comparison fails: 7.633% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "gltfExtensionKhrMaterialsVolumeHemiLight.png"
         },
         {
@@ -1485,21 +1485,21 @@
             "title": "GLTF Mesh Primitive Attribute Test",
             "playgroundId": "#G1FXQ4#0",
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
+            "reason": "Pixel comparison fails: 68.415% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "gltfMeshPrimAttribTest.png"
         },
         {
             "title": "PBR glossy",
             "playgroundId": "#DFQKIR#0",
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
+            "reason": "Pixel comparison fails: 81.808% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "pbrglossy.png"
         },
         {
             "title": "PBR rough",
             "playgroundId": "#PI9IE8#5",
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
+            "reason": "Pixel comparison fails: 83.793% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "pbrrough.png"
         },
         {
@@ -1532,7 +1532,7 @@
             "title": "PBR shader code coverage 1",
             "playgroundId": "#QI7TL3#63",
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel diff ~6.7% (>2.5% threshold): subtle PBR specular/edge highlight differences. Native BC1-texture crash fixed; no longer crashes.",
+            "reason": "Pixel comparison fails: 6.682% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "pbr-codecoverage1.png"
         },
         {
@@ -1544,7 +1544,7 @@
             "title": "PBR shader code coverage 3",
             "playgroundId": "#QI7TL3#65",
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel diff ~6.7% (>2.5% threshold): subtle PBR specular/edge highlight differences. Native BC1-texture crash fixed; no longer crashes.",
+            "reason": "Pixel comparison fails: 6.709% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "pbr-codecoverage3.png"
         },
         {
@@ -1562,7 +1562,7 @@
             "title": "Procedural textures playground",
             "playgroundId": "#24C4KC#67",
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
+            "reason": "Hangs on Babylon Native (no exit within 45s) [reeval 2026-07-21]",
             "referenceImage": "proceduralTexturePlayground.png"
         },
         {
@@ -1615,7 +1615,7 @@
             "title": "MeshSimplification",
             "playgroundId": "#1ED15P#46",
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
+            "reason": "Pixel comparison fails: 26.004% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "meshSimplification.png"
         },
         {
@@ -1641,7 +1641,7 @@
             "playgroundId": "#FEEK7G#1087",
             "renderCount": 5,
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
+            "reason": "Pixel comparison fails: 8.886% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "realtimeFilteringIrradianceCDF.png"
         },
         {
@@ -1721,7 +1721,7 @@
             "playgroundId": "#24HWT9#20",
             "renderCount": 2,
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
+            "reason": "Pixel comparison fails: 21.673% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "shadowscsmandlod.png"
         },
         {
@@ -1756,7 +1756,7 @@
             "title": "Prepass SSAO + instances",
             "playgroundId": "#YB006J#795",
             "excludeFromAutomaticTesting": true,
-            "reason": "Test crashes or hangs on Babylon Native",
+            "reason": "Pixel comparison fails: 6.898% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "prepass-ssao-instances.png"
         },
         {
@@ -1799,7 +1799,7 @@
             "playgroundId": "#LRFB2D#263",
             "renderCount": 30,
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails: 236380/240000 pixels differ (98.49%) on Babylon Native",
+            "reason": "Pixel comparison fails: 51.653% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "prepass-ssao-glow-layer.png"
         },
         {
@@ -1807,7 +1807,7 @@
             "playgroundId": "#4F33I3#35",
             "renderCount": 10,
             "excludeFromAutomaticTesting": true,
-            "reason": "Test crashes or hangs on Babylon Native",
+            "reason": "Pixel comparison fails: 88.128% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "prepass-ssao-bbr.png"
         },
         {
@@ -1825,7 +1825,7 @@
             "playgroundId": "#N55Q2M#8",
             "renderCount": 10,
             "excludeFromAutomaticTesting": true,
-            "reason": "Test crashes or hangs on Babylon Native",
+            "reason": "Pixel comparison fails: 49.279% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "prepass-ssao-b-and-w.png"
         },
         {
@@ -1847,7 +1847,7 @@
             "playgroundId": "#FFMFW5#29",
             "renderCount": 10,
             "excludeFromAutomaticTesting": true,
-            "reason": "Test crashes or hangs on Babylon Native",
+            "reason": "Pixel comparison fails: 52.618% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "prepass-ssao-lod.png"
         },
         {
@@ -1855,7 +1855,7 @@
             "playgroundId": "#1KF7V1#55",
             "renderCount": 10,
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
+            "reason": "Runtime error on Native: Failed to evaluate playground snippet #1KF7V1#55: TypeError: Cannot set properties of undefined (setting 'background') [reeval 2026-07-21]",
             "referenceImage": "prepass-ssao-shadow-only.png"
         },
         {
@@ -1869,7 +1869,7 @@
             "playgroundId": "#XDNVAY#6",
             "renderCount": 10,
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
+            "reason": "Pixel comparison fails: 39.226% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "prepass-ssao-point-light.png"
         },
         {
@@ -1895,7 +1895,7 @@
             "playgroundId": "#PXC9CF#7",
             "renderCount": 30,
             "excludeFromAutomaticTesting": true,
-            "reason": "Test crashes or hangs on Babylon Native",
+            "reason": "Pixel comparison fails: 48.477% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "prepass-ssao-visibility.png"
         },
         {
@@ -1903,7 +1903,7 @@
             "playgroundId": "#NAW8EA#7",
             "renderCount": 10,
             "excludeFromAutomaticTesting": true,
-            "reason": "Test crashes or hangs on Babylon Native",
+            "reason": "Pixel comparison fails: 8.044% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "prepass-ssao-default-pipeline.png"
         },
         {
@@ -1944,7 +1944,7 @@
             "playgroundId": "#RJN64I#7",
             "renderCount": 1,
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
+            "reason": "Pixel comparison fails: 19.321% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "refraction-local-std.png"
         },
         {
@@ -1960,7 +1960,7 @@
             "playgroundId": "#YB006J#547",
             "renderCount": 10,
             "excludeFromAutomaticTesting": true,
-            "reason": "Renders correctly now (instance-data expanded to 16 slots via bgfx PR #3832; previousWorld0..3 delivered) but post-process (geometry-buffer) motion-blur velocity differs ~16% from the WebGL reference. No longer crashes/hangs. Suspected prepass velocity-buffer precision/timing difference; needs investigation.",
+            "reason": "Pixel comparison fails: 16.050% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "instances-mb.png"
         },
         {
@@ -1968,7 +1968,7 @@
             "playgroundId": "#YB006J#549",
             "renderCount": 10,
             "excludeFromAutomaticTesting": true,
-            "reason": "Renders correctly now (instance-data expanded to 16 slots via bgfx PR #3832; previousWorld0..3 delivered) but geometry-buffer-renderer motion-blur velocity differs ~16% from the WebGL reference. No longer crashes/hangs. Suspected prepass velocity-buffer precision/timing difference; needs investigation.",
+            "reason": "Pixel comparison fails: 16.330% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "instances-gbr-mb.png"
         },
         {
@@ -2016,7 +2016,7 @@
             "playgroundId": "#WL4Q8J#20",
             "renderCount": 10,
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
+            "reason": "Pixel comparison fails: 5.967% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "reverseDepthBufferShadows.png"
         },
         {
@@ -2036,7 +2036,7 @@
             "playgroundId": "#BCYE7J#36",
             "renderCount": 2,
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
+            "reason": "Pixel comparison fails: 14.838% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "multiCamerasOutputRenderTarget.png"
         },
         {
@@ -2052,7 +2052,7 @@
             "playgroundId": "#1PLV5Z#104",
             "renderCount": 5,
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
+            "reason": "Pixel comparison fails: 13.646% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "oit.png"
         },
         {
@@ -2065,7 +2065,7 @@
             "title": "Baked Vertex Animation",
             "playgroundId": "#14WJWW#13",
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel-diff against Babylon.js reference after SPIRV-Cross bump (#1695): animation timing renders one frame off. Cannot re-bake from BN renderer per project policy.",
+            "reason": "Pixel comparison fails: 5.645% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "bakedVertexAnimation.png"
         },
         {
@@ -2112,7 +2112,7 @@
             "playgroundId": "#4J7Y7V#1",
             "renderCount": 2,
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
+            "reason": "Runtime error on Native: ReferenceError: PointerEvent is not defined [reeval 2026-07-21]",
             "referenceImage": "pickingVisualTest.png"
         },
         {
@@ -2120,7 +2120,7 @@
             "playgroundId": "#UB4F3B#8",
             "renderCount": 2,
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
+            "reason": "Runtime error on Native: TypeError: canvas.focus is not a function [reeval 2026-07-21]",
             "referenceImage": "guiInputTest.png"
         },
         {
@@ -2160,7 +2160,7 @@
             "playgroundId": "#LMQGSX#2",
             "renderCount": 5,
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
+            "reason": "Pixel comparison fails: 30.204% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "multiSGPerLight.png"
         },
         {
@@ -2168,7 +2168,7 @@
             "playgroundId": "#544N0Q#67",
             "renderCount": 120,
             "excludeFromAutomaticTesting": true,
-            "reason": "After #1691 stride fix, hits bgfx 'Invalid texture attachment' frame buffer validation (exit 1); needs separate investigation.",
+            "reason": "Pixel comparison fails: 99.231% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "fluidParticleSystem.png"
         },
         {
@@ -2176,7 +2176,7 @@
             "playgroundId": "#PCMH7A#2",
             "renderCount": 120,
             "excludeFromAutomaticTesting": true,
-            "reason": "Native crash: uses DOM-based FluidRendererGUI overlay (document.getElementById); not supported headless",
+            "reason": "Runtime error on Native: [Uncaught Error] TypeError: document.getElementById is not a function [reeval 2026-07-21]",
             "referenceImage": "fluidBoxSphere.png"
         },
         {
@@ -2188,42 +2188,42 @@
             "title": "GUI Input Text Area Inside ScrollViewer",
             "playgroundId": "#NVAEWD#69",
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
+            "reason": "Pixel comparison fails: 41.494% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "GUI-Input-Text-Area-Inside-ScrollViewer.png"
         },
         {
             "title": "GUI Images in Grid",
             "playgroundId": "#8Y0XJL#8",
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
+            "reason": "Pixel comparison fails: 95.167% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "GUI-Images-in-Grid.png"
         },
         {
             "title": "GUI Force Resize Width",
             "playgroundId": "#XCPP9Y#17259",
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
+            "reason": "Pixel comparison fails: 37.500% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "GUI-Force-Resize-Width.png"
         },
         {
             "title": "GUI Gradient Linear",
             "playgroundId": "#XCPP9Y#17227",
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
+            "reason": "Runtime error on Native: TypeError: A string was expected [reeval 2026-07-21]",
             "referenceImage": "GUI-Gradient-Linear.png"
         },
         {
             "title": "GUI Gradient Radial",
             "playgroundId": "#4Z7EK3",
             "excludeFromAutomaticTesting": true,
-            "reason": "Test crashes or hangs on Babylon Native",
+            "reason": "Pixel comparison fails: 25.000% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "GUI-Gradient-Radial.png"
         },
         {
             "title": "GUI Gradient Linear with transparency",
             "playgroundId": "#PFK1Z5",
             "excludeFromAutomaticTesting": true,
-            "reason": "Test crashes or hangs on Babylon Native",
+            "reason": "Pixel comparison fails: 42.750% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "GUI-Gradient-Linear-with-transparency.png"
         },
         {
@@ -2278,14 +2278,14 @@
             "title": "GUI Text Block with resizeToFit and forceResizeWidth",
             "playgroundId": "#XCPP9Y#17810",
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
+            "reason": "Runtime error on Native: Error: Context2D.shadowColor (set): not implemented [reeval 2026-07-21]",
             "referenceImage": "GUI-Text-Block-with-resizeToFit-and-forceResizeWidth.png"
         },
         {
             "title": "GUI Horizontal Stack Panel and Text Block with resizeToFit and forceResizeWidth",
             "playgroundId": "#XCPP9Y#17811",
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
+            "reason": "Runtime error on Native: Error: Context2D.shadowColor (set): not implemented [reeval 2026-07-21]",
             "referenceImage": "GUI-Horizontal-Stack-Panel-and-Text-Block-with-resizeToFit-and-forceResizeWidth.png"
         },
         {
@@ -2297,7 +2297,7 @@
             "title": "Sprites Pixel Perfect",
             "playgroundId": "#ZX8DJ3#10",
             "excludeFromAutomaticTesting": true,
-            "reason": "NativeEngine Sprite renderer shows opaque black background instead of transparent pixels around sprite quad; sprite alpha-blending regression.",
+            "reason": "Pixel comparison fails: 7.612% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "Sprites-Pixel-Perfect.png"
         },
         {
@@ -2305,13 +2305,13 @@
             "playgroundId": "#XCPP9Y#18325",
             "referenceImage": "Rounding-values-on-controls-inside-StackPanel.png",
             "excludeFromAutomaticTesting": true,
-            "reason": "GUI StackPanel buttons render orange/red instead of green (BN GUI color regression)."
+            "reason": "Pixel comparison fails: 9.621% of pixels differ from reference on Native [reeval 2026-07-21]"
         },
         {
             "title": "Rounding cell widths on Grid",
             "playgroundId": "#PQ4G5G#2",
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
+            "reason": "Runtime error on Native: Error: Context2D.setLineDash: not implemented [reeval 2026-07-21]",
             "referenceImage": "Rounding-cell-widths-on-Grid.png"
         },
         {
@@ -2319,7 +2319,7 @@
             "playgroundId": "#ZUAPLL#2",
             "referenceImage": "GUI-for-Mesh-cloning.png",
             "excludeFromAutomaticTesting": true,
-            "reason": "Disabled to land sync PR; newly-added test in cascade path of Win32 V8 D3D11 ACCESS_VIOLATION (-1073741819). Will be re-enabled in follow-up fix PR."
+            "reason": "Pixel comparison fails: 16.803% of pixels differ from reference on Native [reeval 2026-07-21]"
         },
         {
             "title": "PBR Debug Modes",
@@ -2360,21 +2360,21 @@
             "title": "Font style inheritance",
             "playgroundId": "#QFK9K4#26",
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
+            "reason": "Pixel comparison fails: 100.000% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "Font-style-inheritance.png"
         },
         {
             "title": "Font size inheritance",
             "playgroundId": "#QFK9K4#24",
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
+            "reason": "Pixel comparison fails: 100.000% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "Fontsizeinheritance.png"
         },
         {
             "title": "Child overriding parent font properties",
             "playgroundId": "#QFK9K4#25",
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
+            "reason": "Pixel comparison fails: 100.000% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "Childoverridingparentfontproperties.png"
         },
         {
@@ -2419,7 +2419,7 @@
             "playgroundId": "#0LN1JD#9",
             "renderCount": 5,
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
+            "reason": "Pixel comparison fails: 16.587% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "show-bounding-box.png"
         },
         {
@@ -2498,7 +2498,7 @@
             "playgroundId": "#6X9UMD#12",
             "renderCount": 5,
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
+            "reason": "Runtime error on Native: Error: Context2D.setLineDash: not implemented [reeval 2026-07-21]",
             "referenceImage": "show-multiple-guis.png"
         },
         {
@@ -2561,7 +2561,7 @@
             "playgroundId": "#YF8D42#22",
             "renderCount": 5,
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
+            "reason": "Pixel comparison fails: 25.457% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "screen-space-curvature.png"
         },
         {
@@ -2634,7 +2634,7 @@
             "playgroundId": "#8R5SSE#796",
             "renderCount": 15,
             "excludeFromAutomaticTesting": true,
-            "reason": "Crash fixed (bgfx 8-color-attachment RTV overflow); now renders but voxel-grid soft shadows are under-occluded (~11% pixel diff)",
+            "reason": "Pixel comparison fails: 10.393% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "voxelShadows.png"
         },
         {
@@ -2647,7 +2647,7 @@
             "playgroundId": "#8R5SSE#797",
             "renderCount": 15,
             "excludeFromAutomaticTesting": true,
-            "reason": "Crash fixed (bgfx 8-color-attachment RTV overflow); now renders but voxel-grid soft shadows are under-occluded (~14% pixel diff)",
+            "reason": "Pixel comparison fails: 13.455% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "voxelShadowsRightHanded.png"
         },
         {
@@ -2655,7 +2655,7 @@
             "playgroundId": "#8R5SSE#798",
             "renderCount": 15,
             "excludeFromAutomaticTesting": true,
-            "reason": "Crash fixed (bgfx 8-color-attachment RTV overflow); now renders but voxel-grid soft shadows are under-occluded (~15% pixel diff)",
+            "reason": "Pixel comparison fails: 14.995% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "voxelShadowsLeftHanded.png"
         },
         {
@@ -2691,7 +2691,7 @@
             "title": "FrameGraph nrge csm shadows",
             "playgroundId": "#JWKDME#186",
             "excludeFromAutomaticTesting": true,
-            "reason": "Test crashes or hangs on Babylon Native",
+            "reason": "Pixel comparison fails: 26.859% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "FrameGraph-nrge-csm-shadows.png"
         },
         {
@@ -2699,7 +2699,7 @@
             "playgroundId": "#JWKDME#192",
             "renderCount": 10,
             "excludeFromAutomaticTesting": true,
-            "reason": "Test crashes or hangs on Babylon Native",
+            "reason": "Pixel comparison fails: 9.877% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "FrameGraph-nrge-csm-shadows-with-autoCalcDepthBounds.png"
         },
         {
@@ -2711,14 +2711,14 @@
             "title": "FrameGraph nrge depth of field",
             "playgroundId": "#GAGVQO#19",
             "excludeFromAutomaticTesting": true,
-            "reason": "NativeEngine throws RuntimeError: Unable to load from https://assets.babylonjs.com/meshes/PowerPlant/powerplant.obj: Out of stack space (OBJ parser recursion overflow; thrown before pixel comparison)",
+            "reason": "Pixel comparison fails: 22.323% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "FrameGraph-nrge-depth-of-field.png"
         },
         {
             "title": "FrameGraph nrge glow layer",
             "playgroundId": "#IG8NRC#84",
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
+            "reason": "Pixel comparison fails: 12.263% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "FrameGraph-nrge-glow-layer.png"
         },
         {
@@ -2730,14 +2730,14 @@
             "title": "FrameGraph nrge SSR cube",
             "playgroundId": "#PIZ1GK#2386",
             "excludeFromAutomaticTesting": true,
-            "reason": "Test crashes or hangs on Babylon Native",
+            "reason": "Pixel comparison fails: 85.200% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "FrameGraph-nrge-SSR-cube.png"
         },
         {
             "title": "FrameGraph nrge SSR HillValley",
             "playgroundId": "#PIZ1GK#2387",
             "excludeFromAutomaticTesting": true,
-            "reason": "Test crashes or hangs on Babylon Native",
+            "reason": "Pixel comparison fails: 43.487% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "FrameGraph-nrge-SSR-HillValley.png"
         },
         {
@@ -2750,14 +2750,14 @@
             "playgroundId": "#YB006J#793",
             "renderCount": 40,
             "excludeFromAutomaticTesting": true,
-            "reason": "Test crashes or hangs on Babylon Native",
+            "reason": "Pixel comparison fails: 10.814% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "FrameGraph-nrge-motion-blur.png"
         },
         {
             "title": "FrameGraph nrge bounding boxes",
             "playgroundId": "#IG8NRC#85",
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
+            "reason": "Pixel comparison fails: 84.637% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "FrameGraph-nrge-bounding-boxes.png"
         },
         {
@@ -2772,14 +2772,14 @@
             "playgroundId": "#IG8NRC#87",
             "renderCount": 15,
             "excludeFromAutomaticTesting": true,
-            "reason": "Test crashes or hangs on Babylon Native",
+            "reason": "Pixel comparison fails: 100.000% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "FrameGraph-nrge-TAA.png"
         },
         {
             "title": "FrameGraph nrge rig camera",
             "playgroundId": "#ATL1CS#19",
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
+            "reason": "Runtime error on Native: TypeError: Cannot read properties of undefined (reading 'orientation') [reeval 2026-07-21]",
             "referenceImage": "FrameGraph-nrge-rig-camera.png"
         },
         {
@@ -2791,35 +2791,35 @@
             "title": "FrameGraph nrge multiple post processes",
             "playgroundId": "#SYQW69#1363",
             "excludeFromAutomaticTesting": true,
-            "reason": "Test crashes or hangs on Babylon Native",
+            "reason": "Pixel comparison fails: 100.000% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "FrameGraph-nrge-multiple-post-processes.png"
         },
         {
             "title": "FrameGraph nrge SSAO",
             "playgroundId": "#SYQW69#1368",
             "excludeFromAutomaticTesting": true,
-            "reason": "Test crashes or hangs on Babylon Native",
+            "reason": "Pixel comparison fails: 6.166% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "FrameGraph-nrge-SSAO.png"
         },
         {
             "title": "FrameGraph nrge volumetric lighting",
             "playgroundId": "#3VH0AC#2",
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
+            "reason": "Hangs on Babylon Native: FrameGraph volumetric lighting (no exit within 45s) [reeval 2026-07-21]",
             "referenceImage": "FrameGraph-nrge-volumetric-lighting.png"
         },
         {
             "title": "FrameGraph nrge OIT",
             "playgroundId": "#MIACY4#13",
             "excludeFromAutomaticTesting": true,
-            "reason": "Test crashes or hangs on Babylon Native",
+            "reason": "Pixel comparison fails: 27.668% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "FrameGraph-nrge-OIT.png"
         },
         {
             "title": "FrameGraph nrge OIT (Geometry renderer)",
             "playgroundId": "#MIACY4#14",
             "excludeFromAutomaticTesting": true,
-            "reason": "FrameGraph render pipeline hangs past 120s",
+            "reason": "Pixel comparison fails: 100.000% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "FrameGraph-nrge-OIT-Geometry-renderer-.png"
         },
         {
@@ -2831,21 +2831,21 @@
             "title": "FrameGraph nrge transmission",
             "playgroundId": "#ZNTBN2#10",
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
+            "reason": "Runtime error on Native: TypeError: Cannot read properties of undefined (reading 'TEXTURE_2D') [reeval 2026-07-21]",
             "referenceImage": "FrameGraph-nrge-transmission.png"
         },
         {
             "title": "FrameGraph nrge selection outline layer",
             "playgroundId": "#ADUC74#1",
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
+            "reason": "Pixel comparison fails: 17.136% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "FrameGraph-nrge-selection-outline-layer.png"
         },
         {
             "title": "FrameGraph nrge multi RTT MSAA",
             "playgroundId": "#JAG54A",
             "excludeFromAutomaticTesting": true,
-            "reason": "Test crashes or hangs on Babylon Native",
+            "reason": "Pixel comparison fails: 99.543% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "FrameGraph-nrge-multi-RTT-MSAA.png"
         },
         {
@@ -2857,7 +2857,7 @@
             "title": "FrameGraph glow layer",
             "playgroundId": "#9YU4C5#111",
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
+            "reason": "Pixel comparison fails: 13.635% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "FrameGraph-nrg-glow-layer.png"
         },
         {
@@ -2869,14 +2869,14 @@
             "title": "FrameGraph custom rendering",
             "playgroundId": "#RM56RY#25",
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
+            "reason": "Pixel comparison fails: 99.970% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "FrameGraph-custom-rendering.png"
         },
         {
             "title": "FrameGraph gui bloom",
             "playgroundId": "#RM56RY#26",
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
+            "reason": "Pixel comparison fails: 99.851% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "FrameGraph-gui-bloom.png"
         },
         {
@@ -2918,7 +2918,7 @@
             "title": "FrameGraph sharpen post process",
             "playgroundId": "#SYQW69#1367",
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
+            "reason": "Pixel comparison fails: 5.962% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "FrameGraph-sharpen-post-process.png"
         },
         {
@@ -2930,14 +2930,14 @@
             "title": "FrameGraph volumetric lighting",
             "playgroundId": "#3VH0AC",
             "excludeFromAutomaticTesting": true,
-            "reason": "Test crashes or hangs on Babylon Native",
+            "reason": "Hangs on Babylon Native: FrameGraph volumetric lighting (no exit within 45s) [reeval 2026-07-21]",
             "referenceImage": "FrameGraph-volumetric-lighting.png"
         },
         {
             "title": "FrameGraph OIT",
             "playgroundId": "#MIACY4#11",
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
+            "reason": "Pixel comparison fails: 27.668% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "FrameGraph-OIT.png"
         },
         {
@@ -2949,7 +2949,7 @@
             "title": "FrameGraph selection outline",
             "playgroundId": "#E1F0GP#4",
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
+            "reason": "Pixel comparison fails: 14.800% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "FrameGraph-selection-outline.png"
         },
         {
@@ -2971,14 +2971,14 @@
             "title": "Show Loading Screen",
             "playgroundId": "#EQP888#7",
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
+            "reason": "Runtime error on Native: Failed to evaluate playground snippet #EQP888#7: TypeError: Cannot set properties of undefined (setting 'loadingUIText') [reeval 2026-07-21]",
             "referenceImage": "Show-Loading-Screen.png"
         },
         {
             "title": "Hide Loading Screen",
             "playgroundId": "#EQP888#8",
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
+            "reason": "Runtime error on Native: Failed to evaluate playground snippet #EQP888#8: TypeError: Cannot set properties of undefined (setting 'loadingUIText') [reeval 2026-07-21]",
             "referenceImage": "Hide-Loading-Screen.png"
         },
         {
@@ -2997,7 +2997,7 @@
             "playgroundId": "#5H0H89#129",
             "renderCount": 10,
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
+            "reason": "Pixel comparison fails: 27.177% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "SubSurface-Scattering.png"
         },
         {
@@ -3036,7 +3036,7 @@
             "title": "Specular reflectance models for IBL",
             "playgroundId": "#GRQHVV#169",
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
+            "reason": "Pixel comparison fails: 14.670% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "Specular-reflectance-models-for-IBL.png"
         },
         {
@@ -3048,28 +3048,28 @@
             "title": "F82 Specular Roughness vs Weight",
             "playgroundId": "#GRQHVV#170",
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
+            "reason": "Pixel comparison fails: 18.010% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "F82-Specular-Roughness-vs-Weight.png"
         },
         {
             "title": "F82 Specular Metal vs Weight",
             "playgroundId": "#GRQHVV#171",
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
+            "reason": "Pixel comparison fails: 28.053% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "F82-Specular-Metal-vs-Weight.png"
         },
         {
             "title": "Sponza Clustered Lighting",
             "playgroundId": "#CSCJO2#17",
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
+            "reason": "Pixel comparison fails: 26.305% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "sponza-clustered-lighting.png"
         },
         {
             "title": "Sponza Clustered Lighting (2 viewports)",
             "playgroundId": "#CSCJO2#20",
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
+            "reason": "Pixel comparison fails: 33.162% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "sponza-clustered-lighting-viewports.png"
         },
         {
@@ -3081,14 +3081,14 @@
             "title": "Sponza Clustered Lighting (node material std)",
             "playgroundId": "#QY98Z3#16",
             "excludeFromAutomaticTesting": true,
-            "reason": "The clustered tile-mask now renders correctly on Native (the std-material variants pass after the attribute-less-instancing, proxy discard->vertex-clamp and Native full-quad-proxy fixes), but the NodeMaterial clustered path plus the Sponza scene complexity still exceed threshold on Native; needs separate investigation.",
+            "reason": "Pixel comparison fails: 64.012% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "Sponza-Clustered-Lighting-node-material-std-.png"
         },
         {
             "title": "Sponza Clustered Lighting (node material pbr)",
             "playgroundId": "#QY98Z3#17",
             "excludeFromAutomaticTesting": true,
-            "reason": "The clustered tile-mask now renders correctly on Native (the std-material variants pass after the attribute-less-instancing, proxy discard->vertex-clamp and Native full-quad-proxy fixes), but the NodeMaterial clustered path plus the Sponza scene complexity still exceed threshold on Native; needs separate investigation.",
+            "reason": "Pixel comparison fails: 66.555% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "Sponza-Clustered-Lighting-node-material-pbr-.png"
         },
         {
@@ -3107,14 +3107,14 @@
             "title": "Clustered Lighting (lhs std nodematerial)",
             "playgroundId": "#CSCJO2#64",
             "excludeFromAutomaticTesting": true,
-            "reason": "The clustered tile-mask now renders correctly on Native (the std-material variants pass after the attribute-less-instancing, proxy discard->vertex-clamp and Native full-quad-proxy fixes), but the NodeMaterial clustered code path still under-renders on Native and needs separate investigation.",
+            "reason": "Pixel comparison fails: 71.703% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "Clustered-Lighting-lhs-std-nodematerial-.png"
         },
         {
             "title": "Clustered Lighting (lhs pbr nodematerial)",
             "playgroundId": "#CSCJO2#62",
             "excludeFromAutomaticTesting": true,
-            "reason": "The clustered tile-mask now renders correctly on Native (the std-material variants pass after the attribute-less-instancing, proxy discard->vertex-clamp and Native full-quad-proxy fixes), but the NodeMaterial clustered code path still under-renders on Native and needs separate investigation.",
+            "reason": "Pixel comparison fails: 73.285% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "Clustered-Lighting-lhs-pbr-nodematerial-.png"
         },
         {
@@ -3133,35 +3133,35 @@
             "title": "Clustered Lighting (rhs std nodematerial)",
             "playgroundId": "#CSCJO2#71",
             "excludeFromAutomaticTesting": true,
-            "reason": "The clustered tile-mask now renders correctly on Native (the std-material variants pass after the attribute-less-instancing, proxy discard->vertex-clamp and Native full-quad-proxy fixes), but the NodeMaterial clustered code path still under-renders on Native and needs separate investigation.",
+            "reason": "Pixel comparison fails: 71.702% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "Clustered-Lighting-rhs-std-nodematerial-.png"
         },
         {
             "title": "Clustered Lighting (rhs pbr nodematerial)",
             "playgroundId": "#CSCJO2#72",
             "excludeFromAutomaticTesting": true,
-            "reason": "The clustered tile-mask now renders correctly on Native (the std-material variants pass after the attribute-less-instancing, proxy discard->vertex-clamp and Native full-quad-proxy fixes), but the NodeMaterial clustered code path still under-renders on Native and needs separate investigation.",
+            "reason": "Pixel comparison fails: 73.284% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "Clustered-Lighting-rhs-pbr-nodematerial-.png"
         },
         {
             "title": "Clustered Light Serialization",
             "playgroundId": "#QRQPNN#0",
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
+            "reason": "Hangs on Babylon Native (no exit within 45s) [reeval 2026-07-21]",
             "referenceImage": "clustered-light-serialization.png"
         },
         {
             "title": "Atmosphere Day",
             "playgroundId": "#VO1Z0C#39",
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
+            "reason": "Pixel comparison fails: 8.367% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "atmosphere-day.png"
         },
         {
             "title": "Atmosphere Day (Planet Origin)",
             "playgroundId": "#VO1Z0C#40",
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
+            "reason": "Pixel comparison fails: 8.459% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "atmosphere-day.png"
         },
         {
@@ -3207,14 +3207,14 @@
             "title": "OpenPBR IBL F82 Specular Metal vs Weight",
             "playgroundId": "#GRQHVV#172",
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
+            "reason": "Pixel comparison fails: 27.818% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "OpenPBR-IBL-F82-Specular-Metal-vs-Weight.png"
         },
         {
             "title": "OpenPBR IBL F82 Specular Roughness vs Weight",
             "playgroundId": "#GRQHVV#173",
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
+            "reason": "Pixel comparison fails: 16.392% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "OpenPBR-IBL-F82-Specular-Roughness-vs-Weight.png"
         },
         {
@@ -3277,14 +3277,14 @@
             "title": "OpenPBR IBL Coat Darkening",
             "playgroundId": "#GRQHVV#185",
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
+            "reason": "Pixel comparison fails: 13.522% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "OpenPBR-IBL-Coat-Darkening.png"
         },
         {
             "title": "OpenPBR IBL Coat Darkening vs Coat IOR",
             "playgroundId": "#GRQHVV#181",
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
+            "reason": "Pixel comparison fails: 8.084% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "OpenPBR-IBL-Coat-Darkening-vs-Coat-IOR.png"
         },
         {
@@ -3301,14 +3301,14 @@
             "title": "OpenPBR IBL Coat Color vs Coat Darkening",
             "playgroundId": "#GRQHVV#186",
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
+            "reason": "Pixel comparison fails: 30.833% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "OpenPBR-IBL-Coat-Color-vs-Coat-Darkening.png"
         },
         {
             "title": "OpenPBR IBL Coat Color vs Coat IOR",
             "playgroundId": "#GRQHVV#187",
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
+            "reason": "Pixel comparison fails: 30.922% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "OpenPBR-IBL-Coat-Color-vs-Coat-IOR.png"
         },
         {
@@ -3316,14 +3316,14 @@
             "playgroundId": "#GRQHVV#52",
             "referenceImage": "OpenPBR-Analytic-Lights-Coat-Color-vs-Coat-IOR.png",
             "excludeFromAutomaticTesting": true,
-            "reason": "Test fails locally on Win32 D3D11 sweep; disabled until BabylonNative fixes are made."
+            "reason": "Pixel comparison fails: 11.705% of pixels differ from reference on Native [reeval 2026-07-21]"
         },
         {
             "title": "OpenPBR Analytic Lights Coat Color vs Coat Darkening",
             "playgroundId": "#GRQHVV#53",
             "referenceImage": "OpenPBR-Analytic-Lights-Coat-Color-vs-Coat-Darkening.png",
             "excludeFromAutomaticTesting": true,
-            "reason": "Test fails locally on Win32 D3D11 sweep; disabled until BabylonNative fixes are made."
+            "reason": "Pixel comparison fails: 10.963% of pixels differ from reference on Native [reeval 2026-07-21]"
         },
         {
             "title": "OpenPBR Analytic Lights Anisotropy",
@@ -3339,7 +3339,7 @@
             "title": "OpenPBR IBL Anisotropy Metal",
             "playgroundId": "#GRQHVV#208",
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
+            "reason": "Pixel comparison fails: 14.759% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "OpenPBR-IBL-Anisotropy-Metal.png"
         },
         {
@@ -3360,21 +3360,21 @@
             "title": "OpenPBR Anisotropy - Realtime Filtered IBL",
             "playgroundId": "#GRQHVV#190",
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
+            "reason": "Hangs on Babylon Native: realtime-filtered IBL never completes (no exit within 45s) [reeval 2026-07-21]",
             "referenceImage": "OpenPBR-Anisotropy---Realtime-Filtered-IBL.png"
         },
         {
             "title": "OpenPBR Coat Anisotropy - IBL",
             "playgroundId": "#GRQHVV#193",
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
+            "reason": "Pixel comparison fails: 15.903% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "OpenPBR-Coat-Anisotropy---IBL.png"
         },
         {
             "title": "OpenPBR Coat Anisotropy - Realtime Filtered IBL",
             "playgroundId": "#GRQHVV#195",
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
+            "reason": "Hangs on Babylon Native: realtime-filtered IBL never completes (no exit within 45s) [reeval 2026-07-21]",
             "referenceImage": "OpenPBR-Coat-Anisotropy---Realtime-Filtered-IBL.png"
         },
         {
@@ -3396,7 +3396,7 @@
             "title": "OpenPBR Coat Roughness vs Coat Ior - IBL",
             "playgroundId": "#GRQHVV#196",
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
+            "reason": "Pixel comparison fails: 15.541% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "OpenPBR-Coat-Roughness-vs-Coat-Ior---IBL.png"
         },
         {
@@ -3426,7 +3426,7 @@
             "title": "OpenPBR Thin Film Thickness VS IOR - IBL",
             "playgroundId": "#GRQHVV#198",
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
+            "reason": "Pixel comparison fails: 9.485% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "OpenPBR-Thin-Film-Thickness-VS-IOR---IBL.png"
         },
         {
@@ -3466,14 +3466,14 @@
             "title": "OpenPBR Thin Film and Specular Weight Metals - IBL",
             "playgroundId": "#GRQHVV#202",
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
+            "reason": "Pixel comparison fails: 7.039% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "OpenPBR-Thin-Film-and-Specular-Weight-Metals---IBL.png"
         },
         {
             "title": "OpenPBR Thin Film and Specular Weight - IBL",
             "playgroundId": "#GRQHVV#203",
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
+            "reason": "Pixel comparison fails: 7.685% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "OpenPBR-Thin-Film-and-Specular-Weight---IBL.png"
         },
         {
@@ -3488,7 +3488,7 @@
             "title": "OpenPBR Fuzz Weight vs Fuzz Roughness - IBL",
             "playgroundId": "#GRQHVV#204",
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
+            "reason": "Pixel comparison fails: 27.761% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "OpenPBR-Fuzz-Weight-vs-Fuzz-Roughness---IBL.png"
         },
         {
@@ -3513,14 +3513,14 @@
             "title": "OpenPBR Fuzz Weight vs Coat Weight with Normal Maps - IBL",
             "playgroundId": "#GRQHVV#205",
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
+            "reason": "Pixel comparison fails: 24.925% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "OpenPBR-Fuzz-Weight-vs-Coat-Weight-with-Normal-Maps---IBL.png"
         },
         {
             "title": "OpenPBR Fuzz Weight vs Fuzz Roughness - Realtime IBL",
             "playgroundId": "#GRQHVV#206",
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
+            "reason": "Pixel comparison fails: 40.233% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "OpenPBR-Fuzz-Weight-vs-Fuzz-Roughness---Realtime-IBL.png"
         },
         {
@@ -3532,7 +3532,7 @@
             "title": "OpenPBR Transmission Color glTF - IBL",
             "playgroundId": "#GRQHVV#120",
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
+            "reason": "Pixel comparison fails: 58.792% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "OpenPBR-Transmission-Color-glTF---IBL.png"
         },
         {
@@ -3546,7 +3546,7 @@
             "title": "OpenPBR Transmission Roughness glTF - IBL",
             "playgroundId": "#GRQHVV#123",
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
+            "reason": "Pixel comparison fails: 45.075% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "OpenPBR-Transmission-Roughness-glTF---IBL.png"
         },
         {
@@ -3554,7 +3554,7 @@
             "playgroundId": "#GRQHVV#124",
             "referenceImage": "OpenPBR-Transmission-Roughness-glTF---Analytic-Lights.png",
             "excludeFromAutomaticTesting": true,
-            "reason": "GUI grid labels render red instead of green/black (BN GUI color regression); OpenPBR transmission spheres minor anisotropy diff."
+            "reason": "Pixel comparison fails: 6.156% of pixels differ from reference on Native [reeval 2026-07-21]"
         },
         {
             "title": "OpenPBR Transmission Roughness vs IOR - Analytic Lights",
@@ -3570,7 +3570,7 @@
             "title": "OpenPBR Transmission Anisotropy Roughness vs IOR - Realtime IBL",
             "playgroundId": "#GRQHVV#132",
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
+            "reason": "Hangs on Babylon Native: realtime-filtered IBL never completes (no exit within 45s) [reeval 2026-07-21]",
             "referenceImage": "OpenPBR-Transmission-Anisotropy-Roughness-vs-IOR---Realtime-IBL.png"
         },
         {
@@ -3587,14 +3587,14 @@
             "title": "OpenPBR Transmission Anisotropy vs Roughness - IBL",
             "playgroundId": "#GRQHVV#138",
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
+            "reason": "Pixel comparison fails: 18.816% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "OpenPBR-Transmission-Anisotropy-vs-Roughness---IBL.png"
         },
         {
             "title": "OpenPBR Transmission Dispersion glTF - IBL",
             "playgroundId": "#GRQHVV#140",
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
+            "reason": "Pixel comparison fails: 53.563% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "OpenPBR-Transmission-Dispersion-glTF---IBL.png"
         },
         {
@@ -3606,21 +3606,21 @@
             "title": "OpenPBR Transmission Dispersion VS IOR - IBL",
             "playgroundId": "#GRQHVV#143",
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
+            "reason": "Pixel comparison fails: 6.967% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "OpenPBR-Transmission-Dispersion-VS-IOR---IBL.png"
         },
         {
             "title": "OpenPBR Transmission Forward Scatter and Absorption - IBL",
             "playgroundId": "#GRQHVV#263",
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
+            "reason": "Pixel comparison fails: 13.967% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "OpenPBR-Transmission-Forward-Scatter-and-Absorption---IBL.png"
         },
         {
             "title": "OpenPBR Transmission Scatter Anisotropy Reflect - IBL",
             "playgroundId": "#GRQHVV#264",
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
+            "reason": "Pixel comparison fails: 20.764% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "OpenPBR-Transmission-Scatter-Anisotropy-Reflect---IBL.png"
         },
         {
@@ -3628,7 +3628,7 @@
             "playgroundId": "#GRQHVV#265",
             "renderCount": 5,
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
+            "reason": "Pixel comparison fails: 16.637% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "OpenPBR-Transmission-Scatter-Anisotropy-Refract---IBL.png"
         },
         {
@@ -3651,7 +3651,7 @@
             "playgroundId": "#GRQHVV#270",
             "renderCount": 5,
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
+            "reason": "Pixel comparison fails: 20.908% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "OpenPBR-Subsurface-Radius-vs-Roughness---IBL.png"
         },
         {
@@ -3672,7 +3672,7 @@
             "playgroundId": "#GRQHVV#273",
             "renderCount": 5,
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
+            "reason": "Pixel comparison fails: 19.085% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "OpenPBR-Subsurface-Radius-vs-Radius-Scale---IBL.png"
         },
         {
@@ -3680,7 +3680,7 @@
             "playgroundId": "#GRQHVV#296",
             "renderCount": 5,
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
+            "reason": "Pixel comparison fails: 26.473% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "OpenPBR-Subsurface-Transmission-Blending---IBL.png"
         },
         {
@@ -3689,14 +3689,14 @@
             "renderCount": 2,
             "referenceImage": "OpenPBR-Subsurface-Transmission-Blending---Analytic-Lights.png",
             "excludeFromAutomaticTesting": true,
-            "reason": "OpenPBR subsurface transmission shows red bands on label backgrounds (BN GUI color + minor SSS BSDF differences)."
+            "reason": "Pixel comparison fails: 6.676% of pixels differ from reference on Native [reeval 2026-07-21]"
         },
         {
             "title": "OpenPBR Subsurface Transmission Blending Zero Depth - IBL",
             "playgroundId": "#GRQHVV#235",
             "renderCount": 5,
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
+            "reason": "Pixel comparison fails: 12.005% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "OpenPBR-Subsurface-Transmission-Blending-Zero-Depth---IBL.png"
         },
         {
@@ -3704,7 +3704,7 @@
             "playgroundId": "#GRQHVV#294",
             "renderCount": 10,
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
+            "reason": "Pixel comparison fails: 27.634% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "OpenPBR-Transmission-Dense-Scattering---IBL.png"
         },
         {
@@ -3712,7 +3712,7 @@
             "playgroundId": "#GRQHVV#293",
             "renderCount": 10,
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
+            "reason": "Pixel comparison fails: 9.602% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "OpenPBR-Transmission-Dense-Scattering---SH.png"
         },
         {
@@ -3720,7 +3720,7 @@
             "playgroundId": "#GRQHVV#295",
             "renderCount": 10,
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
+            "reason": "Pixel comparison fails: 30.565% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "OpenPBR-Subsurface-Dense-Scattering---IBL.png"
         },
         {
@@ -3729,14 +3729,14 @@
             "renderCount": 10,
             "referenceImage": "OpenPBR-Subsurface-Dense-Scattering---Analytic-Lights.png",
             "excludeFromAutomaticTesting": true,
-            "reason": "OpenPBR analytic-lights left column spheres render saturated red where reference shows subsurface scattering (spirv-cross HLSL emit gap for OpenPBR SSS BSDF)."
+            "reason": "Pixel comparison fails: 16.041% of pixels differ from reference on Native [reeval 2026-07-21]"
         },
         {
             "title": "OpenPBR Subsurface Dense Scattering - Realtime IBL",
             "playgroundId": "#GRQHVV#301",
             "renderCount": 5,
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
+            "reason": "Pixel comparison fails: 29.940% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "OpenPBR-Subsurface-Dense-Scattering---Realtime-IBL.png"
         },
         {
@@ -3744,7 +3744,7 @@
             "playgroundId": "#GRQHVV#302",
             "renderCount": 5,
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
+            "reason": "Pixel comparison fails: 24.570% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "OpenPBR-Subsurface-Color-Scaling---IBL.png"
         },
         {
@@ -3752,7 +3752,7 @@
             "playgroundId": "#GRQHVV#240",
             "renderCount": 5,
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
+            "reason": "Pixel comparison fails: 7.213% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "OpenPBR-Thin-Walled-Transmission-IOR-vs-Roughness---IBL.png"
         },
         {
@@ -3760,14 +3760,14 @@
             "playgroundId": "#GRQHVV#243",
             "referenceImage": "OpenPBR-Thin-Walled-Transmission-IOR-vs-Roughness---Analytic-Lights.png",
             "excludeFromAutomaticTesting": true,
-            "reason": "Test fails locally on Win32 D3D11 sweep; disabled until BabylonNative fixes are made."
+            "reason": "Pixel comparison fails: 6.937% of pixels differ from reference on Native [reeval 2026-07-21]"
         },
         {
             "title": "OpenPBR Thin Walled Anisotropic Transmission - IBL",
             "playgroundId": "#GRQHVV#247",
             "renderCount": 5,
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
+            "reason": "Pixel comparison fails: 6.907% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "OpenPBR-Thin-Walled-Anisotropic-Transmission---IBL.png"
         },
         {
@@ -3775,14 +3775,14 @@
             "playgroundId": "#GRQHVV#244",
             "referenceImage": "OpenPBR-Thin-Walled-Anisotropic-Transmission---Analytic-Lights.png",
             "excludeFromAutomaticTesting": true,
-            "reason": "Test fails locally on Win32 D3D11 sweep; disabled until BabylonNative fixes are made."
+            "reason": "Pixel comparison fails: 9.527% of pixels differ from reference on Native [reeval 2026-07-21]"
         },
         {
             "title": "OpenPBR Thin Walled Subsurface Anisotropy - IBL",
             "playgroundId": "#GRQHVV#241",
             "renderCount": 5,
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
+            "reason": "Pixel comparison fails: 19.061% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "OpenPBR-Thin-Walled-Subsurface-Anisotropy---IBL.png"
         },
         {
@@ -3790,14 +3790,14 @@
             "playgroundId": "#GRQHVV#248",
             "referenceImage": "OpenPBR-Thin-Walled-Subsurface-Anisotropy---Analytic-Lights.png",
             "excludeFromAutomaticTesting": true,
-            "reason": "Test fails locally on Win32 D3D11 sweep; disabled until BabylonNative fixes are made."
+            "reason": "Pixel comparison fails: 12.546% of pixels differ from reference on Native [reeval 2026-07-21]"
         },
         {
             "title": "OpenPBR Thin Walled Subsurface Transmission Blending - IBL",
             "playgroundId": "#GRQHVV#242",
             "renderCount": 5,
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
+            "reason": "Pixel comparison fails: 14.727% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "OpenPBR-Thin-Walled-Subsurface-Transmission-Blending---IBL.png"
         },
         {
@@ -3805,13 +3805,13 @@
             "playgroundId": "#UU7RQ#4458",
             "referenceImage": "Background-material-blur.png",
             "excludeFromAutomaticTesting": true,
-            "reason": "Background material blur produces red splotches in the blurred background (BN background-blur shader regression)."
+            "reason": "Pixel comparison fails: 9.650% of pixels differ from reference on Native [reeval 2026-07-21]"
         },
         {
             "title": "Lighting Volume",
             "playgroundId": "#MU9P6L#1",
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
+            "reason": "Hangs on Babylon Native: volumetric/lighting-volume pass (no exit within 45s) [reeval 2026-07-21]",
             "referenceImage": "Lighting-Volume.png"
         },
         {
@@ -3820,7 +3820,7 @@
             "renderCount": 180,
             "useLargeWorldRendering": true,
             "excludeFromAutomaticTesting": true,
-            "reason": "Test crashes or hangs on Babylon Native",
+            "reason": "Runtime error on Native: ReferenceError: HK is not defined [reeval 2026-07-21]",
             "referenceImage": "Havok-FloatingOrigin-Multi-Region.png"
         },
         {
@@ -3829,7 +3829,7 @@
             "renderCount": 120,
             "referenceImage": "NME-Particles-with-PositionW.png",
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel diff after #1691 instance-data stride fix; not stride-related, needs follow-up."
+            "reason": "Pixel comparison fails: 10.020% of pixels differ from reference on Native [reeval 2026-07-21]"
         },
         {
             "title": "Particles - Basic Properties - Size",
@@ -4131,7 +4131,7 @@
             "playgroundId": "#XPVJMM#4",
             "renderCount": 120,
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
+            "reason": "Pixel comparison fails: 6.945% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "particles-ramp-blend.png"
         },
         {
@@ -4170,7 +4170,7 @@
             "playgroundId": "#M58G3X#4",
             "renderCount": 240,
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
+            "reason": "Runtime error on Native: ReferenceError: Image is not defined [reeval 2026-07-21]",
             "referenceImage": "particles-flowmaps.png"
         },
         {
@@ -4178,14 +4178,14 @@
             "playgroundId": "#PPC2EI#5",
             "renderCount": 120,
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
+            "reason": "Runtime error on Native: ReferenceError: Image is not defined [reeval 2026-07-21]",
             "referenceImage": "particles-flowmaps-2.png"
         },
         {
             "title": "Selection outline layer with instances",
             "playgroundId": "#UR9706#0",
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails (more than 20% pixels differ)",
+            "reason": "Pixel comparison fails: 19.438% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "Selection-outline-layer-with-instances.png"
         },
         {
@@ -4395,7 +4395,7 @@
             "title": "GPU Particles - Flowmaps",
             "playgroundId": "#SGAEHS#0",
             "excludeFromAutomaticTesting": true,
-            "reason": "Native lacks the 'Image' DOM constructor: throws ReferenceError: 'Image' is not defined (thrown before pixel comparison, not a pixel-diff)",
+            "reason": "Runtime error on Native: ReferenceError: Image is not defined [reeval 2026-07-21]",
             "referenceImage": "gpu-particles-flowmaps.png"
         },
         {
@@ -4466,14 +4466,14 @@
             "title": "CSM  FrameGraph - debug markers",
             "playgroundId": "#JWKDME#216",
             "excludeFromAutomaticTesting": true,
-            "reason": "FrameGraph render pipeline hangs past 120s",
+            "reason": "Pixel comparison fails: 26.880% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "CSM-FrameGraph---debug-markers.png"
         },
         {
             "title": "Reflection Probes - debug markers",
             "playgroundId": "#KA93U#1723",
             "excludeFromAutomaticTesting": true,
-            "reason": "ReflectionProbe: 'TEXTURE_CUBE_MAP' undefined on NativeEngine",
+            "reason": "Pixel comparison fails: 5.563% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "Reflection-Probes---debug-markers.png"
         },
         {
