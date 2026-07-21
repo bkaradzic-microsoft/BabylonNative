@@ -3360,7 +3360,7 @@
             "title": "OpenPBR Anisotropy - Realtime Filtered IBL",
             "playgroundId": "#GRQHVV#190",
             "excludeFromAutomaticTesting": true,
-            "reason": "Hangs on Babylon Native: realtime-filtered IBL never completes (no exit within 45s) [reeval 2026-07-21]",
+            "reason": "Pixel comparison fails: ~14.8% of pixels differ on Native (realtime-anisotropic GPU prefilter quality gap; shader compile hang fixed in Batch 58) [reeval 2026-07-21]",
             "referenceImage": "OpenPBR-Anisotropy---Realtime-Filtered-IBL.png"
         },
         {
@@ -3374,7 +3374,7 @@
             "title": "OpenPBR Coat Anisotropy - Realtime Filtered IBL",
             "playgroundId": "#GRQHVV#195",
             "excludeFromAutomaticTesting": true,
-            "reason": "Hangs on Babylon Native: realtime-filtered IBL never completes (no exit within 45s) [reeval 2026-07-21]",
+            "reason": "Pixel comparison fails: ~29.2% of pixels differ on Native (realtime-anisotropic GPU prefilter quality gap; shader compile hang fixed in Batch 58) [reeval 2026-07-21]",
             "referenceImage": "OpenPBR-Coat-Anisotropy---Realtime-Filtered-IBL.png"
         },
         {
@@ -3569,9 +3569,8 @@
         {
             "title": "OpenPBR Transmission Anisotropy Roughness vs IOR - Realtime IBL",
             "playgroundId": "#GRQHVV#132",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Hangs on Babylon Native: realtime-filtered IBL never completes (no exit within 45s) [reeval 2026-07-21]",
-            "referenceImage": "OpenPBR-Transmission-Anisotropy-Roughness-vs-IOR---Realtime-IBL.png"
+            "referenceImage": "OpenPBR-Transmission-Anisotropy-Roughness-vs-IOR---Realtime-IBL.png",
+            "note": "Batch 58: unblocked by openpbrIblFunctions realtime-anisotropic inliner fix; renders at 1.1% (within default tolerance)."
         },
         {
             "title": "OpenPBR Transmission Anisotropy Roughness vs IOR - Analytic Lights",
