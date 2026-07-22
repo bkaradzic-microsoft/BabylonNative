@@ -2796,7 +2796,7 @@
             "title": "FrameGraph nrge SSAO",
             "playgroundId": "#SYQW69#1368",
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails: 6.166% of pixels differ from reference on Native [reeval 2026-07-21]",
+            "reason": "Pixel comparison fails: 6.166% of pixels differ on Native. ROOT-CAUSED: the NRG geometry-buffer shares one MSAA (samples=4) depth texture across 3 bgfx framebuffers (clear -> geometry MRT writes depth -> main pass borrows+depth-tests it). On Native/bgfx a borrowed/shared MSAA depth attachment silently does NOT hardware depth-test (a framebuffer's OWN MSAA depth works; regular MSAA tests pass), so far walls overwrite near objects (painter's order). Forcing samples=1 fixes it (0.372%, passes) but bgfx forbids mixing MSAA color + non-MSAA depth in one framebuffer, so the whole graph must drop MSAA; a global samples=1 clamp regresses enabled FrameGraph tests 455 (nrg gui bloom, 2.53%) and 466 (sharpen, 11.5%). No cleanly-scoped per-graph MSAA-disable available. Known Native limitation. [reeval 2026-07-21]",
             "referenceImage": "FrameGraph-nrge-SSAO.png"
         },
         {
