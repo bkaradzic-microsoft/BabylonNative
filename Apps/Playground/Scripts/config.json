@@ -1037,8 +1037,6 @@
             "title": "GUI Slate",
             "playgroundId": "#2YZFA0#277",
             "renderCount": 60,
-            "excludeFromAutomaticTesting": true,
-            "reason": "Runtime error on Native: Failed to evaluate playground snippet #2YZFA0#277: Error: The data size does not match width, height, and format [reeval 2026-07-21]",
             "referenceImage": "guiSlate.png"
         },
         {
@@ -2301,9 +2299,7 @@
         {
             "title": "Rounding values on controls inside StackPanel",
             "playgroundId": "#XCPP9Y#18325",
-            "referenceImage": "Rounding-values-on-controls-inside-StackPanel.png",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails: 9.621% of pixels differ from reference on Native [reeval 2026-07-21]"
+            "referenceImage": "Rounding-values-on-controls-inside-StackPanel.png"
         },
         {
             "title": "Rounding cell widths on Grid",
@@ -2315,9 +2311,7 @@
         {
             "title": "GUI for Mesh cloning",
             "playgroundId": "#ZUAPLL#2",
-            "referenceImage": "GUI-for-Mesh-cloning.png",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails: 16.803% of pixels differ from reference on Native [reeval 2026-07-21]"
+            "referenceImage": "GUI-for-Mesh-cloning.png"
         },
         {
             "title": "PBR Debug Modes",
