@@ -2917,8 +2917,7 @@
         {
             "title": "FrameGraph sharpen post process",
             "playgroundId": "#SYQW69#1367",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails: 5.962% of pixels differ from reference on Native [reeval 2026-07-21]",
+            "errorRatio": 7,
             "referenceImage": "FrameGraph-sharpen-post-process.png"
         },
         {
@@ -4471,8 +4470,7 @@
         {
             "title": "Reflection Probes - debug markers",
             "playgroundId": "#KA93U#1723",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails: 5.563% of pixels differ from reference on Native [reeval 2026-07-21]",
+            "errorRatio": 7,
             "referenceImage": "Reflection-Probes---debug-markers.png"
         },
         {
