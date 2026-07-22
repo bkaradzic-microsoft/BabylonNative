@@ -422,45 +422,60 @@
                                 }
                             }
 
-                            currentScene = eval(code + "\r\ncreateScene(engine)");
+                            const pgCode = code + "\r\ncreateScene(engine)";
+                            // Defer scene construction to a fresh macrotask so
+                            // eval()/createScene() run at a shallow native-stack
+                            // depth instead of nested inside the native snippet
+                            // load callback. Deep scenes otherwise pile onto the
+                            // native XHR dispatch frames and can overflow engines
+                            // with a small C stack (e.g. QuickJS).
+                            setTimeout(function () {
+                                try {
+                                    currentScene = eval(pgCode);
 
-                            if (currentScene.then) {
-                                // Handle if createScene returns a promise. Guard against a
-                                // snippet whose promise never resolves (e.g. a scene whose
-                                // utility-layer executeWhenReady never fires on Native): the
-                                // onReadyTimeout safety net lives inside processCurrentScene
-                                // and only applies AFTER the promise resolves, so without this
-                                // a pending createScene promise hangs the whole suite. Mirror
-                                // onReadyTimeoutDuration and convert it to a fast failure.
-                                // Note: this only fires if the JS event loop keeps running; a
-                                // snippet that blocks the JS thread natively (e.g. manual
-                                // setInterval frame-driving) is not rescued by this.
-                                let sceneSettled = false;
-                                const createSceneTimeoutMs = 10 * 60 * 1000;
-                                const createSceneTimeoutId = setTimeout(function () {
-                                    if (sceneSettled) { return; }
-                                    sceneSettled = true;
-                                    console.error("createScene promise for " + test.playgroundId +
-                                        " did not resolve within " + (createSceneTimeoutMs / 1000) + "s.");
+                                    if (currentScene.then) {
+                                        // Handle if createScene returns a promise. Guard against a
+                                        // snippet whose promise never resolves (e.g. a scene whose
+                                        // utility-layer executeWhenReady never fires on Native): the
+                                        // onReadyTimeout safety net lives inside processCurrentScene
+                                        // and only applies AFTER the promise resolves, so without this
+                                        // a pending createScene promise hangs the whole suite. Mirror
+                                        // onReadyTimeoutDuration and convert it to a fast failure.
+                                        // Note: this only fires if the JS event loop keeps running; a
+                                        // snippet that blocks the JS thread natively (e.g. manual
+                                        // setInterval frame-driving) is not rescued by this.
+                                        let sceneSettled = false;
+                                        const createSceneTimeoutMs = 10 * 60 * 1000;
+                                        const createSceneTimeoutId = setTimeout(function () {
+                                            if (sceneSettled) { return; }
+                                            sceneSettled = true;
+                                            console.error("createScene promise for " + test.playgroundId +
+                                                " did not resolve within " + (createSceneTimeoutMs / 1000) + "s.");
+                                            failTest(done);
+                                        }, createSceneTimeoutMs);
+                                        currentScene.then(function (scene) {
+                                            if (sceneSettled) { return; }
+                                            sceneSettled = true;
+                                            clearTimeout(createSceneTimeoutId);
+                                            currentScene = scene;
+                                            processCurrentScene(test, referenceImage, done, compareFunction);
+                                        }).catch(function (e) {
+                                            if (sceneSettled) { return; }
+                                            sceneSettled = true;
+                                            clearTimeout(createSceneTimeoutId);
+                                            console.error(e);
+                                            failTest(done);
+                                        });
+                                    } else {
+                                        // Handle if createScene returns a scene
+                                        processCurrentScene(test, referenceImage, done, compareFunction);
+                                    }
+                                }
+                                catch (e) {
+                                    console.error("Failed to evaluate playground snippet " + test.playgroundId + ": " + e);
                                     failTest(done);
-                                }, createSceneTimeoutMs);
-                                currentScene.then(function (scene) {
-                                    if (sceneSettled) { return; }
-                                    sceneSettled = true;
-                                    clearTimeout(createSceneTimeoutId);
-                                    currentScene = scene;
-                                    processCurrentScene(test, referenceImage, done, compareFunction);
-                                }).catch(function (e) {
-                                    if (sceneSettled) { return; }
-                                    sceneSettled = true;
-                                    clearTimeout(createSceneTimeoutId);
-                                    console.error(e);
-                                    failTest(done);
-                                });
-                            } else {
-                                // Handle if createScene returns a scene
-                                processCurrentScene(test, referenceImage, done, compareFunction);
-                            }
+                                }
+                            }, 0);
                         }
                         catch (e) {
                             console.error("Failed to evaluate playground snippet " + test.playgroundId + ": " + e);
@@ -517,8 +532,23 @@
                             }
                         }
 
-                        currentScene = eval(scriptToRun + test.functionToCall + "(engine)");
-                        processCurrentScene(test, renderImage, done, compareFunction);
+                        const scriptCode = scriptToRun + test.functionToCall + "(engine)";
+                        // Defer scene construction to a fresh macrotask so
+                        // eval()/<functionToCall>() run at a shallow native-stack
+                        // depth instead of nested inside the native XHR
+                        // completion callback. Deep scenes otherwise pile onto
+                        // the native XHR dispatch frames and can overflow engines
+                        // with a small C stack (e.g. QuickJS).
+                        setTimeout(function () {
+                            try {
+                                currentScene = eval(scriptCode);
+                                processCurrentScene(test, renderImage, done, compareFunction);
+                            }
+                            catch (e) {
+                                console.error(e);
+                                failTest(done);
+                            }
+                        }, 0);
                     }
                     catch (e) {
                         console.error(e);

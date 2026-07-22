@@ -22,7 +22,7 @@ namespace
 
         if (!shader.parse(defaultTBuiltInResource, 310, EProfile::EEsProfile, true, true, EShMsgDefault))
         {
-            throw std::runtime_error{std::string{shader.getInfoLog()} + " | debug: " + shader.getInfoDebugLog()};
+            throw std::runtime_error{shader.getInfoLog()};
         }
 
         program.addShader(&shader);
@@ -59,43 +59,6 @@ namespace
 #endif
 
         if (FAILED(D3DCompile(hlsl.data(), hlsl.size(), nullptr, nullptr, nullptr, "main", target, flags, 0, blob, &errorMsgs)))
-        {
-            throw std::runtime_error{static_cast<const char*>(errorMsgs->GetBufferPointer())};
-        }
-
-        return {std::move(parser), std::move(compiler)};
-    }
-
-    std::pair<std::unique_ptr<spirv_cross::Parser>, std::unique_ptr<spirv_cross::Compiler>> CompileComputeShader(glslang::TProgram& program, ID3DBlob** blob)
-    {
-        std::vector<uint32_t> spirv;
-        glslang::GlslangToSpv(*program.getIntermediate(EShLangCompute), spirv);
-
-        auto parser = std::make_unique<spirv_cross::Parser>(std::move(spirv));
-        parser->parse();
-
-        auto compiler = std::make_unique<spirv_cross::CompilerHLSL>(parser->get_parsed_ir());
-
-        // Compute requires Shader Model 5.0 (cs_5_0). Force read-write storage buffers to be
-        // emitted as UAVs so bgfx::setBuffer(...ACCESS_READWRITE) binds them to the u# registers.
-        spirv_cross::CompilerHLSL::Options hlslOptions{};
-        hlslOptions.shader_model = 50;
-        hlslOptions.force_storage_buffer_as_uav = true;
-        compiler->set_hlsl_options(hlslOptions);
-
-        Babylon::ShaderCompilerCommon::AssignUniformBufferBindings(*compiler);
-
-        std::string hlsl = compiler->compile();
-
-        Microsoft::WRL::ComPtr<ID3DBlob> errorMsgs;
-
-        UINT flags = 0;
-
-#ifdef _DEBUG
-        flags |= D3DCOMPILE_DEBUG;
-#endif
-
-        if (FAILED(D3DCompile(hlsl.data(), hlsl.size(), nullptr, nullptr, nullptr, "main", "cs_5_0", flags, 0, blob, &errorMsgs)))
         {
             throw std::runtime_error{static_cast<const char*>(errorMsgs->GetBufferPointer())};
         }
@@ -166,34 +129,34 @@ namespace Babylon::Plugins
             {bgfx::Attrib::TexCoord5, "TEXCOORD5"   },
             {bgfx::Attrib::TexCoord6, "TEXCOORD6"   },
             {bgfx::Attrib::TexCoord7, "TEXCOORD7"   },
-            {bgfx::Attrib::TexCoord8,  "TEXCOORD8"  },
-            {bgfx::Attrib::TexCoord9,  "TEXCOORD9"  },
+            {bgfx::Attrib::TexCoord8, "TEXCOORD8"   },
+            {bgfx::Attrib::TexCoord9, "TEXCOORD9"   },
             {bgfx::Attrib::TexCoord10, "TEXCOORD10" },
             {bgfx::Attrib::TexCoord11, "TEXCOORD11" },
             {bgfx::Attrib::TexCoord12, "TEXCOORD12" },
             {bgfx::Attrib::TexCoord13, "TEXCOORD13" },
             {bgfx::Attrib::TexCoord14, "TEXCOORD14" },
             {bgfx::Attrib::TexCoord15, "TEXCOORD15" },
-            // Per-instance data (i_data slots). bgfx delivers instance slot k at descending
-            // semantic TEXCOORD(31 - k); these inputs are assigned SPIRV locations offset 16
-            // above their semantic index (see ShaderCompilerTraversers kInstanceLocationBase)
-            // so they stay distinct from per-vertex attribute locations in this remap.
-            {32u, "TEXCOORD16"},
-            {33u, "TEXCOORD17"},
-            {34u, "TEXCOORD18"},
-            {35u, "TEXCOORD19"},
-            {36u, "TEXCOORD20"},
-            {37u, "TEXCOORD21"},
-            {38u, "TEXCOORD22"},
-            {39u, "TEXCOORD23"},
-            {40u, "TEXCOORD24"},
-            {41u, "TEXCOORD25"},
-            {42u, "TEXCOORD26"},
-            {43u, "TEXCOORD27"},
-            {44u, "TEXCOORD28"},
-            {45u, "TEXCOORD29"},
-            {46u, "TEXCOORD30"},
-            {47u, "TEXCOORD31"},
+            // Per-instance data (i_data0..i_data15) occupies the top TEXCOORD semantics
+            // (TEXCOORD31..16), which have no bgfx::Attrib enum. The shader traversers assign
+            // them synthetic locations of (bgfx::Attrib::TexCoord0 + semanticIndex); map those
+            // back so bgfx's instance-data layout (TEXCOORD31 == i_data0, descending) binds them.
+            {Babylon::Graphics::TEXCOORD0_ATTRIBUTE_LOCATION + 16, "TEXCOORD16"},
+            {Babylon::Graphics::TEXCOORD0_ATTRIBUTE_LOCATION + 17, "TEXCOORD17"},
+            {Babylon::Graphics::TEXCOORD0_ATTRIBUTE_LOCATION + 18, "TEXCOORD18"},
+            {Babylon::Graphics::TEXCOORD0_ATTRIBUTE_LOCATION + 19, "TEXCOORD19"},
+            {Babylon::Graphics::TEXCOORD0_ATTRIBUTE_LOCATION + 20, "TEXCOORD20"},
+            {Babylon::Graphics::TEXCOORD0_ATTRIBUTE_LOCATION + 21, "TEXCOORD21"},
+            {Babylon::Graphics::TEXCOORD0_ATTRIBUTE_LOCATION + 22, "TEXCOORD22"},
+            {Babylon::Graphics::TEXCOORD0_ATTRIBUTE_LOCATION + 23, "TEXCOORD23"},
+            {Babylon::Graphics::TEXCOORD0_ATTRIBUTE_LOCATION + 24, "TEXCOORD24"},
+            {Babylon::Graphics::TEXCOORD0_ATTRIBUTE_LOCATION + 25, "TEXCOORD25"},
+            {Babylon::Graphics::TEXCOORD0_ATTRIBUTE_LOCATION + 26, "TEXCOORD26"},
+            {Babylon::Graphics::TEXCOORD0_ATTRIBUTE_LOCATION + 27, "TEXCOORD27"},
+            {Babylon::Graphics::TEXCOORD0_ATTRIBUTE_LOCATION + 28, "TEXCOORD28"},
+            {Babylon::Graphics::TEXCOORD0_ATTRIBUTE_LOCATION + 29, "TEXCOORD29"},
+            {Babylon::Graphics::TEXCOORD0_ATTRIBUTE_LOCATION + 30, "TEXCOORD30"},
+            {Babylon::Graphics::TEXCOORD0_ATTRIBUTE_LOCATION + 31, "TEXCOORD31"},
         };
         // clang-format on
 
@@ -214,42 +177,5 @@ namespace Babylon::Plugins
             {}};
 
         return CreateBgfxShader(std::move(vertexShaderInfo), std::move(fragmentShaderInfo));
-    }
-
-    Graphics::BgfxShaderInfo ShaderCompiler::CompileCompute(std::string_view computeSource)
-    {
-        glslang::TProgram program;
-
-        glslang::TShader computeShader{EShLangCompute};
-
-        const std::array<const char*, 1> sources{computeSource.data()};
-        computeShader.setStrings(sources.data(), gsl::narrow_cast<int>(sources.size()));
-
-        auto defaultTBuiltInResource = GetDefaultResources();
-        if (!computeShader.parse(defaultTBuiltInResource, 310, EProfile::EEsProfile, true, true, EShMsgDefault))
-        {
-            throw std::runtime_error{std::string{"compute parse: "} + computeShader.getInfoLog() + " | debug: " + computeShader.getInfoDebugLog()};
-        }
-
-        glslang::SpvVersion spv{};
-        spv.spv = 0x10000;
-        computeShader.getIntermediate()->setSpv(spv);
-
-        program.addShader(&computeShader);
-
-        if (!program.link(EShMsgDefault))
-        {
-            throw std::runtime_error{std::string{"link: "} + program.getInfoLog() + " | debug: " + program.getInfoDebugLog()};
-        }
-
-        Microsoft::WRL::ComPtr<ID3DBlob> computeBlob;
-        auto [computeParser, computeCompiler] = CompileComputeShader(program, &computeBlob);
-        ShaderInfo computeShaderInfo{
-            std::move(computeParser),
-            std::move(computeCompiler),
-            gsl::make_span(static_cast<uint8_t*>(computeBlob->GetBufferPointer()), computeBlob->GetBufferSize()),
-            {}};
-
-        return CreateBgfxComputeShader(std::move(computeShaderInfo));
     }
 }

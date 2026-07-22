@@ -156,10 +156,10 @@ namespace Babylon
         // zero in the shader instead of leaking transient ring-buffer garbage.
         std::memset(data, 0, static_cast<size_t>(instanceStride) * instanceCount);
 
-        // Reverse because bgfx maps instance data in reverse attrib order: the highest-key
-        // instance attribute is packed at byte offset 0, which bgfx delivers at the first
-        // instance semantic (D3D11: TEXCOORD31 = i_data0, TEXCOORD30 = i_data1, etc.).
-        // OpenGL also expects this layout since bgfx abstracts the mapping.
+        // Reverse because bgfx maps instance data in reverse attrib order:
+        // i_data0 == the highest instance-data TEXCOORD semantic (TEXCOORD31 on D3D11),
+        // i_data1 == TEXCOORD30, etc. OpenGL/Metal expect this layout too since bgfx
+        // abstracts the mapping (binding by i_data name).
         uint32_t slotOffset{};
         for (auto iter = instances.rbegin(); iter != instances.rend(); ++iter)
         {
