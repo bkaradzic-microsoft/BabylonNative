@@ -2759,8 +2759,13 @@ namespace Babylon
             // mips were expected. Basically this change preserves previous behavior.
             // layer selects the cube face / array layer / 3D Z-slice; mip selects the target mip level
             // (used by the IBL voxel-grid mip-copy pass, which renders into a specific volume mip).
+            // Only auto-generate the mip chain when rendering into the base mip (mip 0). D3D11 GenerateMips
+            // regenerates the WHOLE chain from mip 0 on resolve, so leaving it on while explicitly authoring a
+            // higher mip level (the IBL voxel-grid mip-copy pass, HDR cube-face prefiltering, etc.) would clobber
+            // the just-written mip with a box-filtered average of mip 0 (observed as corrupted voxel occupancy masks).
+            const bool autoGenMips = (mip == 0) && (0 != (caps->formats[texture->Format()] & BGFX_CAPS_FORMAT_TEXTURE_MIP_AUTOGEN));
             attachments[numAttachments++].init(texture->Handle(), bgfx::Access::Write, attachmentLayer, 1, mip
-                , 0 != (caps->formats[texture->Format()] & BGFX_CAPS_FORMAT_TEXTURE_MIP_AUTOGEN) ? BGFX_RESOLVE_AUTO_GEN_MIPS : BGFX_RESOLVE_NONE
+                , autoGenMips ? BGFX_RESOLVE_AUTO_GEN_MIPS : BGFX_RESOLVE_NONE
                 );
         }
 
