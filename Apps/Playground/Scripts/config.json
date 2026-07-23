@@ -1530,7 +1530,7 @@
             "title": "PBR shader code coverage 1",
             "playgroundId": "#QI7TL3#63",
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails: 6.682% of pixels differ from reference on Native [reeval 2026-07-21]",
+            "reason": "Native under-represents blurred prefiltered-env contributions on a maximal-feature PBRMaterial (roughness 0.5 reflection from country.dds + clearcoat + sheen + subsurface refraction from SpecularHDR.dds): Native reflections render too sharp/dark/saturated vs the reference's pale/blurry env wash (e.g. sphere-mid ref (143,143,131) vs Native (91,103,72)). 6.682% deterministic. Same prefiltered-reflection/IBL fidelity gap as the OpenPBR-IBL cluster; not a single surgical bug [root-caused Batch 62]",
             "referenceImage": "pbr-codecoverage1.png"
         },
         {
@@ -1542,7 +1542,7 @@
             "title": "PBR shader code coverage 3",
             "playgroundId": "#QI7TL3#65",
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails: 6.709% of pixels differ from reference on Native [reeval 2026-07-21]",
+            "reason": "Native under-represents blurred prefiltered-env contributions on a maximal-feature PBRMaterial (object-space normals variant of coverage-1); reflections too sharp/dark vs reference's pale/blurry env wash. 6.709% deterministic. Same prefiltered-reflection/IBL fidelity gap as coverage-1 (250) and the OpenPBR-IBL cluster [root-caused Batch 62]",
             "referenceImage": "pbr-codecoverage3.png"
         },
         {
