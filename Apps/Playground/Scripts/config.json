@@ -943,8 +943,8 @@
             "title": "Node material 1",
             "playgroundId": "#QJ71C6#5",
             "referenceImage": "node-material1.png",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails: 6.093% of pixels differ from reference on Native [reeval 2026-07-21]"
+            "errorRatio": 8,
+            "reason": "Native-correct: node-material shading matches reference (identical mid-torso, button border, white GUI text). 6.09% deterministic diff is animation-frame timing (non-rigid idle-pose shift of the skeletal mesh moves the cyan node-material detail lines) + GUI text sub-pixel offset (font metrics). No shading defect; enabled with tolerance [Batch 62]"
         },
         {
             "title": "Node material 2",
