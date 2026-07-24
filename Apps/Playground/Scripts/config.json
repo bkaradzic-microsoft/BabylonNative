@@ -697,16 +697,12 @@
             "title": "OpenPBR Base Diffuse Roughness Prefiltered IBL with CDF",
             "playgroundId": "#MXACV7#28",
             "renderCount": 5,
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails: 35.685% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "openpbr-base-diffuse-roughness-prefiltered-ibl-with-cdf.png"
         },
         {
             "title": "OpenPBR Base Diffuse Roughness Prefiltered IBL",
             "playgroundId": "#MXACV7#27",
             "renderCount": 5,
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails: 34.132% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "openpbr-base-diffuse-roughness-prefiltered-ibl.png"
         },
         {
