@@ -2653,12 +2653,16 @@ namespace Babylon
         const uint16_t layer = (info.Length() > 6 && !info[6].IsUndefined()) ? static_cast<uint16_t>(info[6].As<Napi::Number>().Uint32Value()) : 0;
         // Optional mip level for the color attachment (IBL voxel-grid mip-copy renders into a specific mip).
         const uint16_t mip = (info.Length() > 7 && !info[7].IsUndefined()) ? static_cast<uint16_t>(info[7].As<Napi::Number>().Uint32Value()) : 0;
+        // Optional: whether the mip chain may be auto-generated on resolve. Render targets that author their own
+        // mip levels (HDR radiance prefiltering renders one convolution per cube face + mip) pass false, because
+        // D3D11 GenerateMips would rebuild the whole chain from mip 0 and wipe those explicit levels.
+        const bool autoGenerateMips = (info.Length() > 8 && !info[8].IsUndefined()) ? info[8].As<Napi::Boolean>().Value() : true;
 
         // A single render target is just the zero-or-one color attachment case of the shared implementation.
         Graphics::Texture* const colorTextures[]{texture};
         const gsl::span<Graphics::Texture* const> colorAttachments{colorTextures, texture != nullptr ? 1u : 0u};
 
-        return CreateFrameBufferImpl(info.Env(), colorAttachments, width, height, generateStencilBuffer, generateDepth, samples, layer, mip);
+        return CreateFrameBufferImpl(info.Env(), colorAttachments, width, height, generateStencilBuffer, generateDepth, samples, layer, mip, {}, nullptr, autoGenerateMips);
     }
 
     Napi::Value NativeEngine::CreateMultiFrameBuffer(const Napi::CallbackInfo& info)
@@ -2712,7 +2716,7 @@ namespace Babylon
         return CreateFrameBufferImpl(info.Env(), gsl::span<Graphics::Texture* const>{colorTextures.data(), colorCount}, width, height, generateStencilBuffer, generateDepth, samples, 0, 0, gsl::span<const uint16_t>{perAttachmentLayers.data(), layerCount}, explicitDepthTexture);
     }
 
-    Napi::Value NativeEngine::CreateFrameBufferImpl(Napi::Env env, gsl::span<Graphics::Texture* const> colorTextures, uint16_t width, uint16_t height, bool generateStencilBuffer, bool generateDepth, uint32_t samples, uint16_t layer, uint16_t mip, gsl::span<const uint16_t> perAttachmentLayers, Graphics::Texture* explicitDepthTexture)
+    Napi::Value NativeEngine::CreateFrameBufferImpl(Napi::Env env, gsl::span<Graphics::Texture* const> colorTextures, uint16_t width, uint16_t height, bool generateStencilBuffer, bool generateDepth, uint32_t samples, uint16_t layer, uint16_t mip, gsl::span<const uint16_t> perAttachmentLayers, Graphics::Texture* explicitDepthTexture, bool autoGenerateMips)
     {
         const bgfx::Caps* caps = bgfx::getCaps();
         const uint32_t colorCount = static_cast<uint32_t>(colorTextures.size());
@@ -2763,7 +2767,17 @@ namespace Babylon
             // regenerates the WHOLE chain from mip 0 on resolve, so leaving it on while explicitly authoring a
             // higher mip level (the IBL voxel-grid mip-copy pass, HDR cube-face prefiltering, etc.) would clobber
             // the just-written mip with a box-filtered average of mip 0 (observed as corrupted voxel occupancy masks).
-            const bool autoGenMips = (mip == 0) && (0 != (caps->formats[texture->Format()] & BGFX_CAPS_FORMAT_TEXTURE_MIP_AUTOGEN));
+            // Cube render targets whose mip chain is authored explicitly must never auto-generate, and the
+            // mip==0 guard above is NOT sufficient for them. HDR radiance prefiltering walks (face, lod) pairs,
+            // so every unbind of a face's mip-0 framebuffer resolves with GenerateMips and rebuilds mips 1..N
+            // from mip 0, destroying the per-roughness convolutions written by the previous iterations. What
+            // survives is a box-filtered mip 0, which keeps a small bright sun as a compact bright texel instead
+            // of spreading it into a wide glow -- so rough/coated surfaces rendered a sharp specular blob where
+            // the reference has a broad falloff. Babylon distinguishes the two cases already: a render target
+            // that authors its own mips is created with createMipMaps:true + generateMipMaps:false, and the
+            // engine forwards generateMipMaps here as autoGenerateMips (defaulting to true, so every other
+            // render target keeps the previous behaviour).
+            const bool autoGenMips = (mip == 0) && autoGenerateMips && (0 != (caps->formats[texture->Format()] & BGFX_CAPS_FORMAT_TEXTURE_MIP_AUTOGEN));
             attachments[numAttachments++].init(texture->Handle(), bgfx::Access::Write, attachmentLayer, 1, mip
                 , autoGenMips ? BGFX_RESOLVE_AUTO_GEN_MIPS : BGFX_RESOLVE_NONE
                 );
