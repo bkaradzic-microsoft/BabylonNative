@@ -1443,8 +1443,6 @@
             "title": "GLTF Extension KHR_materials_volume with analytic light",
             "playgroundId": "#YG3BBF#48",
             "renderCount": 5,
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails: 7.633% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "gltfExtensionKhrMaterialsVolumeHemiLight.png"
         },
         {
@@ -3022,8 +3020,6 @@
         {
             "title": "Specular reflectance models for IBL",
             "playgroundId": "#GRQHVV#169",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails: 14.670% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "Specular-reflectance-models-for-IBL.png"
         },
         {
@@ -3041,8 +3037,6 @@
         {
             "title": "F82 Specular Metal vs Weight",
             "playgroundId": "#GRQHVV#171",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails: 28.053% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "F82-Specular-Metal-vs-Weight.png"
         },
         {
@@ -3193,8 +3187,6 @@
         {
             "title": "OpenPBR IBL F82 Specular Metal vs Weight",
             "playgroundId": "#GRQHVV#172",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails: 27.818% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "OpenPBR-IBL-F82-Specular-Metal-vs-Weight.png"
         },
         {
@@ -3263,15 +3255,11 @@
         {
             "title": "OpenPBR IBL Coat Darkening",
             "playgroundId": "#GRQHVV#185",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails: 13.522% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "OpenPBR-IBL-Coat-Darkening.png"
         },
         {
             "title": "OpenPBR IBL Coat Darkening vs Coat IOR",
             "playgroundId": "#GRQHVV#181",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails: 8.084% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "OpenPBR-IBL-Coat-Darkening-vs-Coat-IOR.png"
         },
         {
