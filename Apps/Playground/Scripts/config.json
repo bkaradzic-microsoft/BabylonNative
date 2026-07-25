@@ -3770,8 +3770,6 @@
             "title": "OpenPBR Thin Walled Subsurface Transmission Blending - IBL",
             "playgroundId": "#GRQHVV#242",
             "renderCount": 5,
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails: 14.727% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "OpenPBR-Thin-Walled-Subsurface-Transmission-Blending---IBL.png"
         },
         {
