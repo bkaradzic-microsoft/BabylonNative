@@ -242,6 +242,22 @@ endif()
 # --------------------------------------------------
 # JsRuntimeHost
 # --------------------------------------------------
+
+# Babylon Native defaults Win32 desktop to V8 rather than inheriting JsRuntimeHost's
+# Chakra default. Chakra is frozen at ES2017 and cannot even *parse* the modern
+# JavaScript that Babylon.js and the Playground validation scripts emit (optional
+# chaining, numeric separators), let alone run it, so the visual/validation suite
+# is not meaningfully testable on it.
+#
+# This is a plain CACHE entry (no FORCE) set before JsRuntimeHost is added, so
+# JsRuntimeHost's own `set(... CACHE ...)` becomes a no-op and an explicit
+# -D NAPI_JAVASCRIPT_ENGINE=<engine> on the command line still wins. Scoped to
+# desktop Windows: the V8 NuGet packages (v8-v143-<arch>) are desktop-only, so
+# UWP/WINDOWS_STORE keeps inheriting the JsRuntimeHost default.
+if(WIN32 AND NOT WINDOWS_STORE)
+    set(NAPI_JAVASCRIPT_ENGINE "V8" CACHE STRING "JavaScript engine for Node-API")
+endif()
+
 FetchContent_MakeAvailable_With_Message(JsRuntimeHost)
 
 # --------------------------------------------------
