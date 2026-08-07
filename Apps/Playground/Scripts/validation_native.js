@@ -245,6 +245,15 @@
 
         currentScene.dispose();
         currentScene = null;
+
+        // A test can leave extra scenes behind (an async load that created its own scene, a scene
+        // whose creation promise resolved after validation, ...). They stay registered on the
+        // reused engine and keep their resources alive, so dispose them here.
+        const strayScenes = engine.scenes.slice();
+        for (let i = 0; i < strayScenes.length; ++i) {
+            strayScenes[i].dispose();
+        }
+
         engine.setHardwareScalingLevel(1);
 
         // Reset render state that persists on the reused engine so each test starts fresh.
