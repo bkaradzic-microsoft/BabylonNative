@@ -4,16 +4,18 @@
 #include <napi/napi.h>
 
 #include <draco/compression/decode.h>
-#include <draco/compression/encode.h>
 #include <draco/core/decoder_buffer.h>
+#include <draco/compression/encode.h>
 #include <draco/core/encoder_buffer.h>
 #include <draco/mesh/mesh.h>
 #include <draco/point_cloud/point_cloud.h>
 #include <draco/attributes/geometry_attribute.h>
 #include <draco/attributes/point_attribute.h>
+#include <draco/core/draco_version.h>
 
 #include <cstdint>
 #include <cstring>
+#include <limits>
 #include <memory>
 #include <string>
 #include <vector>
@@ -22,6 +24,32 @@ namespace Babylon::Plugins
 {
     namespace
     {
+        // Enumerates an object's own keys.
+        //
+        // Deliberately not Napi::Object::GetPropertyNames(). JsRuntimeHost's JavaScriptCore
+        // backend implements napi_get_property_names by calling Object.getOwnPropertyNames with
+        // an argument count of zero, so the object under inspection is never passed and the call
+        // evaluates getOwnPropertyNames(undefined), which throws. That makes GetPropertyNames
+        // unusable on JavaScriptCore, which is the default engine on macOS and iOS.
+        //
+        // Supplying the missing argument would not be enough for a general fix: Node-API
+        // specifies the enumerable properties including the prototype chain (what V8 returns),
+        // whereas getOwnPropertyNames is own-only and includes non-enumerables. Chakra has the
+        // same enumerability mismatch and QuickJS omits the prototype chain, so this is a
+        // conformance gap across all three non-V8 backends.
+        // Tracked by https://github.com/BabylonJS/JsRuntimeHost/issues/216 - remove this helper
+        // in favour of GetPropertyNames() once that is fixed.
+        //
+        // Calling Object.keys through the global object goes through napi_call_function with the
+        // argument actually supplied, and behaves identically on every engine for the plain data
+        // objects this map is built from.
+        Napi::Array OwnPropertyNames(Napi::Env env, const Napi::Object& object)
+        {
+            const auto objectCtor = env.Global().Get("Object").As<Napi::Object>();
+            const auto keys = objectCtor.Get("keys").As<Napi::Function>();
+            return keys.Call(objectCtor, {object}).As<Napi::Array>();
+        }
+
         // De-interleaves and tightly packs one Draco attribute's per-point values into a
         // freshly allocated JS typed array of type T. This mirrors emscripten's
         // GetAttributeDataArrayForAllPoints, which Babylon's WASM decoder relies on.
@@ -151,7 +179,7 @@ namespace Babylon::Plugins
             {
                 // glTF path: caller provides a map of Babylon vertex-buffer kind -> Draco unique id.
                 const auto attributeIds = info[1].As<Napi::Object>();
-                const auto keys = attributeIds.GetPropertyNames();
+                const auto keys = OwnPropertyNames(env, attributeIds);
                 for (uint32_t i = 0; i < keys.Length(); ++i)
                 {
                     const auto kind = keys.Get(i).As<Napi::String>().Utf8Value();
@@ -402,6 +430,7 @@ namespace Babylon::Plugins
             result.Set("attributeIds", attributeIds);
             return result;
         }
+
     }
 }
 
@@ -410,6 +439,26 @@ namespace Babylon::Plugins::NativeDraco
     void BABYLON_API Initialize(Napi::Env env)
     {
         auto native{JsRuntime::NativeObject::GetFromJavaScript(env)};
+
+        // Exposed as a single object rather than free functions so that the JavaScript side
+        // needs one feature probe instead of one per entry point, and so the object can carry
+        // the version of the codec built into this binary. A bare function name cannot express
+        // that, and Draco's bitstream is versioned, so a caller holding a stream this build is
+        // too old to read has no other way to find out ahead of time.
+        //
+        // Upstream links the decoder only, mirroring Babylon.js: its default configuration
+        // loads draco_decoder_gltf.wasm, and the encoder is a separate module fetched on demand
+        // by DracoEncoder. The shotgun branch also links the encoder so DracoEncoder has a
+        // native path to exercise; that costs ~1.2 MB and is a shotgun-only deviation.
+        auto codec = Napi::Object::New(env);
+        codec.Set("Decode", Napi::Function::New(env, DecodeDracoMesh, "Decode"));
+        codec.Set("Encode", Napi::Function::New(env, EncodeDracoMesh, "Encode"));
+        codec.Set("Version", Napi::String::New(env, draco::kDracoVersion));
+        native.Set("DracoCodec", codec);
+
+        // Legacy free-function names. Babylon.js feature-probes `_native.decodeDracoMesh` /
+        // `_native.encodeDracoMesh`, so keep these until the JavaScript side moves to
+        // `_native.DracoCodec`.
         native.Set("decodeDracoMesh", Napi::Function::New(env, DecodeDracoMesh, "decodeDracoMesh"));
         native.Set("encodeDracoMesh", Napi::Function::New(env, EncodeDracoMesh, "encodeDracoMesh"));
     }

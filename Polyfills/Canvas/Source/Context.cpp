@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cassert>
 #include <cstring>
+#include <limits>
 #include <optional>
 #include <regex>
 
@@ -680,6 +681,25 @@ namespace Babylon::Polyfills::Internal
             scope.emplace(m_graphicsContext.AcquireFrameCompletionScope());
         }
 
+        // A canvas flush is the one stretch of a frame that acquires views without ever
+        // reaching NativeEngine::GetEncoder, so no budget check runs inside it. Its cost is
+        // not bounded either: the pool recycles framebuffers but not view ids (Acquire ->
+        // Bind() drops the cached id, the draw re-acquires, Release -> Clear() acquires
+        // again), so it scales with filter-op count. That means kViewFlushMargin cannot be
+        // sized to cover it, and a frame that is just under the flush threshold on entry
+        // here would run past maxViews and throw "Too many views".
+        //
+        // Check once, here. This is the only safe point in the flush:
+        //   - after the scope above, so m_pendingFrameScopes > 0 and the flush handshake is
+        //     actually serviceable by the parked render thread (it no-ops otherwise);
+        //   - before the encoder is read below, so a flush that swaps the frame encoder
+        //     cannot leave us holding a stale pointer;
+        //   - before nvgBeginFrame, so no nanovg transient buffer exists to be invalidated
+        //     (those are allocated in glnvg__renderFlush during nvgEndFrame).
+        // This does not bound a single canvas' cost, but it reduces the requirement from
+        // "the margin must cover an arbitrary canvas" to "one canvas must fit in maxViews".
+        m_graphicsContext.FlushViewsIfNeeded();
+
         bgfx::Encoder* encoder = m_graphicsContext.GetActiveEncoder();
         if (encoder == nullptr)
         {
@@ -740,7 +760,7 @@ namespace Babylon::Polyfills::Internal
             // layer samples the destination texture. Deferring to CopyTexture's
             // PeekNextViewId() would place the blit after the backbuffer view, so the layer
             // would sample the previous frame's content (a one-frame GUI latency).
-            m_canvas->SetBlitViewId(m_graphicsContext.AcquireNewViewId());
+            m_canvas->SetBlitViewId(m_graphicsContext.AcquireNewViewId(), m_graphicsContext.ViewIdGeneration());
 
             for (auto& buffer : m_canvas->m_frameBufferPool.GetPoolBuffers())
             {
@@ -778,18 +798,22 @@ namespace Babylon::Polyfills::Internal
         {
             m_cpuWidth = width;
             m_cpuHeight = height;
-            m_cpuPixels.assign(static_cast<size_t>(width) * height * 4, 0);
-        }
-    }
 
-    void Context::BlitImageToCpu(const NativeCanvasImage& image, int32_t sx, int32_t sy, uint32_t sw, uint32_t sh, int32_t dx, int32_t dy, uint32_t dw, uint32_t dh)
-    {
-        BlitPixelsToCpu(image.GetPixels(), image.GetWidth(), image.GetHeight(), sx, sy, sw, sh, dx, dy, dw, dh);
+            const uint64_t pixelCount = static_cast<uint64_t>(width) * height;
+            if (pixelCount > std::numeric_limits<size_t>::max() / 4)
+            {
+                // Leave the mirror empty; drawImage and getImageData both no-op safely on it.
+                m_cpuPixels.clear();
+                return;
+            }
+
+            m_cpuPixels.assign(static_cast<size_t>(pixelCount) * 4, 0);
+        }
     }
 
     void Context::BlitPixelsToCpu(const uint8_t* src, uint32_t srcWidth, uint32_t srcHeight, int32_t sx, int32_t sy, uint32_t sw, uint32_t sh, int32_t dx, int32_t dy, uint32_t dw, uint32_t dh)
     {
-        if (src == nullptr || dw == 0 || dh == 0)
+        if (src == nullptr || dw == 0 || dh == 0 || sw == 0 || sh == 0 || srcWidth == 0 || srcHeight == 0)
         {
             return;
         }
@@ -800,39 +824,37 @@ namespace Babylon::Polyfills::Internal
             return;
         }
 
-        for (uint32_t j = 0; j < dh; ++j)
+        // Clamp the iteration range to the destination rect's intersection with the canvas up
+        // front. The destination size is caller-controlled (and reaches us as an unsigned value,
+        // so a negative width wraps to ~4e9), and iterating the full rect just to reject every
+        // pixel would stall the JS thread. int64_t keeps dx/dy + dw/dh from overflowing.
+        const int64_t iBegin = std::max<int64_t>(0, -static_cast<int64_t>(dx));
+        const int64_t iEnd = std::min<int64_t>(dw, static_cast<int64_t>(m_cpuWidth) - dx);
+        const int64_t jBegin = std::max<int64_t>(0, -static_cast<int64_t>(dy));
+        const int64_t jEnd = std::min<int64_t>(dh, static_cast<int64_t>(m_cpuHeight) - dy);
+
+        for (int64_t j = jBegin; j < jEnd; ++j)
         {
-            const int32_t destY = dy + static_cast<int32_t>(j);
-            if (destY < 0 || destY >= static_cast<int32_t>(m_cpuHeight))
-            {
-                continue;
-            }
-
             // Nearest-neighbor sample of the source row (exact when dh == sh).
-            const int32_t srcYRel = static_cast<int32_t>(static_cast<uint64_t>(j) * sh / dh);
-            const int32_t srcY = sy + srcYRel;
-            if (srcY < 0 || srcY >= static_cast<int32_t>(srcHeight))
+            const int64_t srcY = sy + static_cast<int64_t>(j) * sh / dh;
+            if (srcY < 0 || srcY >= static_cast<int64_t>(srcHeight))
             {
                 continue;
             }
 
-            for (uint32_t i = 0; i < dw; ++i)
+            const size_t destRow = static_cast<size_t>(dy + j) * m_cpuWidth;
+            const size_t srcRow = static_cast<size_t>(srcY) * srcWidth;
+
+            for (int64_t i = iBegin; i < iEnd; ++i)
             {
-                const int32_t destX = dx + static_cast<int32_t>(i);
-                if (destX < 0 || destX >= static_cast<int32_t>(m_cpuWidth))
+                const int64_t srcX = sx + static_cast<int64_t>(i) * sw / dw;
+                if (srcX < 0 || srcX >= static_cast<int64_t>(srcWidth))
                 {
                     continue;
                 }
 
-                const int32_t srcXRel = static_cast<int32_t>(static_cast<uint64_t>(i) * sw / dw);
-                const int32_t srcX = sx + srcXRel;
-                if (srcX < 0 || srcX >= static_cast<int32_t>(srcWidth))
-                {
-                    continue;
-                }
-
-                const size_t srcIndex = (static_cast<size_t>(srcY) * srcWidth + srcX) * 4;
-                const size_t destIndex = (static_cast<size_t>(destY) * m_cpuWidth + destX) * 4;
+                const size_t srcIndex = (srcRow + static_cast<size_t>(srcX)) * 4;
+                const size_t destIndex = (destRow + static_cast<size_t>(dx + i)) * 4;
                 m_cpuPixels[destIndex + 0] = src[srcIndex + 0];
                 m_cpuPixels[destIndex + 1] = src[srcIndex + 1];
                 m_cpuPixels[destIndex + 2] = src[srcIndex + 2];
@@ -841,10 +863,15 @@ namespace Babylon::Polyfills::Internal
         }
     }
 
-    void Context::ReadPixels(int32_t sx, int32_t sy, uint32_t w, uint32_t h, uint8_t* dst) const
+    void Context::ReadPixels(int32_t sx, int32_t sy, uint32_t w, uint32_t h, uint8_t* dst)
     {
         const size_t total = static_cast<size_t>(w) * h * 4;
         std::memset(dst, 0, total);
+
+        // Resync the mirror to the canvas first. Without this, a canvas resize followed by
+        // getImageData with no intervening drawImage would read the old buffer using the old
+        // dimensions and hand back stale pixels; EnsureCpuBuffer reallocates and zero-fills.
+        EnsureCpuBuffer();
         if (m_cpuPixels.empty())
         {
             return;
@@ -898,11 +925,44 @@ namespace Babylon::Polyfills::Internal
                 return;
             }
 
+            // Everything below is caller-supplied. bimg::imageConvert reads the source and writes
+            // width*height*4 bytes to the destination without knowing either buffer's real length,
+            // so validate both before handing it any pointers.
+            if (format >= bimg::TextureFormat::Count)
+            {
+                throw Napi::Error::New(info.Env(), "drawImage: ImageBitmap has an out-of-range pixel format.");
+            }
+
+            const uint64_t pixelCount = static_cast<uint64_t>(width) * height;
+            if (pixelCount > std::numeric_limits<size_t>::max() / 4)
+            {
+                throw Napi::Error::New(info.Env(), "drawImage: ImageBitmap dimensions are too large.");
+            }
+
+            // imageGetSize takes uint16_t extents, so anything above 65535 would be truncated and
+            // produce a size for a much smaller image. A 65537x1 RGBA8 bitmap would come back as
+            // 1x1 (4 bytes), a 4-byte buffer would pass the check below, and the RGBA8 memcpy
+            // would then read width*height*4 bytes from it. Reject what bimg cannot describe.
+            if (width > std::numeric_limits<uint16_t>::max() || height > std::numeric_limits<uint16_t>::max())
+            {
+                throw Napi::Error::New(info.Env(), "drawImage: ImageBitmap dimensions exceed the maximum supported size.");
+            }
+
+            // Ask bimg for the size rather than computing width*height*bpp/8: block-compressed
+            // formats round up to whole blocks and have a minimum block count, so a 1x1 BC1 image
+            // still occupies one 8-byte block. The naive bits-per-pixel math would accept a
+            // 1-byte buffer for it and imageConvert would then read past the end.
+            const uint64_t requiredBytes = bimg::imageGetSize(nullptr, static_cast<uint16_t>(width), static_cast<uint16_t>(height), 1, false, false, 1, format);
+            if (requiredBytes == 0 || data.ByteLength() < requiredBytes)
+            {
+                throw Napi::Error::New(info.Env(), "drawImage: ImageBitmap data is smaller than width*height for its format.");
+            }
+
             const uint8_t* srcBytes = data.Data();
-            std::vector<uint8_t> rgba(static_cast<size_t>(width) * height * 4);
+            std::vector<uint8_t> rgba(static_cast<size_t>(pixelCount) * 4);
             if (format == bimg::TextureFormat::RGBA8)
             {
-                std::memcpy(rgba.data(), srcBytes, std::min<size_t>(rgba.size(), data.ByteLength()));
+                std::memcpy(rgba.data(), srcBytes, rgba.size());
             }
             else if (!bimg::imageConvert(&Graphics::DeviceContext::GetDefaultAllocator(), rgba.data(), bimg::TextureFormat::RGBA8, srcBytes, format, width, height, 1))
             {
@@ -963,10 +1023,22 @@ namespace Babylon::Polyfills::Internal
         }
         else if (info.Length() == 5)
         {
-            const auto dx = static_cast<float>(info[1].As<Napi::Number>().Int32Value());
-            const auto dy = static_cast<float>(info[2].As<Napi::Number>().Int32Value());
-            const auto dWidth = static_cast<float>(info[3].As<Napi::Number>().Uint32Value());
-            const auto dHeight = static_cast<float>(info[4].As<Napi::Number>().Uint32Value());
+            const auto dxInt = info[1].As<Napi::Number>().Int32Value();
+            const auto dyInt = info[2].As<Napi::Number>().Int32Value();
+            const auto dWidthInt = info[3].As<Napi::Number>().Int32Value();
+            const auto dHeightInt = info[4].As<Napi::Number>().Int32Value();
+
+            // Parse the extents as signed: read via Uint32Value, a negative width wraps to ~4e9,
+            // which would queue an enormous nvgRect. A non-positive extent draws nothing.
+            if (dWidthInt <= 0 || dHeightInt <= 0)
+            {
+                return;
+            }
+
+            const auto dx = static_cast<float>(dxInt);
+            const auto dy = static_cast<float>(dyInt);
+            const auto dWidth = static_cast<float>(dWidthInt);
+            const auto dHeight = static_cast<float>(dHeightInt);
 
             NVGpaint imagePaint = nvgImagePattern(*m_nvg, dx, dy, dWidth, dHeight, 0.f, imageIndex, 1.f);
 
@@ -981,18 +1053,30 @@ namespace Babylon::Polyfills::Internal
             nvgFill(*m_nvg);
 
             BlitPixelsToCpu(srcPixels, srcWidth, srcHeight, 0, 0, srcWidth, srcHeight,
-                static_cast<int32_t>(dx), static_cast<int32_t>(dy), static_cast<uint32_t>(dWidth), static_cast<uint32_t>(dHeight));
+                dxInt, dyInt, static_cast<uint32_t>(dWidthInt), static_cast<uint32_t>(dHeightInt));
         }
         else if (info.Length() == 9)
         {
             const auto sx = info[1].As<Napi::Number>().Int32Value();
             const auto sy = info[2].As<Napi::Number>().Int32Value();
-            const auto sWidth = info[3].As<Napi::Number>().Uint32Value();
-            const auto sHeight = info[4].As<Napi::Number>().Uint32Value();
-            const auto dx = static_cast<float>(info[5].As<Napi::Number>().Int32Value());
-            const auto dy = static_cast<float>(info[6].As<Napi::Number>().Int32Value());
-            const auto dWidth = static_cast<float>(info[7].As<Napi::Number>().Uint32Value());
-            const auto dHeight = static_cast<float>(info[8].As<Napi::Number>().Uint32Value());
+            const auto sWidthInt = info[3].As<Napi::Number>().Int32Value();
+            const auto sHeightInt = info[4].As<Napi::Number>().Int32Value();
+            const auto dxInt = info[5].As<Napi::Number>().Int32Value();
+            const auto dyInt = info[6].As<Napi::Number>().Int32Value();
+            const auto dWidthInt = info[7].As<Napi::Number>().Int32Value();
+            const auto dHeightInt = info[8].As<Napi::Number>().Int32Value();
+
+            if (sWidthInt <= 0 || sHeightInt <= 0 || dWidthInt <= 0 || dHeightInt <= 0)
+            {
+                return;
+            }
+
+            const auto sWidth = static_cast<uint32_t>(sWidthInt);
+            const auto sHeight = static_cast<uint32_t>(sHeightInt);
+            const auto dx = static_cast<float>(dxInt);
+            const auto dy = static_cast<float>(dyInt);
+            const auto dWidth = static_cast<float>(dWidthInt);
+            const auto dHeight = static_cast<float>(dHeightInt);
 
             NVGpaint imagePaint = nvgImagePattern(*m_nvg, dx, dy, dWidth, dHeight, 0.f, imageIndex, 1.f);
 
@@ -1007,7 +1091,7 @@ namespace Babylon::Polyfills::Internal
             nvgFill(*m_nvg);
 
             BlitPixelsToCpu(srcPixels, srcWidth, srcHeight, sx, sy, sWidth, sHeight,
-                static_cast<int32_t>(dx), static_cast<int32_t>(dy), static_cast<uint32_t>(dWidth), static_cast<uint32_t>(dHeight));
+                dxInt, dyInt, static_cast<uint32_t>(dWidthInt), static_cast<uint32_t>(dHeightInt));
         }
         else
         {
@@ -1017,10 +1101,56 @@ namespace Babylon::Polyfills::Internal
 
     Napi::Value Context::GetImageData(const Napi::CallbackInfo& info)
     {
-        const auto sx = info[0].As<Napi::Number>().Int32Value();
-        const auto sy = info[1].As<Napi::Number>().Int32Value();
-        const auto sw = info[2].As<Napi::Number>().Uint32Value();
-        const auto sh = info[3].As<Napi::Number>().Uint32Value();
+        if (info.Length() < 4)
+        {
+            throw Napi::Error::New(info.Env(), "Context2D.getImageData: invalid number of parameters");
+        }
+
+        auto sx = info[0].As<Napi::Number>().Int32Value();
+        auto sy = info[1].As<Napi::Number>().Int32Value();
+        const auto swInt = info[2].As<Napi::Number>().Int32Value();
+        const auto shInt = info[3].As<Napi::Number>().Int32Value();
+
+        // Parse the extents as signed. Read via Uint32Value, a width of -1 wraps to 4294967295,
+        // and the size_t guard below does not catch it on 64-bit because 4294967295 * 1 is far
+        // below SIZE_MAX/4, so ImageData would go on to allocate roughly 17 GB.
+        //
+        // A negative extent is legal: the browser treats it as a rectangle running in the
+        // opposite direction and returns the normalized region, so fold the sign into the
+        // origin rather than rejecting it. INT32_MIN has no positive counterpart, so it is
+        // rejected outright instead of being negated into itself.
+        if (swInt == std::numeric_limits<int32_t>::min() || shInt == std::numeric_limits<int32_t>::min())
+        {
+            throw Napi::RangeError::New(info.Env(), "Context2D.getImageData: requested region is too large.");
+        }
+
+        uint32_t sw, sh;
+        if (swInt < 0)
+        {
+            sw = static_cast<uint32_t>(-swInt);
+            sx -= static_cast<int32_t>(sw);
+        }
+        else
+        {
+            sw = static_cast<uint32_t>(swInt);
+        }
+
+        if (shInt < 0)
+        {
+            sh = static_cast<uint32_t>(-shInt);
+            sy -= static_cast<int32_t>(sh);
+        }
+        else
+        {
+            sh = static_cast<uint32_t>(shInt);
+        }
+
+        // The region is caller-supplied and backs a width*height*4 allocation, so reject sizes
+        // that would overflow size_t before ImageData tries to allocate them.
+        if (static_cast<uint64_t>(sw) * sh > std::numeric_limits<size_t>::max() / 4)
+        {
+            throw Napi::RangeError::New(info.Env(), "Context2D.getImageData: requested region is too large.");
+        }
 
         return ImageData::CreateInstance(info.Env(), this, sx, sy, sw, sh);
     }

@@ -315,10 +315,13 @@ namespace Babylon::ShaderCompilerTraversers
                 // We only care about loose scalar/vector uniforms. Excluding matrices, samplers,
                 // UBO blocks (EbtBlock) and uniform struct instances (EbtStruct) prevents the
                 // traverser from rewriting whole blocks/structs to vec4, which destroys their
-                // member layout and member names.
+                // member layout and member names. Uniforms that are already vec4 need no widening,
+                // so they are skipped as a fast path: retyping them is a no-op and addShapeConversion
+                // would return the node unchanged, leaving only pointless AST churn.
                 const auto basic = type.getBasicType();
                 if (type.getQualifier().isUniformOrBuffer()
                     && !type.isMatrix()
+                    && type.getVectorSize() < 4
                     && (basic == EbtFloat || basic == EbtInt || basic == EbtUint || basic == EbtBool))
                 {
                     // At present, this may end up creating layered swizzles; i.e., if a vec3 was already being projected
@@ -390,6 +393,12 @@ namespace Babylon::ShaderCompilerTraversers
                             {
                                 selection->setFalseBlock(shapeConversion);
                             }
+                        }
+                        else if (auto* branch = parent->getAsBranchNode())
+                        {
+                            // A uniform returned directly (`return someUniform;`) is the branch's
+                            // expression, so the conversion replaces that expression in place.
+                            branch->setExpression(shapeConversion);
                         }
                         else
                         {
@@ -881,7 +890,8 @@ namespace Babylon::ShaderCompilerTraversers
                 // combined with BuildInstanceDataBuffer's descending-key packing, world3 lands on i_data0
                 // (TEXCOORD31) and world0 on i_data3. instanceColor follows at i_data4. The i_data name is
                 // cosmetic on D3D (binding is by TEXCOORD semantic, resolved from the location via the
-                // HLSLVertexAttributeRemap table).
+                // HLSLVertexAttributeRemap table). Adding one on a lower slot means bumping
+                // BUILTIN_INSTANCE_DATA_SLOT_COUNT in BgfxShaderInfo.h.
                 IF_NAME_RETURN_ATTRIB("instanceColor", Babylon::Graphics::INSTANCE_DATA_FIRST_LOCATION - 4, "i_data4")
                 IF_NAME_RETURN_ATTRIB("world0", Babylon::Graphics::INSTANCE_DATA_FIRST_LOCATION - 3, "i_data3")
                 IF_NAME_RETURN_ATTRIB("world1", Babylon::Graphics::INSTANCE_DATA_FIRST_LOCATION - 2, "i_data2")

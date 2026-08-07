@@ -30,7 +30,7 @@ namespace Babylon::Polyfills::Internal
 
         // Copies a region of the CPU-side pixel mirror (populated by DrawImage) into dst (w*h*4 RGBA8 bytes).
         // Out-of-range pixels are written as zero. Used to implement getImageData without a GPU readback.
-        void ReadPixels(int32_t sx, int32_t sy, uint32_t w, uint32_t h, uint8_t* dst) const;
+        void ReadPixels(int32_t sx, int32_t sy, uint32_t w, uint32_t h, uint8_t* dst);
 
     private:
         void FillRect(const Napi::CallbackInfo&);
@@ -148,7 +148,6 @@ namespace Babylon::Polyfills::Internal
         uint32_t m_cpuWidth{0};
         uint32_t m_cpuHeight{0};
         void EnsureCpuBuffer();
-        void BlitImageToCpu(const NativeCanvasImage& image, int32_t sx, int32_t sy, uint32_t sw, uint32_t sh, int32_t dx, int32_t dy, uint32_t dw, uint32_t dh);
         // Core RGBA8 blit used by both the NativeCanvasImage and (plain) ImageBitmap drawImage paths.
         void BlitPixelsToCpu(const uint8_t* src, uint32_t srcWidth, uint32_t srcHeight, int32_t sx, int32_t sy, uint32_t sw, uint32_t sh, int32_t dx, int32_t dy, uint32_t dw, uint32_t dh);
         // Shared drawImage body: draws the nanovg image (arity 3/5/9) and mirrors it to the CPU buffer.

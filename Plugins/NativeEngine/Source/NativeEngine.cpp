@@ -1846,6 +1846,8 @@ namespace Babylon
 
     void NativeEngine::CopyTexture(NativeDataStream::Reader& data)
     {
+        // Note: GetEncoder may perform a mid-frame view flush, which resets the view counter.
+        // Fetch it before reading the reservation below so the generation check sees that.
         bgfx::Encoder* encoder = GetEncoder();
 
         const auto textureSource = data.ReadPointer<Graphics::Texture>();
@@ -1858,8 +1860,16 @@ namespace Babylon
         // view id immediately after the canvas draws (before the scene render is recorded) and
         // hands it to the source texture; use it here. Non-canvas sources have no reserved id, so
         // fall back to PeekNextViewId() (a view greater than every view used so far). See #1683.
+        //
+        // A reservation is only usable while it is still ordered relative to views handed out
+        // now: if a mid-frame flush reset the counter since the reservation was made, the
+        // reserved (high) id would sort *after* the consumer's freshly acquired (low) id and
+        // reintroduce exactly the latency the reservation exists to prevent. In that case the
+        // flush has already submitted the canvas draws in a previous bgfx frame, so the source
+        // is complete and PeekNextViewId() — which precedes every view the consumer has yet to
+        // acquire — is both safe and correctly ordered.
         bgfx::ViewId blitView = textureSource->BlitViewId();
-        if (blitView == UINT16_MAX)
+        if (blitView == UINT16_MAX || textureSource->BlitViewIdGeneration() != m_deviceContext.ViewIdGeneration())
         {
             blitView = m_deviceContext.PeekNextViewId();
         }
@@ -3405,7 +3415,7 @@ namespace Babylon
         }
 
         // Divisor-driven instancing: a consumer-instanced attribute (divisor==1) recorded at a
-        // base bgfx location below TexCoord3 was compiled to a per-vertex slot. bgfx can only feed
+        // real per-vertex bgfx location was compiled to a per-vertex slot. bgfx can only feed
         // per-instance data into i_data slots (the top TEXCOORD semantics), so route those attributes
         // to the correct i_data slot via a lazily-compiled program variant. The target location mirrors
         // BuildInstanceDataBuffer's reverse-attrib packing: highest base attrib -> i_data0 (TEXCOORD31),
@@ -3426,14 +3436,15 @@ namespace Babylon
                 for (const auto& instance : instances)
                 {
                     const bgfx::Attrib::Enum attrib = instance.first;
-                    // Reroute every consumer-instanced attribute that was compiled to a real
-                    // per-vertex bgfx Attrib slot (Position..TexCoord7, i.e. < Attrib::Count).
-                    // Named i_data attributes (world0-3, splatIndex*, etc.) are assigned synthetic
-                    // locations at/below INSTANCE_DATA_FIRST_LOCATION, so they compare >= Count and
-                    // are correctly skipped here since they are already delivered as instance data.
-                    // Using the earlier TexCoord3 boundary dropped generic instanced attributes at
-                    // TexCoord3..TexCoord7 (e.g. sprite cellInfo -> TexCoord3), leaving them reading
-                    // per-vertex garbage even though BuildInstanceDataBuffer still packed them.
+                    // "Real per-vertex slot" means Position..TexCoord15, i.e. < Attrib::Count. The
+                    // built-in instanced attributes (world0-3, splatIndex0-3, instanceColor) are
+                    // assigned synthetic locations at/above INSTANCE_DATA_FIRST_LOCATION - 4, which
+                    // is >= Attrib::Count, so they compare false here and are correctly skipped:
+                    // they already arrive as instance data.
+                    // The previous TexCoord3 boundary silently dropped generic instanced attributes
+                    // landing on TexCoord3..TexCoord15 (e.g. sprite cellInfo -> TexCoord3), leaving
+                    // them reading per-vertex garbage even though BuildInstanceDataBuffer had
+                    // already packed them into the instance data buffer.
                     if (attrib < bgfx::Attrib::Count)
                     {
                         const size_t rank = count - 1 - ascendingIndex;

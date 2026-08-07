@@ -358,8 +358,9 @@ namespace Babylon::Graphics
         //
         // While waiting, also service any mid-frame view-flush requests from the JS
         // thread (see FlushViewsIfNeeded): the JS thread parks itself and we advance a
-        // bgfx frame here on the render thread to reset the view counter, then hand a
-        // fresh encoder back so rendering continues within the same logical frame.
+        // non-presenting bgfx frame here on the render thread to reset the view counter,
+        // then hand a fresh encoder back so rendering continues within the same logical
+        // frame.
         {
             std::unique_lock lock{m_frameSyncMutex};
             while (true)
@@ -505,17 +506,36 @@ namespace Babylon::Graphics
 
     bgfx::ViewId DeviceImpl::AcquireNewViewId()
     {
-        bgfx::ViewId viewId = m_nextViewId.fetch_add(1);
-        if (viewId >= bgfx::getCaps()->limits.maxViews)
+        // Saturating increment. A plain fetch_add that is undone on the throw path would be
+        // two separate atomic operations, so a concurrent PeekNextViewId could observe an
+        // out-of-range value in between, and repeated failed acquisitions could drive the
+        // counter past the cap. This loop fuses the "check the cap" and "take the id" steps,
+        // clamping at maxViews, so the counter is never observable above the cap no matter
+        // how many acquisitions fail.
+        const uint32_t maxViews = bgfx::getCaps()->limits.maxViews;
+
+        uint32_t viewId = m_nextViewId.load(std::memory_order_relaxed);
+        while (viewId < maxViews && !m_nextViewId.compare_exchange_weak(viewId, viewId + 1))
+        {
+        }
+
+        if (viewId >= maxViews)
         {
             throw std::runtime_error{"Too many views"};
         }
-        return viewId;
+
+        return static_cast<bgfx::ViewId>(viewId);
     }
 
     bgfx::ViewId DeviceImpl::PeekNextViewId() const
     {
-        return m_nextViewId.load();
+        // Saturated at maxViews by AcquireNewViewId, so this always narrows safely.
+        return static_cast<bgfx::ViewId>(m_nextViewId.load());
+    }
+
+    uint32_t DeviceImpl::ViewIdGeneration() const
+    {
+        return m_viewIdGeneration.load();
     }
 
     void DeviceImpl::FlushViewsIfNeeded()
@@ -525,13 +545,33 @@ namespace Babylon::Graphics
         // (maxViews - 1) is reserved for readback blits.
         constexpr bgfx::ViewId kViewFlushMargin = 16;
 
+        // Maximum mid-frame flushes allowed in one logical frame. Measured: no test in the
+        // validation suite needs any at the real 256-view budget, and the heaviest content
+        // found so far (the excluded "Nested BBG", which renders in a setInterval) peaks at
+        // 5. 64 leaves generous headroom for legitimately heavy content while bounding a
+        // mechanism that is otherwise unlimited: each flush is a blocking round-trip to the
+        // render thread, so an unbounded number of them would degrade into an apparent hang
+        // rather than an error.
+        constexpr uint32_t kMaxMidFrameViewFlushes = 64;
+
         const bgfx::ViewId maxViews = static_cast<bgfx::ViewId>(bgfx::getCaps()->limits.maxViews);
         if (maxViews <= kViewFlushMargin)
         {
             return;
         }
 
-        if (m_nextViewId.load() < static_cast<bgfx::ViewId>(maxViews - kViewFlushMargin))
+        if (m_nextViewId.load() < static_cast<uint32_t>(maxViews - kViewFlushMargin))
+        {
+            return;
+        }
+
+        // Bound the rescue. Each flush is a blocking round-trip to the render thread, so
+        // content that needs an unbounded number of them (e.g. a snippet that renders in a
+        // setInterval without ever letting the frame present) would appear to hang rather
+        // than fail. Past the budget, stop flushing and let AcquireNewViewId throw
+        // "Too many views" — the pre-existing behaviour, and a far better diagnostic than a
+        // process that makes progress too slowly to ever finish.
+        if (m_midFrameFlushCount.load() >= kMaxMidFrameViewFlushes)
         {
             return;
         }
@@ -570,9 +610,9 @@ namespace Babylon::Graphics
 
     // Called on the render thread from FinishRenderingCurrentFrame while holding
     // m_frameSyncMutex, with the requesting JS thread parked in FlushViewsIfNeeded
-    // (so the frame encoder is idle). End the current encoder, advance a bgfx frame
-    // to submit the accumulated views and reset the view counter, then begin a fresh
-    // encoder for the remainder of the logical frame.
+    // (so the frame encoder is idle). End the current encoder, advance a non-presenting
+    // bgfx frame to submit the accumulated views and reset the view counter, then begin
+    // a fresh encoder for the remainder of the logical frame.
     void DeviceImpl::PerformMidFrameViewFlush()
     {
         ASSERT_THREAD_AFFINITY(m_renderThreadAffinity);
@@ -583,8 +623,20 @@ namespace Babylon::Graphics
             m_frameEncoder = nullptr;
         }
 
-        bgfx::frame();
+        // BGFX_FRAME_FLUSH executes all queued rendering commands and resets bgfx's per-frame
+        // state (including the view counter) without presenting the backbuffer. A plain
+        // bgfx::frame() would flip a half-drawn backbuffer to the screen partway through the
+        // logical frame; bgfx remembers the flush in m_flushPrevFrame so the next real frame
+        // still flips exactly once.
+        bgfx::frame(BGFX_FRAME_FLUSH);
         m_nextViewId.store(0);
+        m_midFrameFlushCount.fetch_add(1);
+
+        // Publish a new generation so holders of cached view ids (FrameBuffer's m_viewId, the
+        // Canvas blit reservation) can detect that their id predates the reset and re-acquire.
+        // Without this a cached high id would sort *after* every id handed out from the reset
+        // counter, inverting submission order relative to the JS-side draw order.
+        m_viewIdGeneration.fetch_add(1);
 
         m_frameEncoder = bgfx::begin(true);
     }
@@ -659,6 +711,7 @@ namespace Babylon::Graphics
         }
 
         m_nextViewId.store(0);
+        m_midFrameFlushCount.store(0);
     }
 
     void DeviceImpl::CaptureCallback(const BgfxCallback::CaptureData& data)
