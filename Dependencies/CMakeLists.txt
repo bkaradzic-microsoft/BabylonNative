@@ -201,12 +201,13 @@ if(BABYLON_NATIVE_PLUGIN_NATIVEDRACO AND NOT TARGET draco AND NOT TARGET draco_s
     set(DRACO_BUILD_EXECUTABLES OFF CACHE BOOL "" FORCE)
     set(DRACO_JS_GLUE OFF CACHE BOOL "" FORCE)
 
-    # Build only the features in the Draco glTF bitstream spec: mesh compression, normal
-    # encoding and the standard edgebreaker. This is the same subset Babylon.js decodes
-    # with, since its default configuration loads draco_decoder_gltf.wasm rather than the
-    # full decoder, so it costs no capability the JavaScript path has. It drops point cloud
-    # compression, the predictive edgebreaker and pre-glTF backwards compatibility.
-    set(DRACO_GLTF_BITSTREAM ON CACHE BOOL "" FORCE)
+    # Shotgun deviation: upstream sets DRACO_GLTF_BITSTREAM ON to build only the glTF
+    # bitstream subset (mesh compression, normal encoding, standard edgebreaker), on the
+    # grounds that Babylon.js loads draco_decoder_gltf.wasm by default. In practice the
+    # validation suite feeds streams that subset rejects with "Unsupported major version"
+    # (it also drops pre-glTF backwards compatibility), and it compiles out the attribute
+    # deduplication passes the encoder uses. Build the full decoder here so the suite runs.
+    set(DRACO_GLTF_BITSTREAM OFF CACHE BOOL "" FORCE)
 
     FetchContent_MakeAvailable_With_Message(draco)
 
@@ -246,59 +247,6 @@ if(BABYLON_NATIVE_PLUGIN_NATIVEMESHOPT AND NOT TARGET meshoptimizer)
     FetchContent_MakeAvailable_With_Message(meshoptimizer)
 
     group_directory_targets("${meshoptimizer_SOURCE_DIR}" Dependencies/meshoptimizer)
-endif()
-
-# --------------------------------------------------
-# draco (mesh decompression, native replacement for the WASM decoder)
-# --------------------------------------------------
-if(NOT TARGET draco AND NOT TARGET draco_static)
-    set(DRACO_TESTS OFF CACHE BOOL "" FORCE)
-    set(DRACO_INSTALL OFF CACHE BOOL "" FORCE)
-    set(DRACO_BUILD_EXECUTABLES OFF CACHE BOOL "" FORCE)
-    set(DRACO_JS_GLUE OFF CACHE BOOL "" FORCE)
-
-    FetchContent_MakeAvailable_With_Message(draco)
-
-    # The combined draco library target is named `draco` for MSVC and
-    # `draco_static` for other toolchains (static build); `draco::draco` aliases
-    # whichever exists.
-    if(TARGET draco)
-        set(_draco_lib draco)
-    else()
-        set(_draco_lib draco_static)
-    endif()
-
-    # draco adds its include paths as PRIVATE (see cmake/draco_targets.cmake
-    # draco_add_library), so linking draco::draco does not expose the draco/*
-    # headers to consumers. Re-export them as PUBLIC on the combined target.
-    # The generated draco/draco_features.h is emitted under CMAKE_BINARY_DIR
-    # (draco uses ${CMAKE_BINARY_DIR} as its generated-sources root).
-    target_include_directories(${_draco_lib} SYSTEM PUBLIC
-        "${draco_SOURCE_DIR}"
-        "${draco_SOURCE_DIR}/src"
-        "${draco_BINARY_DIR}"
-        "${CMAKE_BINARY_DIR}")
-
-    # Assign IDE folders for whichever draco targets exist.
-    foreach(_draco_target IN ITEMS draco draco_static)
-        if(TARGET ${_draco_target})
-            set_property(TARGET ${_draco_target} PROPERTY FOLDER Dependencies/draco)
-        endif()
-    endforeach()
-endif()
-
-# --------------------------------------------------
-# meshoptimizer (mesh decompression, native replacement for the WASM decoder)
-# --------------------------------------------------
-if(NOT TARGET meshoptimizer)
-    set(MESHOPT_BUILD_DEMO OFF CACHE BOOL "" FORCE)
-    set(MESHOPT_BUILD_GLTFPACK OFF CACHE BOOL "" FORCE)
-    set(MESHOPT_BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
-    set(MESHOPT_WERROR OFF CACHE BOOL "" FORCE)
-
-    FetchContent_MakeAvailable_With_Message(meshoptimizer)
-
-    set_property(TARGET meshoptimizer PROPERTY FOLDER Dependencies/meshoptimizer)
 endif()
 
 # --------------------------------------------------

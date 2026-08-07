@@ -104,14 +104,6 @@ namespace Babylon::Graphics
         // draw/clear operation boundaries where no encoder work is pending.
         void FlushViewsIfNeeded();
 
-        // Mid-frame view flush. If the current logical frame has acquired close to
-        // the maximum number of bgfx views, flush the accumulated views via a
-        // cross-thread bgfx::frame() and reset the view counter so rendering can
-        // continue within the same Babylon frame instead of running out of views
-        // (which previously threw "Too many views"). Called from the JS thread at
-        // draw/clear operation boundaries where no encoder work is pending.
-        void FlushViewsIfNeeded();
-
         // Frame completion scope support
         void IncrementPendingFrameScopes();
         void DecrementPendingFrameScopes();

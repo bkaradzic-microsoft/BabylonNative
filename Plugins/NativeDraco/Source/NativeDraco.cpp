@@ -404,16 +404,23 @@ namespace Babylon::Plugins
                 encoder.SetSpeedOptions(options.Get("encodeSpeed").As<Napi::Number>().Int32Value(), options.Get("decodeSpeed").As<Napi::Number>().Int32Value());
             }
 
-            // Mirror Encoder::EncodeMeshToDracoBuffer.
+            // Mirror Encoder::EncodeMeshToDracoBuffer. The deduplication passes are compiled out by
+            // DRACO_GLTF_BITSTREAM (the glTF bitstream subset the decoder is built with does not need
+            // them), so guard them on the feature macros draco publishes. They only shrink the encoded
+            // output; skipping them still produces a valid stream.
             if (mesh.GetNamedAttributeId(draco::GeometryAttribute::POSITION) == -1)
             {
                 throw Napi::Error::New(env, "Draco: Missing position attribute for encoding.");
             }
+#ifdef DRACO_ATTRIBUTE_VALUES_DEDUPLICATION_SUPPORTED
             if (!mesh.DeduplicateAttributeValues())
             {
                 throw Napi::Error::New(env, "Draco: Failed to deduplicate attribute values.");
             }
+#endif
+#ifdef DRACO_ATTRIBUTE_INDICES_DEDUPLICATION_SUPPORTED
             mesh.DeduplicatePointIds();
+#endif
 
             draco::EncoderBuffer buffer;
             const draco::Status status = encoder.EncodeMeshToBuffer(mesh, &buffer);

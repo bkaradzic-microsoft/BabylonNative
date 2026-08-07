@@ -256,6 +256,25 @@
         // This is necessary because of https://github.com/BabylonJS/Babylon.js/pull/15217 so that each test starts fresh.
         engine.releaseEffects();
 
+        // Textures are cached on the engine by URL (BaseTexture._getFromCache), and the cache key
+        // covers only url/noMipmap/isCube -- not the load-time options. A test that leaves a
+        // reference behind (e.g. assigning one texture to both scene.environmentTexture and a
+        // material's reflectionTexture) keeps its internal texture in that cache across
+        // scene.dispose(), so a later test loading the same URL silently reuses the *previous*
+        // test's texture along with its prefiltering/irradiance settings. Release whatever is
+        // left so every test loads its own textures and results do not depend on run order.
+        const leakedTextures = engine.getLoadedTexturesCache();
+        for (let i = leakedTextures.length - 1; i >= 0; --i) {
+            engine._releaseTexture(leakedTextures[i]);
+        }
+        engine.clearInternalTexturesCache();
+
+        // SceneLoader.OnPluginActivatedObservable is global and outlives the scene. Snippets use it
+        // to configure the glTF loader (animationStartMode, compileMaterials, ...) and never
+        // unregister, so without this every later glTF test would inherit those settings. The
+        // browser harness reloads the page per test and never sees this; here the engine is reused.
+        BABYLON.SceneLoader.OnPluginActivatedObservable.clear();
+
         done(testRes);
     }
 
