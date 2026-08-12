@@ -1334,11 +1334,10 @@
         {
             "title": "GLTF Serializer Camera, left-handed",
             "playgroundId": "#O0M0J9#25",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Order-dependent: passes in isolation (0.37%) but fails at 34.8% when run after both 'GreasedLine - non camera facing' and 'GLTF Serializer KHR gpu instancing' (minimal repro: --test-index=148 --test-index=219 --test-index=222; either predecessor alone passes). Pre-existing, not a merge regression: reproduces byte-identically on the pre-merge build. Investigation ruled out the glTF roundtrip (fails identically with roundtripCount=0), the engine texture cache, stray scenes, animation/frame timing (identical at renderCount 1 and 5), and all Babylon Native state -- the bgfx view/viewport/draw sequence, the cameras (viewport, aspect, projection, position), and the meshes (counts, materials, plugins, define lengths) are identical between the passing and failing runs, and the failure survives disposing and recreating the NativeEngine between tests. That points at Babylon.js process-global state rather than anything engine-side.",
             "excludedGraphicsApis": [
                 "OpenGL"
             ],
+            "reason": "Camera roundtrip diverges on OpenGL backend (Linux JSC), 21% pixel diff; passes on D3D11.",
             "replace": "//options//, roundtripCount = 1; useRightHandedSystem = false;",
             "referenceImage": "glTFSerializerCameraLeftHand.png"
         },
