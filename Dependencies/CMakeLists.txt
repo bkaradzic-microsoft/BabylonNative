@@ -48,9 +48,16 @@ target_compile_definitions(bgfx PRIVATE BGFX_CONFIG_DEBUG_ANNOTATION=0)
 target_compile_definitions(bgfx PRIVATE BGFX_CONFIG_DEFAULT_MAX_ENCODERS=2)
 target_compile_definitions(bgfx PRIVATE BGFX_CONFIG_MAX_VERTEX_STREAMS=18)
 target_compile_definitions(bgfx PRIVATE BGFX_CONFIG_MIN_RESOURCE_COMMAND_BUFFER_SIZE=16)
-target_compile_definitions(bgfx PRIVATE BGFX_CONFIG_MIN_UNIFORM_BUFFER_SIZE=4096)
-target_compile_definitions(bgfx PRIVATE BGFX_CONFIG_UNIFORM_BUFFER_RESIZE_THRESHOLD_SIZE=256)
-target_compile_definitions(bgfx PRIVATE BGFX_CONFIG_UNIFORM_BUFFER_RESIZE_INCREMENT_SIZE=1024)
+
+# The uniform buffer sizing knobs are deliberately left at the bgfx defaults.
+# UniformBuffer::update reserves BGFX_CONFIG_UNIFORM_BUFFER_RESIZE_THRESHOLD_SIZE
+# of head room before every write, so the threshold must be at least as large as
+# the largest single uniform record. The opcode encoding caps that record at
+# 4 + 1023 * sizeof(Mat4) = 65476 bytes, and bgfx now static_asserts both that
+# bound and BGFX_CONFIG_MIN_UNIFORM_BUFFER_SIZE > the threshold. The old
+# 4096 / 256 / 1024 overrides violated the first assert, which means a shader
+# with a large enough uniform array (e.g. bone matrices) could overrun the
+# buffer. Do not re-add them without satisfying both asserts.
 target_compile_definitions(bgfx PUBLIC BGFX_PLATFORM_SUPPORTS_WGSL=0)
 
 # bgfx bundles the Khronos GLES headers but adds them as a PRIVATE include
@@ -190,7 +197,7 @@ function(group_directory_targets DIR FOLDER_NAME)
 endfunction()
 
 # --------------------------------------------------
-# draco (mesh compression/decompression, native replacement for the WASM modules)
+# draco (mesh decompression, native replacement for the WASM decoder)
 # --------------------------------------------------
 if(BABYLON_NATIVE_PLUGIN_NATIVEDRACO AND NOT TARGET draco AND NOT TARGET draco_static)
     set(DRACO_TESTS OFF CACHE BOOL "" FORCE)
@@ -198,11 +205,12 @@ if(BABYLON_NATIVE_PLUGIN_NATIVEDRACO AND NOT TARGET draco AND NOT TARGET draco_s
     set(DRACO_BUILD_EXECUTABLES OFF CACHE BOOL "" FORCE)
     set(DRACO_JS_GLUE OFF CACHE BOOL "" FORCE)
 
-    # The glTF bitstream subset (mesh compression, normal encoding, standard edgebreaker)
-    # is not sufficient here. It rejects streams produced by older/full encoders with
-    # "Unsupported major version" because it drops pre-glTF backwards compatibility, and it
-    # compiles out the attribute deduplication passes the encoder below relies on. Build the
-    # full decoder/encoder instead.
+    # Shotgun deviation: upstream sets DRACO_GLTF_BITSTREAM ON to build only the glTF
+    # bitstream subset (mesh compression, normal encoding, standard edgebreaker), on the
+    # grounds that Babylon.js loads draco_decoder_gltf.wasm by default. In practice the
+    # validation suite feeds streams that subset rejects with "Unsupported major version"
+    # (it also drops pre-glTF backwards compatibility), and it compiles out the attribute
+    # deduplication passes the encoder uses. Build the full decoder here so the suite runs.
     set(DRACO_GLTF_BITSTREAM OFF CACHE BOOL "" FORCE)
 
     FetchContent_MakeAvailable_With_Message(draco)
@@ -268,6 +276,22 @@ endif()
 # --------------------------------------------------
 # JsRuntimeHost
 # --------------------------------------------------
+
+# Babylon Native defaults Win32 desktop to V8 rather than inheriting JsRuntimeHost's
+# Chakra default. Chakra is frozen at ES2017 and cannot even *parse* the modern
+# JavaScript that Babylon.js and the Playground validation scripts emit (optional
+# chaining, numeric separators), let alone run it, so the visual/validation suite
+# is not meaningfully testable on it.
+#
+# This is a plain CACHE entry (no FORCE) set before JsRuntimeHost is added, so
+# JsRuntimeHost's own `set(... CACHE ...)` becomes a no-op and an explicit
+# -D NAPI_JAVASCRIPT_ENGINE=<engine> on the command line still wins. Scoped to
+# desktop Windows: the V8 NuGet packages (v8-v143-<arch>) are desktop-only, so
+# UWP/WINDOWS_STORE keeps inheriting the JsRuntimeHost default.
+if(WIN32 AND NOT WINDOWS_STORE)
+    set(NAPI_JAVASCRIPT_ENGINE "V8" CACHE STRING "JavaScript engine for Node-API")
+endif()
+
 FetchContent_MakeAvailable_With_Message(JsRuntimeHost)
 
 # Two JsRuntimeHost targets cannot be built without RTTI:
