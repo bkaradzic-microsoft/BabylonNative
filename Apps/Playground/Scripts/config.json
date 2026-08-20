@@ -2292,8 +2292,6 @@
         {
             "title": "Rounding cell widths on Grid",
             "playgroundId": "#PQ4G5G#2",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Runtime error on Native: Error: Context2D.setLineDash: not implemented [reeval 2026-07-21]",
             "referenceImage": "Rounding-cell-widths-on-Grid.png"
         },
         {
@@ -2540,8 +2538,6 @@
             "title": "screen-space-curvature",
             "playgroundId": "#YF8D42#22",
             "renderCount": 5,
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails: 25.457% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "screen-space-curvature.png"
         },
         {
