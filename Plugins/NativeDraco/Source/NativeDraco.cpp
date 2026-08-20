@@ -13,7 +13,6 @@
 #include <draco/attributes/point_attribute.h>
 #include <draco/core/draco_version.h>
 
-#include <cassert>
 #include <cstdint>
 #include <cstring>
 #include <limits>
@@ -235,30 +234,24 @@ namespace Babylon::Plugins
             return draco::GeometryAttribute::GENERIC;
         }
 
-        // Returns a typed pointer to the start of the typed array's data. napi_get_typedarray_info
-        // already accounts for the view's byte offset, so this is the address of the first element
-        // rather than the start of the backing ArrayBuffer. Going through TypedArrayOf<T>::Data()
-        // also avoids materializing a temporary ArrayBuffer handle just to read the pointer.
+        // Returns a typed pointer to the start of the typed array's data, honoring its byte offset.
         template<typename T>
         const T* TypedArrayData(const Napi::TypedArray& array)
         {
-            return array.As<Napi::TypedArrayOf<T>>().Data();
+            const auto* base = static_cast<const uint8_t*>(array.ArrayBuffer().Data()) + array.ByteOffset();
+            return reinterpret_cast<const T*>(base);
         }
 
         // Replicates draco's emscripten PointCloudBuilder::AddAttribute<T>: creates a de-interleaved
         // per-point attribute and returns its attribute id (which equals its unique id, see
         // PointCloud::SetAttribute -> set_unique_id).
         template<typename T>
-        int AddAttributeToMesh(draco::Mesh& mesh, draco::GeometryAttribute::Type type, draco::DataType dataType, uint32_t numVertices, int8_t numComponents, const T* values)
+        int AddAttributeToMesh(draco::Mesh& mesh, draco::GeometryAttribute::Type type, draco::DataType dataType, long numVertices, int8_t numComponents, const T* values)
         {
             std::unique_ptr<draco::PointAttribute> att(new draco::PointAttribute());
             att->Init(type, numComponents, dataType, /* normalized */ false, numVertices);
             const int attId = mesh.AddAttribute(std::move(att));
             draco::PointAttribute* attPtr = mesh.attribute(attId);
-            // PointAttribute::Init ends with SetIdentityMapping(), so mapped_index(i) is
-            // AttributeValueIndex(i) here. Asserted so a future Draco change cannot silently
-            // start folding distinct points onto the same attribute value.
-            assert(attPtr->is_mapping_identity());
             for (draco::PointIndex i(0); i < numVertices; ++i)
             {
                 attPtr->SetAttributeValue(attPtr->mapped_index(i), &values[static_cast<size_t>(i.value()) * numComponents]);
@@ -267,7 +260,7 @@ namespace Babylon::Plugins
             {
                 mesh.set_num_points(numVertices);
             }
-            else if (mesh.num_points() != numVertices)
+            else if (mesh.num_points() != static_cast<uint32_t>(numVertices))
             {
                 return -1;
             }
@@ -288,7 +281,7 @@ namespace Babylon::Plugins
                                                     " is not a multiple of its component count " + std::to_string(numComponents));
             }
 
-            const uint32_t numVertices = static_cast<uint32_t>(data.ElementLength() / static_cast<size_t>(numComponents));
+            const long numVertices = static_cast<long>(data.ElementLength()) / numComponents;
             switch (data.TypedArrayType())
             {
                 case napi_float32_array: return AddAttributeToMesh<float>(mesh, type, draco::DT_FLOAT32, numVertices, numComponents, TypedArrayData<float>(data));
@@ -304,26 +297,24 @@ namespace Babylon::Plugins
             }
         }
 
-        // Reads an index typed array into a flat vector. Only Uint16Array and Uint32Array are
-        // accepted: any other element type would be reinterpreted and silently produce a
-        // corrupt mesh. Indices stay unsigned end to end so a value above INT_MAX cannot wrap
-        // negative before it reaches draco::PointIndex.
-        std::vector<uint32_t> ReadIndices(Napi::Env env, const Napi::TypedArray& data)
+        // Reads an index typed array into a flat int vector. Only Uint16Array and Uint32Array are
+        // accepted: any other element type would be reinterpreted and silently produce a corrupt mesh.
+        std::vector<int> ReadIndices(Napi::Env env, const Napi::TypedArray& data)
         {
             const size_t count = data.ElementLength();
-            std::vector<uint32_t> out(count);
+            std::vector<int> out(count);
             switch (data.TypedArrayType())
             {
                 case napi_uint32_array:
                 {
                     const uint32_t* src = TypedArrayData<uint32_t>(data);
-                    for (size_t i = 0; i < count; ++i) { out[i] = src[i]; }
+                    for (size_t i = 0; i < count; ++i) { out[i] = static_cast<int>(src[i]); }
                     break;
                 }
                 case napi_uint16_array:
                 {
                     const uint16_t* src = TypedArrayData<uint16_t>(data);
-                    for (size_t i = 0; i < count; ++i) { out[i] = src[i]; }
+                    for (size_t i = 0; i < count; ++i) { out[i] = static_cast<int>(src[i]); }
                     break;
                 }
                 default:
@@ -345,7 +336,7 @@ namespace Babylon::Plugins
             const auto options = (info.Length() > 2 && info[2].IsObject()) ? info[2].As<Napi::Object>() : Napi::Object::New(env);
 
             // Locate the mandatory position attribute and its vertex count.
-            uint32_t positionVerticesCount = 0;
+            long positionVerticesCount = 0;
             bool hasPosition = false;
             for (uint32_t i = 0; i < attributesIn.Length(); ++i)
             {
@@ -358,7 +349,12 @@ namespace Babylon::Plugins
                     {
                         throw Napi::TypeError::New(env, "Draco: Position component count must be greater than zero");
                     }
-                    positionVerticesCount = static_cast<uint32_t>(data.ElementLength() / size);
+                    if (data.ElementLength() % static_cast<size_t>(size) != 0)
+                    {
+                        throw Napi::TypeError::New(env, "Draco: Position attribute length " + std::to_string(data.ElementLength()) +
+                                                            " is not a multiple of its component count " + std::to_string(size));
+                    }
+                    positionVerticesCount = static_cast<long>(data.ElementLength()) / size;
                     hasPosition = true;
                     break;
                 }
@@ -369,7 +365,7 @@ namespace Babylon::Plugins
             }
 
             // Indices: use the provided buffer, or synthesize an identity list for unindexed meshes.
-            std::vector<uint32_t> indices;
+            std::vector<int> indices;
             if (info.Length() > 1 && info[1].IsTypedArray())
             {
                 indices = ReadIndices(env, info[1].As<Napi::TypedArray>());
@@ -377,32 +373,28 @@ namespace Babylon::Plugins
             else
             {
                 indices.resize(positionVerticesCount);
-                for (uint32_t i = 0; i < positionVerticesCount; ++i) { indices[i] = i; }
+                for (long i = 0; i < positionVerticesCount; ++i) { indices[i] = static_cast<int>(i); }
             }
 
             // This path builds triangle faces, so a trailing partial triangle is a caller error
             // rather than something to silently drop.
             if (indices.size() % 3 != 0)
             {
-                throw Napi::TypeError::New(env, "Draco: Index count " + std::to_string(indices.size()) +
-                                                    " is not a multiple of 3");
+                throw Napi::TypeError::New(env, "Draco: Index count " + std::to_string(indices.size()) + " is not a multiple of 3");
             }
 
-            // Every index has to address a real vertex. Without this an out of range index would
-            // be stored in a face and later dereferenced by the deduplication passes and the
-            // encoder, reading past the end of the attribute buffers.
-            for (const uint32_t index : indices)
+            // Every index must address a real vertex; draco would otherwise read out of bounds.
+            for (const int index : indices)
             {
-                if (index >= positionVerticesCount)
+                if (index < 0 || index >= positionVerticesCount)
                 {
-                    throw Napi::TypeError::New(env, "Draco: Index " + std::to_string(index) +
-                                                        " is out of range for " + std::to_string(positionVerticesCount) +
-                                                        " vertices");
+                    throw Napi::RangeError::New(env, "Draco: Index " + std::to_string(index) + " is out of range for " +
+                                                        std::to_string(positionVerticesCount) + " vertices");
                 }
             }
 
             draco::Mesh mesh;
-            const uint32_t numFaces = static_cast<uint32_t>(indices.size() / 3);
+            const long numFaces = static_cast<long>(indices.size()) / 3;
             mesh.SetNumFaces(numFaces);
             for (draco::FaceIndex f(0); f < numFaces; ++f)
             {
@@ -456,11 +448,10 @@ namespace Babylon::Plugins
                 encoder.SetSpeedOptions(options.Get("encodeSpeed").As<Napi::Number>().Int32Value(), options.Get("decodeSpeed").As<Napi::Number>().Int32Value());
             }
 
-            // Mirror Encoder::EncodeMeshToDracoBuffer. The deduplication passes are compiled out of
-            // the glTF bitstream subset (DRACO_GLTF_BITSTREAM), which this plugin does not enable but
-            // an externally supplied draco target may, so guard them on the feature macros draco
-            // publishes. They only shrink the encoded output; skipping them still produces a valid
-            // stream.
+            // Mirror Encoder::EncodeMeshToDracoBuffer. The deduplication passes are compiled out by
+            // DRACO_GLTF_BITSTREAM (the glTF bitstream subset the decoder is built with does not need
+            // them), so guard them on the feature macros draco publishes. They only shrink the encoded
+            // output; skipping them still produces a valid stream.
             if (mesh.GetNamedAttributeId(draco::GeometryAttribute::POSITION) == -1)
             {
                 throw Napi::Error::New(env, "Draco: Missing position attribute for encoding.");
@@ -482,11 +473,6 @@ namespace Babylon::Plugins
                 throw Napi::Error::New(env, std::string("Draco: Failed to encode: ") + status.error_msg());
             }
 
-            // Int8Array rather than Uint8Array: Babylon.js's IDracoEncodedMeshData declares
-            // `data: Int8Array`, because the WASM encoder hands back a view onto emscripten's
-            // signed HEAP8. The bytes are identical either way, but this entry point is meant to
-            // be a drop-in for that path, so the view type has to match what callers type-check
-            // against and declare.
             auto encodedData = Napi::Int8Array::New(env, buffer.size());
             std::memcpy(encodedData.Data(), buffer.data(), buffer.size());
 
@@ -513,12 +499,18 @@ namespace Babylon::Plugins::NativeDraco
         //
         // Upstream links the decoder only, mirroring Babylon.js: its default configuration
         // loads draco_decoder_gltf.wasm, and the encoder is a separate module fetched on demand
-        // by DracoEncoder. Linking the encoder as well gives DracoEncoder a native path and
-        // costs roughly 1.2 MB of binary size.
+        // by DracoEncoder. The shotgun branch also links the encoder so DracoEncoder has a
+        // native path to exercise; that costs ~1.2 MB and is a shotgun-only deviation.
         auto codec = Napi::Object::New(env);
         codec.Set("Decode", Napi::Function::New(env, DecodeDracoMesh, "Decode"));
         codec.Set("Encode", Napi::Function::New(env, EncodeDracoMesh, "Encode"));
         codec.Set("Version", Napi::String::New(env, draco::kDracoVersion));
         native.Set("DracoCodec", codec);
+
+        // Legacy free-function names. Babylon.js feature-probes `_native.decodeDracoMesh` /
+        // `_native.encodeDracoMesh`, so keep these until the JavaScript side moves to
+        // `_native.DracoCodec`.
+        native.Set("decodeDracoMesh", Napi::Function::New(env, DecodeDracoMesh, "decodeDracoMesh"));
+        native.Set("encodeDracoMesh", Napi::Function::New(env, EncodeDracoMesh, "encodeDracoMesh"));
     }
 }
