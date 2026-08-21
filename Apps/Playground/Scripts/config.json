@@ -1048,8 +1048,6 @@
         {
             "title": "Camera rig",
             "playgroundId": "#ATL1CS#12",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Runtime error on Native: Failed to evaluate playground snippet #ATL1CS#12: TypeError: Cannot read properties of undefined (reading 'orientation') [reeval 2026-07-21]",
             "referenceImage": "cameraRig.png"
         },
         {
@@ -2097,16 +2095,12 @@
             "title": "Picking Visual Test",
             "playgroundId": "#4J7Y7V#1",
             "renderCount": 2,
-            "excludeFromAutomaticTesting": true,
-            "reason": "Runtime error on Native: ReferenceError: PointerEvent is not defined [reeval 2026-07-21]",
             "referenceImage": "pickingVisualTest.png"
         },
         {
             "title": "GUI Input Test",
             "playgroundId": "#UB4F3B#8",
             "renderCount": 2,
-            "excludeFromAutomaticTesting": true,
-            "reason": "Runtime error on Native: TypeError: canvas.focus is not a function [reeval 2026-07-21]",
             "referenceImage": "guiInputTest.png"
         },
         {

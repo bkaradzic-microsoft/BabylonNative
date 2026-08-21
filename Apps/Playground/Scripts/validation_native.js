@@ -177,10 +177,97 @@
     if (typeof window.blur !== "function") {
         window.blur = function () { };
     }
+    if (!window.screen) {
+        // Desktop has no device-orientation sensor, so a fixed landscape screen at
+        // angle 0 is what freeCameraDeviceOrientationInput would compute anyway.
+        window.screen = {
+            width: engine.getRenderWidth(),
+            height: engine.getRenderHeight(),
+            availWidth: engine.getRenderWidth(),
+            availHeight: engine.getRenderHeight(),
+            colorDepth: 24,
+            pixelDepth: 24,
+            orientation: { angle: 0, type: "landscape-primary" }
+        };
+    }
 
     engine.getInputElement = function () {
         return 0;
     }
+
+    // Native drives input through NativeDeviceInputSystem, which polls _native rather than
+    // subscribing to DOM events, so a dispatched pointer event would reach nothing. Playgrounds
+    // that drive picking synthetically (canvas.dispatchEvent(new PointerEvent(...))) therefore
+    // need the harness to hand the event to the same InputManager entry points the
+    // WebDeviceInputSystem would drive. Going through _onPointerDown/Move/Up rather than the
+    // public simulatePointer* matters: those take a caller-supplied PickingInfo and so bypass
+    // scene.skipPointerDownPicking / skipPointerUpPicking / skipPointerMovePicking, which is
+    // exactly what several of these tests exist to exercise.
+    const POINTER_INPUT_MOVE = 12;
+    const domListeners = new Map();
+    window.addEventListener = function (type, listener) {
+        if (typeof listener !== "function") {
+            return;
+        }
+        if (!domListeners.has(type)) {
+            domListeners.set(type, []);
+        }
+        domListeners.get(type).push(listener);
+    };
+    window.removeEventListener = function (type, listener) {
+        const list = domListeners.get(type);
+        if (list) {
+            const at = list.indexOf(listener);
+            if (at !== -1) {
+                list.splice(at, 1);
+            }
+        }
+    };
+    window.dispatchEvent = function (evt) {
+        if (!evt) {
+            return true;
+        }
+
+        if (evt.target === null || evt.target === undefined) {
+            evt.target = window;
+        }
+
+        const list = domListeners.get(evt.type);
+        if (list) {
+            for (const listener of list.slice()) {
+                listener.call(window, evt);
+            }
+        }
+
+        const inputManager = currentScene && currentScene._inputManager;
+        if (inputManager) {
+            if (evt.button === undefined) {
+                evt.button = 0;
+            }
+            switch (evt.type) {
+                case "pointermove":
+                    evt.inputIndex = POINTER_INPUT_MOVE;
+                    inputManager._onPointerMove(evt);
+                    break;
+                case "pointerdown":
+                    evt.inputIndex = evt.button + 2;
+                    inputManager._onPointerDown(evt);
+                    break;
+                case "pointerup":
+                    evt.inputIndex = evt.button + 2;
+                    inputManager._onPointerUp(evt);
+                    break;
+                case "keydown":
+                    inputManager._onKeyDown(evt);
+                    break;
+                case "keyup":
+                    inputManager._onKeyUp(evt);
+                    break;
+            }
+        }
+
+        return !evt.defaultPrevented;
+    };
 
     const canvas = window;
     globalThis.canvas = canvas;
@@ -734,6 +821,30 @@
         globalThis.Image = _native.Image;
     }
 
+    if (typeof globalThis.KeyboardEvent === "undefined") {
+        // Same rationale as PointerEvent below: the input manager only reads plain state
+        // (key, code, keyCode, modifier flags) off keyboard events.
+        globalThis.KeyboardEvent = function (type, init) {
+            this.type = type;
+            for (const key in (init || {})) {
+                this[key] = init[key];
+            }
+            if (this.key === undefined) { this.key = ""; }
+            if (this.code === undefined) { this.code = ""; }
+            if (this.keyCode === undefined) { this.keyCode = 0; }
+            if (this.ctrlKey === undefined) { this.ctrlKey = false; }
+            if (this.altKey === undefined) { this.altKey = false; }
+            if (this.shiftKey === undefined) { this.shiftKey = false; }
+            if (this.metaKey === undefined) { this.metaKey = false; }
+            if (this.repeat === undefined) { this.repeat = false; }
+            this.target = null;
+            this.defaultPrevented = false;
+            this.preventDefault = function () { this.defaultPrevented = true; };
+            this.stopPropagation = function () { };
+            this.stopImmediatePropagation = function () { };
+        };
+    }
+
     // Babylon builds PointerEvents itself for Scene.simulatePointerDown/Move/Up. There is no DOM
     // here, and the input manager only ever reads plain state off the event (pointerId, button,
     // client coords, ...) and assigns inputIndex to it, so a data-holder is sufficient.
@@ -752,7 +863,8 @@
             if (this.movementX === undefined) { this.movementX = 0; }
             if (this.movementY === undefined) { this.movementY = 0; }
             this.target = null;
-            this.preventDefault = function () { };
+            this.defaultPrevented = false;
+            this.preventDefault = function () { this.defaultPrevented = true; };
             this.stopPropagation = function () { };
         };
     }
