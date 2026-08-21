@@ -3035,8 +3035,6 @@
         {
             "title": "Sponza Clustered Lighting (node material std)",
             "playgroundId": "#QY98Z3#16",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails: 64.012% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "Sponza-Clustered-Lighting-node-material-std-.png"
         },
         {
@@ -3061,15 +3059,13 @@
         {
             "title": "Clustered Lighting (lhs std nodematerial)",
             "playgroundId": "#CSCJO2#64",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails: 71.703% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "Clustered-Lighting-lhs-std-nodematerial-.png"
         },
         {
             "title": "Clustered Lighting (lhs pbr nodematerial)",
             "playgroundId": "#CSCJO2#62",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails: 73.285% of pixels differ from reference on Native [reeval 2026-07-21]",
+            "errorRatio": 4,
+            "reason": "Deterministic near-miss (~2.75% pixels differ) matching the passing plain-material siblings (lhs/rhs pbr material, errorRatio 4); residual is the same PBR specular-highlight delta, not a clustered-lighting bug. Batch 81.",
             "referenceImage": "Clustered-Lighting-lhs-pbr-nodematerial-.png"
         },
         {
@@ -3087,15 +3083,13 @@
         {
             "title": "Clustered Lighting (rhs std nodematerial)",
             "playgroundId": "#CSCJO2#71",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails: 71.702% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "Clustered-Lighting-rhs-std-nodematerial-.png"
         },
         {
             "title": "Clustered Lighting (rhs pbr nodematerial)",
             "playgroundId": "#CSCJO2#72",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails: 73.284% of pixels differ from reference on Native [reeval 2026-07-21]",
+            "errorRatio": 4,
+            "reason": "Deterministic near-miss (~2.75% pixels differ) matching the passing plain-material siblings (lhs/rhs pbr material, errorRatio 4); residual is the same PBR specular-highlight delta, not a clustered-lighting bug. Batch 81.",
             "referenceImage": "Clustered-Lighting-rhs-pbr-nodematerial-.png"
         },
         {
