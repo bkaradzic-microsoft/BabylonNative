@@ -25,12 +25,17 @@ namespace Babylon::Polyfills::Internal
         // GUI then propagates into a wildly negative fillText x coordinate, putting text off-
         // screen.
         float bounds[4] = {0, 0, 0, 0};
-        nvgTextBounds(context->GetNVGContext(), 0, 0, text.c_str(), nullptr, bounds);
+        // nvgTextBounds returns the horizontal advance and only fills `bounds` with the glyph
+        // bounding box. TextMetrics.width is defined as the advance width, not the ink extent, so
+        // use the return value: the bounding box excludes side bearings and trailing whitespace,
+        // which makes GUI TextBlock size a control narrower/wider than the run it then draws and
+        // ellipsize text that actually fits.
+        const float advance = nvgTextBounds(context->GetNVGContext(), 0, 0, text.c_str(), nullptr, bounds);
         float textMetrics[3] = {0, 0, 0};
         nvgTextMetrics(context->GetNVGContext(), &textMetrics[0], &textMetrics[1], &textMetrics[2]);
 
         auto obj{Napi::Object::New(env)};
-        obj.Set("width", Napi::Value::From(env, bounds[2] - bounds[0]));
+        obj.Set("width", Napi::Value::From(env, advance));
         obj.Set("height", Napi::Value::From(env, bounds[3] - bounds[1]));
         obj.Set("actualBoundingBoxLeft", Napi::Value::From(env, bounds[0]));
         obj.Set("actualBoundingBoxRight", Napi::Value::From(env, bounds[2]));

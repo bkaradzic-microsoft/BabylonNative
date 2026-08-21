@@ -2191,8 +2191,6 @@
         {
             "title": "GUI Force Resize Width",
             "playgroundId": "#XCPP9Y#17259",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails: 37.500% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "GUI-Force-Resize-Width.png"
         },
         {

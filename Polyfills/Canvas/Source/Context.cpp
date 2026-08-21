@@ -701,17 +701,24 @@ namespace Babylon::Polyfills::Internal
     {
         std::string text{info[0].As<Napi::String>()};
 
+        // Bind the face FillText will use before measuring: nvgTextBounds/nvgTextMetrics read the
+        // font bound on the nanovg state, and SetFont only sets the size + remembers the face id,
+        // so otherwise the measurement is taken against whatever face a previous FillText happened
+        // to leave bound (or none at all, yielding zeros).
+        const bool fontBound = SetFontFaceId();
+
         // If the JS-requested font family hasn't been loaded, return Arial-equivalent metrics
         // instead of measuring with whatever fallback font is bound. Browsers use the system
         // Arial for "Arial"/"sans-serif"/etc.; here we have e.g. droidsans only, which is
         // ~1.7x wider per em. Returning droidsans widths makes Babylon helpers like
         // DynamicTexture.drawText center text via t = (canvas - measureText.width)/2 to a
-        // negative x and clip the text off-canvas. Arial-ish synthesised metrics keep the
-        // centering on-canvas, while the actual FillText still substitutes our loaded font.
+        // negative x and clip the text off-canvas, and makes GUI wrap/ellipsize runs that fit
+        // in a browser. Arial-ish synthesised metrics keep layout matching the reference
+        // rendering, while the actual FillText still substitutes our loaded font.
         const bool familyAvailable = !m_state.font.Familiy().empty()
             && m_fonts.find(m_state.font.Familiy()) != m_fonts.end();
 
-        if (!familyAvailable && m_state.font.Size() > 0.f)
+        if ((!familyAvailable || !fontBound) && m_state.font.Size() > 0.f)
         {
             // Approximate Arial proportional metrics: average advance ~ 0.55 em.
             const float fontSize = m_state.font.Size();
