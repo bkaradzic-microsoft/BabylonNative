@@ -738,7 +738,7 @@ namespace Babylon
             JS_CLASS_NAME,
             {
                 // This must match the version in nativeEngine.ts
-                StaticValue("PROTOCOL_VERSION", Napi::Number::From(env, 9)),
+                StaticValue("PROTOCOL_VERSION", Napi::Number::From(env, 10)),
 
                 StaticValue("CAPS_LIMITS_MAX_TEXTURE_SIZE", Napi::Number::From(env, limits.maxTextureSize)),
                 StaticValue("CAPS_LIMITS_MAX_TEXTURE_LAYERS", Napi::Number::From(env, limits.maxTextureLayers)),
@@ -2967,6 +2967,9 @@ namespace Babylon
         const float depth{data.ReadFloat32()};
         const bool shouldClearStencil{static_cast<bool>(data.ReadUint32())};
         const uint8_t stencil{static_cast<uint8_t>(data.ReadUint32())};
+        // Bit i selects color attachment i (see ThinNativeEngine.bindAttachments). 0xff means "all
+        // attachments", which takes the regular (non-palette) bgfx clear path.
+        const uint8_t colorAttachmentMask{static_cast<uint8_t>(data.ReadUint32())};
 
         bgfx::Encoder* encoder = GetEncoder();
 
@@ -2991,7 +2994,7 @@ namespace Babylon
             flags |= BGFX_CLEAR_STENCIL;
         }
 
-        GetBoundFrameBuffer().Clear(*encoder, flags, rgba, depth, stencil);
+        GetBoundFrameBuffer().Clear(*encoder, flags, rgba, depth, stencil, colorAttachmentMask);
     }
 
     Napi::Value NativeEngine::GetRenderWidth(const Napi::CallbackInfo& info)

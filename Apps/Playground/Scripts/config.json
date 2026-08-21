@@ -931,8 +931,6 @@
         {
             "title": "Node material 0",
             "playgroundId": "#M5VQE9#41",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails: 14.465% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "node-material0.png"
         },
         {
@@ -1741,8 +1739,6 @@
         {
             "title": "Prepass SSAO + instances",
             "playgroundId": "#YB006J#795",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails: 6.898% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "prepass-ssao-instances.png"
         },
         {
@@ -1785,15 +1781,13 @@
             "playgroundId": "#LRFB2D#263",
             "renderCount": 30,
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails: 51.653% of pixels differ from reference on Native [reeval 2026-07-21]",
+            "reason": "Pixel comparison fails: 18.124% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "prepass-ssao-glow-layer.png"
         },
         {
             "title": "Prepass SSAO + bounding box renderer",
             "playgroundId": "#4F33I3#35",
             "renderCount": 10,
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails: 88.128% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "prepass-ssao-bbr.png"
         },
         {
@@ -1810,8 +1804,6 @@
             "title": "Prepass SSAO + B&W post process",
             "playgroundId": "#N55Q2M#8",
             "renderCount": 10,
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails: 49.279% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "prepass-ssao-b-and-w.png"
         },
         {
@@ -1832,8 +1824,6 @@
             "title": "Prepass SSAO + LOD",
             "playgroundId": "#FFMFW5#29",
             "renderCount": 10,
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails: 52.618% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "prepass-ssao-lod.png"
         },
         {
@@ -1878,16 +1868,12 @@
             "title": "Prepass SSAO + visibility",
             "playgroundId": "#PXC9CF#7",
             "renderCount": 30,
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails: 48.477% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "prepass-ssao-visibility.png"
         },
         {
             "title": "Prepass SSAO + default pipeline",
             "playgroundId": "#NAW8EA#7",
             "renderCount": 10,
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails: 8.044% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "prepass-ssao-default-pipeline.png"
         },
         {
