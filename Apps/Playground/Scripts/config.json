@@ -1083,8 +1083,6 @@
         {
             "title": "ShadowOnlyMaterial",
             "playgroundId": "#1KF7V1#18",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Runtime error on Native: Failed to evaluate playground snippet #1KF7V1#18: TypeError: Cannot set properties of undefined (setting 'background') [reeval 2026-07-21]",
             "referenceImage": "shadowOnlyMaterial.png"
         },
         {
@@ -1846,8 +1844,6 @@
             "title": "Prepass SSAO + shadow only",
             "playgroundId": "#1KF7V1#55",
             "renderCount": 10,
-            "excludeFromAutomaticTesting": true,
-            "reason": "Runtime error on Native: Failed to evaluate playground snippet #1KF7V1#55: TypeError: Cannot set properties of undefined (setting 'background') [reeval 2026-07-21]",
             "referenceImage": "prepass-ssao-shadow-only.png"
         },
         {
@@ -2944,14 +2940,12 @@
             "title": "Show Loading Screen",
             "playgroundId": "#EQP888#7",
             "excludeFromAutomaticTesting": true,
-            "reason": "Runtime error on Native: Failed to evaluate playground snippet #EQP888#7: TypeError: Cannot set properties of undefined (setting 'loadingUIText') [reeval 2026-07-21]",
+            "reason": "Reference is the DOM loading-screen overlay (Babylon logo + spinner + text) drawn outside the canvas; Native has no DOM so it cannot appear in a framebuffer readback [reeval 2026-08-20]",
             "referenceImage": "Show-Loading-Screen.png"
         },
         {
             "title": "Hide Loading Screen",
             "playgroundId": "#EQP888#8",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Runtime error on Native: Failed to evaluate playground snippet #EQP888#8: TypeError: Cannot set properties of undefined (setting 'loadingUIText') [reeval 2026-07-21]",
             "referenceImage": "Hide-Loading-Screen.png"
         },
         {

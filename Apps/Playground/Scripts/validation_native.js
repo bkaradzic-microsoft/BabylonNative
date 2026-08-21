@@ -164,6 +164,20 @@
         return window;
     }
 
+    // getRenderingCanvas() above hands out the window object as the "canvas", so playgrounds that
+    // reach for HTMLCanvasElement members find them missing and throw. Add the element-ish surface
+    // they actually use (style for CSS tweaks, focus/blur for input tests) on window itself rather
+    // than returning a wrapper, since input handling elsewhere compares against window by identity.
+    if (!window.style) {
+        window.style = {};
+    }
+    if (typeof window.focus !== "function") {
+        window.focus = function () { };
+    }
+    if (typeof window.blur !== "function") {
+        window.blur = function () { };
+    }
+
     engine.getInputElement = function () {
         return 0;
     }
@@ -235,8 +249,42 @@
         return false; // no error
     }
 
+    // The reference images are captured in a browser where the canvas is styled
+    // `background: greenyellow !important` (packages/tools/babylonServer/public/empty.html), so a
+    // scene that clears to a translucent color is composited over greenyellow by the page before
+    // the screenshot is taken. Native reads the framebuffer back directly and never sees that
+    // backdrop, so every such test differed by its whole background. Replicate the browser's
+    // compositing here: straight (non-premultiplied) source-over against greenyellow.
+    //
+    // This is deliberately gated on the scene's clearColor alpha rather than applied to every
+    // frame. Several tests (additive/multiply particles, area lights, some prepass post-processes)
+    // leave alpha < 1 in the framebuffer even though they cleared opaque; the browser canvas is
+    // opaque in those cases so the backdrop is never visible, and compositing them unconditionally
+    // tinted ~19 passing tests green. Native writing an unexpected alpha there is a separate bug.
+    const CANVAS_BACKGROUND = [173, 255, 47];
+
+    function compositeOverCanvasBackground(data) {
+        for (let index = 0; index < data.length; index += 4) {
+            const alpha = data[index + 3];
+            if (alpha === 255) {
+                continue;
+            }
+            const src = alpha / 255;
+            const dst = 1 - src;
+            data[index] = Math.round(data[index] * src + CANVAS_BACKGROUND[0] * dst);
+            data[index + 1] = Math.round(data[index + 1] * src + CANVAS_BACKGROUND[1] * dst);
+            data[index + 2] = Math.round(data[index + 2] * src + CANVAS_BACKGROUND[2] * dst);
+            data[index + 3] = 255;
+        }
+        return data;
+    }
+
     function evaluateScreenshot(test, screenshot, referenceImage, done, compareFunction) {
         let testRes = true;
+
+        if (currentScene && currentScene.clearColor && currentScene.clearColor.a < 1) {
+            compositeOverCanvasBackground(screenshot);
+        }
 
         if (!test.onlyVisual) {
 
