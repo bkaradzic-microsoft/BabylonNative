@@ -3108,15 +3108,11 @@
         {
             "title": "Atmosphere Day",
             "playgroundId": "#VO1Z0C#39",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails: 8.367% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "atmosphere-day.png"
         },
         {
             "title": "Atmosphere Day (Planet Origin)",
             "playgroundId": "#VO1Z0C#40",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails: 8.459% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "atmosphere-day.png"
         },
         {
