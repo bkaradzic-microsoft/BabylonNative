@@ -727,10 +727,43 @@
         };
     }
 
+    // The Canvas polyfill registers its Image implementation on `_native` rather than as a global,
+    // but DOM code constructs it by its standard name - Particles/flowMap.ts FromUrlAsync does
+    // `new Image()` - so expose it under that name too.
+    if (typeof globalThis.Image === "undefined" && typeof _native !== "undefined" && _native.Image) {
+        globalThis.Image = _native.Image;
+    }
+
+    // Babylon builds PointerEvents itself for Scene.simulatePointerDown/Move/Up. There is no DOM
+    // here, and the input manager only ever reads plain state off the event (pointerId, button,
+    // client coords, ...) and assigns inputIndex to it, so a data-holder is sufficient.
+    if (typeof globalThis.PointerEvent === "undefined") {
+        globalThis.PointerEvent = function (type, init) {
+            this.type = type;
+            for (const key in (init || {})) {
+                this[key] = init[key];
+            }
+            if (this.pointerId === undefined) { this.pointerId = 1; }
+            if (this.pointerType === undefined) { this.pointerType = "mouse"; }
+            if (this.button === undefined) { this.button = 0; }
+            if (this.buttons === undefined) { this.buttons = 0; }
+            if (this.clientX === undefined) { this.clientX = 0; }
+            if (this.clientY === undefined) { this.clientY = 0; }
+            if (this.movementX === undefined) { this.movementX = 0; }
+            if (this.movementY === undefined) { this.movementY = 0; }
+            this.target = null;
+            this.preventDefault = function () { };
+            this.stopPropagation = function () { };
+        };
+    }
+
     document = {
         createElement: function (type) {
             if (type === "canvas") {
-                return new OffscreenCanvas(64, 64);
+                // Hand back a real Canvas polyfill instance rather than the stub above: callers
+                // such as FlowMap.FromUrlAsync need a 2D context that actually implements
+                // drawImage/getImageData, which the stub does not.
+                return engine.createCanvas(64, 64);
             }
             return {};
         },

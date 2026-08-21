@@ -1063,8 +1063,6 @@
         {
             "title": "Simulate pointer",
             "playgroundId": "#8MGKWK#574",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Runtime error on Native: ReferenceError: PointerEvent is not defined [reeval 2026-07-21]",
             "referenceImage": "simulatePointer.png"
         },
         {
@@ -4124,7 +4122,7 @@
             "playgroundId": "#M58G3X#4",
             "renderCount": 240,
             "excludeFromAutomaticTesting": true,
-            "reason": "Runtime error on Native: ReferenceError: Image is not defined [reeval 2026-07-21]",
+            "reason": "Crashes Native (exit 3) inside ConvertToNodeParticleSystemSetAsync when the source ParticleSystem carries a flowMap; plain NPE (test 103) and flow maps alone (test 704) both work [reeval 2026-08-21]",
             "referenceImage": "particles-flowmaps.png"
         },
         {
@@ -4132,7 +4130,7 @@
             "playgroundId": "#PPC2EI#5",
             "renderCount": 120,
             "excludeFromAutomaticTesting": true,
-            "reason": "Runtime error on Native: ReferenceError: Image is not defined [reeval 2026-07-21]",
+            "reason": "Crashes Native (exit 3) inside ConvertToNodeParticleSystemSetAsync when the source ParticleSystem carries a flowMap; plain NPE (test 103) and flow maps alone (test 704) both work [reeval 2026-08-21]",
             "referenceImage": "particles-flowmaps-2.png"
         },
         {
@@ -4348,8 +4346,6 @@
         {
             "title": "GPU Particles - Flowmaps",
             "playgroundId": "#SGAEHS#0",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Runtime error on Native: ReferenceError: Image is not defined [reeval 2026-07-21]",
             "referenceImage": "gpu-particles-flowmaps.png"
         },
         {
