@@ -671,8 +671,6 @@
         {
             "title": "PBR in mirror",
             "playgroundId": "#Q7DP2M",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Cubemap load not implemented on Babylon Native",
             "referenceImage": "pbr-mirror.png"
         },
         {
@@ -1298,8 +1296,6 @@
         {
             "title": "GLTF Serializer KHR materials clearcoat",
             "playgroundId": "#9N6CLU#23",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails: 20.641% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "glTFSerializerKhrMaterialsClearcoat.png"
         },
         {
@@ -1468,22 +1464,16 @@
         {
             "title": "GLTF Mesh Primitive Attribute Test",
             "playgroundId": "#G1FXQ4#0",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails: 68.415% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "gltfMeshPrimAttribTest.png"
         },
         {
             "title": "PBR glossy",
             "playgroundId": "#DFQKIR#0",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails: 81.808% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "pbrglossy.png"
         },
         {
             "title": "PBR rough",
             "playgroundId": "#PI9IE8#5",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails: 83.793% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "pbrrough.png"
         },
         {
@@ -2941,8 +2931,6 @@
             "title": "SubSurface Scattering",
             "playgroundId": "#5H0H89#129",
             "renderCount": 10,
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails: 27.177% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "SubSurface-Scattering.png"
         },
         {
@@ -3725,9 +3713,7 @@
         {
             "title": "Background material blur",
             "playgroundId": "#UU7RQ#4458",
-            "referenceImage": "Background-material-blur.png",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails: 9.650% of pixels differ from reference on Native [reeval 2026-07-21]"
+            "referenceImage": "Background-material-blur.png"
         },
         {
             "title": "Lighting Volume",
