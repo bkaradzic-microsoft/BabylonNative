@@ -37,7 +37,10 @@ namespace Babylon::Polyfills::Internal
         auto obj{Napi::Object::New(env)};
         obj.Set("width", Napi::Value::From(env, advance));
         obj.Set("height", Napi::Value::From(env, bounds[3] - bounds[1]));
-        obj.Set("actualBoundingBoxLeft", Napi::Value::From(env, bounds[0]));
+        // Measured with the pen at x = 0, so bounds[0]/bounds[2] are the ink extents relative to
+        // the alignment point. actualBoundingBoxLeft is positive to the LEFT of that point, so it
+        // is the negation of the left ink edge; actualBoundingBoxRight is positive to the right.
+        obj.Set("actualBoundingBoxLeft", Napi::Value::From(env, -bounds[0]));
         obj.Set("actualBoundingBoxRight", Napi::Value::From(env, bounds[2]));
         obj.Set("fontBoundingBoxAscent", Napi::Value::From(env, textMetrics[0]));
         obj.Set("fontBoundingBoxDescent", Napi::Value::From(env, -textMetrics[1]));

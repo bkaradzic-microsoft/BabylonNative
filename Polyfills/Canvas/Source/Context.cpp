@@ -707,18 +707,13 @@ namespace Babylon::Polyfills::Internal
         // to leave bound (or none at all, yielding zeros).
         const bool fontBound = SetFontFaceId();
 
-        // If the JS-requested font family hasn't been loaded, return Arial-equivalent metrics
-        // instead of measuring with whatever fallback font is bound. Browsers use the system
-        // Arial for "Arial"/"sans-serif"/etc.; here we have e.g. droidsans only, which is
-        // ~1.7x wider per em. Returning droidsans widths makes Babylon helpers like
-        // DynamicTexture.drawText center text via t = (canvas - measureText.width)/2 to a
-        // negative x and clip the text off-canvas, and makes GUI wrap/ellipsize runs that fit
-        // in a browser. Arial-ish synthesised metrics keep layout matching the reference
-        // rendering, while the actual FillText still substitutes our loaded font.
-        const bool familyAvailable = !m_state.font.Familiy().empty()
-            && m_fonts.find(m_state.font.Familiy()) != m_fonts.end();
-
-        if ((!familyAvailable || !fontBound) && m_state.font.Size() > 0.f)
+        // If the JS-requested font family hasn't been loaded, FillText falls back to whatever face
+        // is bound, so MeasureText has to measure that same face: TextMetrics that describe a font
+        // we are not going to draw with make Babylon GUI and DynamicTexture.drawText center,
+        // wrap and ellipsize against the wrong run length, which is visible as text drawn well off
+        // the centre of its control. Only when no font at all is available - where there is
+        // nothing to measure - fall back to synthesised Arial-ish metrics.
+        if (!fontBound && m_state.font.Size() > 0.f)
         {
             // Approximate Arial proportional metrics: average advance ~ 0.55 em.
             const float fontSize = m_state.font.Size();
