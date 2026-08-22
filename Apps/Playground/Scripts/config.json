@@ -2728,8 +2728,7 @@
         {
             "title": "FrameGraph nrge multiple post processes",
             "playgroundId": "#SYQW69#1363",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails: 100.000% of pixels differ from reference on Native [reeval 2026-07-21]",
+
             "referenceImage": "FrameGraph-nrge-multiple-post-processes.png"
         },
         {
