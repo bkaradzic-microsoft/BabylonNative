@@ -3212,30 +3212,22 @@
         {
             "title": "OpenPBR IBL Coat Color vs Coat Darkening",
             "playgroundId": "#GRQHVV#186",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails: 30.833% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "OpenPBR-IBL-Coat-Color-vs-Coat-Darkening.png"
         },
         {
             "title": "OpenPBR IBL Coat Color vs Coat IOR",
             "playgroundId": "#GRQHVV#187",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails: 30.922% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "OpenPBR-IBL-Coat-Color-vs-Coat-IOR.png"
         },
         {
             "title": "OpenPBR Analytic Lights Coat Color vs Coat IOR",
             "playgroundId": "#GRQHVV#52",
-            "referenceImage": "OpenPBR-Analytic-Lights-Coat-Color-vs-Coat-IOR.png",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails: 11.705% of pixels differ from reference on Native [reeval 2026-07-21]"
+            "referenceImage": "OpenPBR-Analytic-Lights-Coat-Color-vs-Coat-IOR.png"
         },
         {
             "title": "OpenPBR Analytic Lights Coat Color vs Coat Darkening",
             "playgroundId": "#GRQHVV#53",
-            "referenceImage": "OpenPBR-Analytic-Lights-Coat-Color-vs-Coat-Darkening.png",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails: 10.963% of pixels differ from reference on Native [reeval 2026-07-21]"
+            "referenceImage": "OpenPBR-Analytic-Lights-Coat-Color-vs-Coat-Darkening.png"
         },
         {
             "title": "OpenPBR Analytic Lights Anisotropy",
@@ -3431,8 +3423,6 @@
         {
             "title": "OpenPBR Fuzz Weight vs Fuzz Roughness - Realtime IBL",
             "playgroundId": "#GRQHVV#206",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails: 40.233% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "OpenPBR-Fuzz-Weight-vs-Fuzz-Roughness---Realtime-IBL.png"
         },
         {
@@ -3443,8 +3433,6 @@
         {
             "title": "OpenPBR Transmission Color glTF - IBL",
             "playgroundId": "#GRQHVV#120",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails: 58.792% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "OpenPBR-Transmission-Color-glTF---IBL.png"
         },
         {
@@ -3684,9 +3672,7 @@
         {
             "title": "OpenPBR Thin Walled Anisotropic Transmission - Analytic Lights",
             "playgroundId": "#GRQHVV#244",
-            "referenceImage": "OpenPBR-Thin-Walled-Anisotropic-Transmission---Analytic-Lights.png",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails: 9.527% of pixels differ from reference on Native [reeval 2026-07-21]"
+            "referenceImage": "OpenPBR-Thin-Walled-Anisotropic-Transmission---Analytic-Lights.png"
         },
         {
             "title": "OpenPBR Thin Walled Subsurface Anisotropy - IBL",
@@ -3699,9 +3685,7 @@
         {
             "title": "OpenPBR Thin Walled Subsurface Anisotropy - Analytic Lights",
             "playgroundId": "#GRQHVV#248",
-            "referenceImage": "OpenPBR-Thin-Walled-Subsurface-Anisotropy---Analytic-Lights.png",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails: 12.546% of pixels differ from reference on Native [reeval 2026-07-21]"
+            "referenceImage": "OpenPBR-Thin-Walled-Subsurface-Anisotropy---Analytic-Lights.png"
         },
         {
             "title": "OpenPBR Thin Walled Subsurface Transmission Blending - IBL",
