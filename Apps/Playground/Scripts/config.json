@@ -685,7 +685,7 @@
         },
         {
             "title": "OpenPBR Base Diffuse Roughness Realtime IBL",
-            "playgroundId": "#MXACV7#29",
+            "playgroundId": "#76D28X#0",
             "renderCount": 15,
             "excludeFromAutomaticTesting": true,
             "reason": "Pixel comparison fails: 44.768% of pixels differ from reference on Native [reeval 2026-07-21]",
@@ -3524,7 +3524,7 @@
         },
         {
             "title": "OpenPBR Transmission Scatter Anisotropy Refract - IBL",
-            "playgroundId": "#GRQHVV#265",
+            "playgroundId": "#5OBC5W#0",
             "renderCount": 5,
             "excludeFromAutomaticTesting": true,
             "reason": "Pixel comparison fails: 16.637% of pixels differ from reference on Native [reeval 2026-07-21]",
@@ -3547,7 +3547,7 @@
         },
         {
             "title": "OpenPBR Subsurface Radius vs Roughness - IBL",
-            "playgroundId": "#GRQHVV#270",
+            "playgroundId": "#54A9FQ#0",
             "renderCount": 5,
             "excludeFromAutomaticTesting": true,
             "reason": "Pixel comparison fails: 20.908% of pixels differ from reference on Native [reeval 2026-07-21]",
@@ -3568,7 +3568,7 @@
         },
         {
             "title": "OpenPBR Subsurface Radius vs Radius Scale - IBL",
-            "playgroundId": "#GRQHVV#273",
+            "playgroundId": "#SD5EQ1#0",
             "renderCount": 5,
             "excludeFromAutomaticTesting": true,
             "reason": "Pixel comparison fails: 19.085% of pixels differ from reference on Native [reeval 2026-07-21]",
@@ -3576,7 +3576,7 @@
         },
         {
             "title": "OpenPBR Subsurface Transmission Blending - IBL",
-            "playgroundId": "#GRQHVV#296",
+            "playgroundId": "#SXXR4T#0",
             "renderCount": 5,
             "excludeFromAutomaticTesting": true,
             "reason": "Pixel comparison fails: 26.473% of pixels differ from reference on Native [reeval 2026-07-21]",
@@ -3584,15 +3584,13 @@
         },
         {
             "title": "OpenPBR Subsurface Transmission Blending - Analytic Lights",
-            "playgroundId": "#GRQHVV#299",
+            "playgroundId": "#T69TFO#0",
             "renderCount": 2,
-            "referenceImage": "OpenPBR-Subsurface-Transmission-Blending---Analytic-Lights.png",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails: 6.676% of pixels differ from reference on Native [reeval 2026-07-21]"
+            "referenceImage": "OpenPBR-Subsurface-Transmission-Blending---Analytic-Lights.png"
         },
         {
             "title": "OpenPBR Subsurface Transmission Blending Zero Depth - IBL",
-            "playgroundId": "#GRQHVV#235",
+            "playgroundId": "#UZ7KW4#0",
             "renderCount": 5,
             "excludeFromAutomaticTesting": true,
             "reason": "Pixel comparison fails: 12.005% of pixels differ from reference on Native [reeval 2026-07-21]",
@@ -3600,7 +3598,7 @@
         },
         {
             "title": "OpenPBR Transmission Dense Scattering - IBL",
-            "playgroundId": "#GRQHVV#294",
+            "playgroundId": "#Q3QF1V#0",
             "renderCount": 10,
             "excludeFromAutomaticTesting": true,
             "reason": "Pixel comparison fails: 27.634% of pixels differ from reference on Native [reeval 2026-07-21]",
@@ -3616,7 +3614,7 @@
         },
         {
             "title": "OpenPBR Subsurface Dense Scattering - IBL",
-            "playgroundId": "#GRQHVV#295",
+            "playgroundId": "#Z8RCM0#0",
             "renderCount": 10,
             "excludeFromAutomaticTesting": true,
             "reason": "Pixel comparison fails: 30.565% of pixels differ from reference on Native [reeval 2026-07-21]",
@@ -3624,15 +3622,13 @@
         },
         {
             "title": "OpenPBR Subsurface Dense Scattering - Analytic Lights",
-            "playgroundId": "#GRQHVV#300",
+            "playgroundId": "#GRQHVV#306",
             "renderCount": 10,
-            "referenceImage": "OpenPBR-Subsurface-Dense-Scattering---Analytic-Lights.png",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails: 16.041% of pixels differ from reference on Native [reeval 2026-07-21]"
+            "referenceImage": "OpenPBR-Subsurface-Dense-Scattering---Analytic-Lights.png"
         },
         {
             "title": "OpenPBR Subsurface Dense Scattering - Realtime IBL",
-            "playgroundId": "#GRQHVV#301",
+            "playgroundId": "#5A4TWS#0",
             "renderCount": 5,
             "excludeFromAutomaticTesting": true,
             "reason": "Pixel comparison fails: 29.940% of pixels differ from reference on Native [reeval 2026-07-21]",
@@ -3640,7 +3636,7 @@
         },
         {
             "title": "OpenPBR Subsurface Color Scaling - IBL",
-            "playgroundId": "#GRQHVV#302",
+            "playgroundId": "#YWXM7Z#0",
             "renderCount": 5,
             "excludeFromAutomaticTesting": true,
             "reason": "Pixel comparison fails: 24.570% of pixels differ from reference on Native [reeval 2026-07-21]",
@@ -3648,7 +3644,7 @@
         },
         {
             "title": "OpenPBR Thin Walled Transmission IOR vs Roughness - IBL",
-            "playgroundId": "#GRQHVV#240",
+            "playgroundId": "#BY1IOY#0",
             "renderCount": 5,
             "excludeFromAutomaticTesting": true,
             "reason": "Pixel comparison fails: 7.213% of pixels differ from reference on Native [reeval 2026-07-21]",
@@ -3656,14 +3652,12 @@
         },
         {
             "title": "OpenPBR Thin Walled Transmission IOR vs Roughness - Analytic Lights",
-            "playgroundId": "#GRQHVV#243",
-            "referenceImage": "OpenPBR-Thin-Walled-Transmission-IOR-vs-Roughness---Analytic-Lights.png",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails: 6.937% of pixels differ from reference on Native [reeval 2026-07-21]"
+            "playgroundId": "#GRQHVV#312",
+            "referenceImage": "OpenPBR-Thin-Walled-Transmission-IOR-vs-Roughness---Analytic-Lights.png"
         },
         {
             "title": "OpenPBR Thin Walled Anisotropic Transmission - IBL",
-            "playgroundId": "#GRQHVV#247",
+            "playgroundId": "#GRQHVV#315",
             "renderCount": 5,
             "excludeFromAutomaticTesting": true,
             "reason": "Pixel comparison fails: 6.907% of pixels differ from reference on Native [reeval 2026-07-21]",
@@ -3676,10 +3670,8 @@
         },
         {
             "title": "OpenPBR Thin Walled Subsurface Anisotropy - IBL",
-            "playgroundId": "#GRQHVV#241",
+            "playgroundId": "#GT3JYS#1",
             "renderCount": 5,
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails: 19.061% of pixels differ from reference on Native [reeval 2026-07-21]",
             "referenceImage": "OpenPBR-Thin-Walled-Subsurface-Anisotropy---IBL.png"
         },
         {
