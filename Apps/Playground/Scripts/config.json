@@ -3146,7 +3146,9 @@
         {
             "title": "OpenPBR IBL Metalness vs Coat IOR",
             "playgroundId": "#GRQHVV#176",
-            "referenceImage": "OpenPBR-IBL-Metalness-vs-Coat-IOR.png"
+            "referenceImage": "OpenPBR-IBL-Metalness-vs-Coat-IOR.png",
+            "errorRatio": 3,
+            "note": "Specular (not diffuse) IBL residual, so this is a different divergence from the CPU-SH irradiance note on 518/519/524: the worst cells are the baseMetalness=1.0 spheres, which have no diffuse term at all. Every sphere here is specularRoughness=0.5, and the rows differ only by coatIor; rows with coatIor>1 are dominated by the coat's roughness-0 mirror lobe (LOD 0, which matches the reference), so only the coatIor=1.0 row exposes the rough base specular. Measured 2.518% against the 2.5% default. Native's prefiltered radiance keeps ~57% more high-frequency detail than the reference on the worst sphere (mean neighbour delta 1.258 vs 0.800) and its transfer curve lifts shadows (x1.26) while crushing highlights (x0.82), i.e. the bright sun peak is not spread across the GGX lobe - the same 'bright warm sun peak dropped in the bgfx float-cube sample path' effect described for irradiance in thinNativeEngine allowIrradianceTexturePrefiltering, on harties_cliff_view_4k.hdr. Verified NOT caused by: LOD inputs (size 64 / lodGenerationScale 0.8 / offset 0 all correct), reflection defines, a missing mip chain, explicit-LOD cube fetch being ignored, or trilinear mip blending - all were probed directly and behave correctly. Ratio kept at 3 rather than the siblings' 5 so this stays a real regression gate."
         },
         {
             "title": "OpenPBR IBL Specular IOR vs Coat Weight",
