@@ -82,6 +82,11 @@ namespace Babylon
         // initialization because it is consulted on every draw.
         const UniformInfo* FragCoordTargetSizeUniform() const { return m_fragCoordTargetSizeUniform; }
 
+        // Number of built-in per-instance attributes this program declares. Computed once when
+        // m_vertexAttributeLocations is populated -- that map is written only in Initialize and
+        // cleared only in Dispose, so this is invariant and must not be recomputed per draw.
+        uint32_t BuiltInInstanceDataSlotCount() const { return m_builtInInstanceDataSlotCount; }
+
     private:
         Graphics::DeviceContext& m_deviceContext;
         uintptr_t m_deviceID;
@@ -91,6 +96,7 @@ namespace Babylon
         std::map<uint16_t, UniformInfo> m_uniformInfos;
         std::map<std::string, uint32_t> m_vertexAttributeLocations;
         const UniformInfo* m_fragCoordTargetSizeUniform{nullptr};
+        uint32_t m_builtInInstanceDataSlotCount{};
         std::string m_vertexSource;
         std::string m_fragmentSource;
         std::map<std::map<std::string, uint32_t>, bgfx::ProgramHandle> m_instancedVariants;

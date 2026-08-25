@@ -66,6 +66,16 @@ namespace Babylon
 
         m_handle = bgfx::createProgram(vertexShader, fragmentShader, true);
         m_vertexAttributeLocations = shaderInfo->VertexAttributeLocations;
+
+        m_builtInInstanceDataSlotCount = 0;
+        for (const auto& [name, location] : m_vertexAttributeLocations)
+        {
+            if (Babylon::Graphics::IsBuiltInInstanceAttributeName(name))
+            {
+                ++m_builtInInstanceDataSlotCount;
+            }
+        }
+
         // Cached rather than looked up per draw: DrawInternal consults this on every single draw,
         // and m_uniformInfos is stable for the lifetime of the program.
         m_fragCoordTargetSizeUniform = GetUniformInfo(Graphics::FRAGCOORD_TARGET_SIZE_UNIFORM_NAME);
@@ -137,6 +147,7 @@ namespace Babylon
         m_uniformNameToIndex.clear();
         m_uniformInfos.clear();
         m_vertexAttributeLocations.clear();
+        m_builtInInstanceDataSlotCount = 0;
     }
 
     void Program::SetUniform(bgfx::UniformHandle handle, gsl::span<const float> data, size_t elementLength)

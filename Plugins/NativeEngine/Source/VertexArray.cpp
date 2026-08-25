@@ -1,5 +1,7 @@
 #include "VertexArray.h"
 #include <cassert>
+#include <string>
+#include "Babylon/Graphics/BgfxShaderInfo.h"
 #include "Babylon/Graphics/DeviceContext.h"
 
 namespace Babylon
@@ -42,16 +44,25 @@ namespace Babylon
             }
 
             // Check if instancing is supported.
-            const bool instancingSupported = 0 != (BGFX_CAPS_INSTANCING & bgfx::getCaps()->supported);
+            const bgfx::Caps* caps = bgfx::getCaps();
+            const bool instancingSupported = 0 != (BGFX_CAPS_INSTANCING & caps->supported);
             if (!instancingSupported)
             {
                 throw std::runtime_error{"Instancing is not supported"};
             }
 
-            // bgfx supports up to caps.limits.maxInstanceData per-instance vec4 slots.
-            if (m_vertexBufferInstances.size() >= bgfx::getCaps()->limits.maxInstanceData)
+            // Use the runtime cap, not MAX_INSTANCE_DATA_SLOT_COUNT: backends clamp maxInstanceData
+            // to the device's maxVertexAttributes during init, so the compile-time value is a
+            // ceiling a device need not honour. The constant stays for the shader compiler's
+            // static_asserts, which need a compile-time bound.
+            //
+            // Only a new attribute can overflow -- re-recording an existing one overwrites its
+            // entry -- and the check runs before the insert, so `size() >= max` is the overflow.
+            const uint32_t maxInstanceData = caps->limits.maxInstanceData;
+            if (m_vertexBufferInstances.find(attrib) == m_vertexBufferInstances.end() &&
+                m_vertexBufferInstances.size() >= maxInstanceData)
             {
-                throw std::runtime_error{"Number of vertex buffer instances exceeds the maximum supported instance-data slots"};
+                throw std::runtime_error{"Number of vertex buffer instances greater than " + std::to_string(maxInstanceData) + " is not supported"};
             }
 
             m_vertexBufferInstances[attrib] = {vertexBuffer, byteOffset, byteStride, static_cast<uint16_t>(sizeof(float) * numElements)};
@@ -119,14 +130,14 @@ namespace Babylon
         }
     }
 
-    void VertexArray::SetVertexBuffers(bgfx::Encoder* encoder, uint32_t startVertex, uint32_t numVertices, uint32_t instanceCount)
+    void VertexArray::SetVertexBuffers(bgfx::Encoder* encoder, uint32_t startVertex, uint32_t numVertices, uint32_t instanceCount, uint32_t minInstanceDataSlotCount)
     {
         // Check if instancing is supported.
         const bool instancingSupported = 0 != (BGFX_CAPS_INSTANCING & bgfx::getCaps()->supported);
         if (!m_vertexBufferInstances.empty() && instancingSupported && !HasStorageInstances())
         {
             bgfx::InstanceDataBuffer instanceDataBuffer{};
-            VertexBuffer::BuildInstanceDataBuffer(instanceDataBuffer, m_vertexBufferInstances, instanceCount);
+            VertexBuffer::BuildInstanceDataBuffer(instanceDataBuffer, m_vertexBufferInstances, instanceCount, minInstanceDataSlotCount);
             encoder->setInstanceDataBuffer(&instanceDataBuffer);
         }
         else if (instanceCount > 0 && !HasStorageInstances() && (0 != (BGFX_CAPS_VERTEX_ID & bgfx::getCaps()->supported)))
