@@ -24,13 +24,16 @@ namespace Babylon::Graphics
     inline constexpr uint32_t INSTANCE_DATA_FIRST_LOCATION{TEXCOORD0_ATTRIBUTE_LOCATION + INSTANCE_DATA_FIRST_TEXCOORD};
 
     /// The built-in per-instance attributes occupy the top BUILTIN_INSTANCE_DATA_SLOT_COUNT i_data
-    /// slots: world0-3 and splatIndex0-3 map to i_data0..i_data3, instanceColor to i_data4 (see
-    /// ShaderCompilerTraversers.cpp's attribute table). BUILTIN_INSTANCE_DATA_LAST_LOCATION is the
-    /// lowest synthetic location any of them can occupy; it is the boundary NativeEngine::Draw's
+    /// slots: world0-3 and splatIndex0-3 map to i_data0..i_data3, instanceColor to i_data4, and the
+    /// motion-blur rows previousWorld0-3 to i_data4..i_data7 (instanceColor and previousWorld are
+    /// mutually exclusive in practice, so they share i_data4). See ShaderCompilerTraversers.cpp's
+    /// attribute table -- the count is the lowest slot in use, not the number of distinct names.
+    /// BUILTIN_INSTANCE_DATA_LAST_LOCATION is the lowest synthetic location any of them can
+    /// occupy; it is the boundary NativeEngine::Draw's
     /// "< bgfx::Attrib::Count means a real per-vertex attribute that needs rerouting" guard rests
     /// on, so it -- not just INSTANCE_DATA_FIRST_LOCATION -- must stay >= bgfx::Attrib::Count.
     /// Keep in sync when adding a built-in per-instance attribute on a lower i_data slot.
-    inline constexpr uint32_t BUILTIN_INSTANCE_DATA_SLOT_COUNT{5};
+    inline constexpr uint32_t BUILTIN_INSTANCE_DATA_SLOT_COUNT{8};
     inline constexpr uint32_t BUILTIN_INSTANCE_DATA_LAST_LOCATION{INSTANCE_DATA_FIRST_LOCATION - (BUILTIN_INSTANCE_DATA_SLOT_COUNT - 1)};
 
     /// Name of the uniform the shader compiler declares in any fragment shader that reads
