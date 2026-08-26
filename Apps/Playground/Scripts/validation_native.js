@@ -44,6 +44,10 @@
     const cliCaptureFrame = (typeof opts.captureFrame === "number" && opts.captureFrame > 0) ? (opts.captureFrame | 0) : 0;
     // Frames after the trigger to let RenderDoc finalize the .rdc.
     const POST_CAPTURE_FRAMES = 5;
+    // Upper bound on ticks spent waiting for a scene to converge after
+    // executeWhenReady fired, so a scene that never settles fails on a stale
+    // frame rather than hanging. See isSceneConverged.
+    const MAX_WARMUP_FRAMES = 240;
 
     function shouldRunTest(test, index) {
         if (testIndices.length > 0 && testIndices.indexOf(index) === -1) {
@@ -437,6 +441,42 @@
         });
     }
 
+    // Scene.isReady() is not a reliable "the next frame will look right" signal.
+    // Materials support shader hot-swapping: when their defines change, PBR keeps
+    // the previous (ready) effect, calls defines.markAsUnprocessed() and still
+    // reports the submesh as ready, so Scene.isReady() returns true while a
+    // recompile is outstanding. Material._isReadyForSubMesh then memoizes that
+    // answer via defines._renderId === scene.getRenderId(), and scene.render()
+    // bumps the render id - so the very next draw re-evaluates, finds the new
+    // effect still compiling, and Scene.render() silently *skips* the submesh.
+    // The result is a frame with meshes missing.
+    //
+    // Return true only when every submesh has settled: no dirty defines and a
+    // ready effect.
+    function isSceneConverged(scene) {
+        if (!scene.isReady()) {
+            return false;
+        }
+        for (let i = 0; i < scene.meshes.length; i++) {
+            const mesh = scene.meshes[i];
+            if (!mesh.isEnabled() || !mesh.subMeshes || mesh.subMeshes.length === 0) {
+                continue;
+            }
+            for (let j = 0; j < mesh.subMeshes.length; j++) {
+                const subMesh = mesh.subMeshes[j];
+                const defines = subMesh.materialDefines;
+                if (defines && defines.isDirty) {
+                    return false;
+                }
+                const effect = subMesh.effect;
+                if (effect && !effect.isReady()) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
     function processCurrentScene(test, renderImage, done, compareFunction) {
         currentScene.useConstantAnimationDeltaTime = true;
         // Frame at which to read back the framebuffer & validate. This is the
@@ -460,6 +500,7 @@
         let stopped = false;
         let pendingScreenshot = null;
         let evaluated = false;
+        let warmupFrames = 0;
 
         const runEvaluation = function (screenshot) {
             if (evaluated) {
@@ -491,6 +532,25 @@
             }
             engine.runRenderLoop(function () {
                 try {
+                    // Wait for the scene to actually converge before starting the
+                    // frame count (see isSceneConverged).
+                    //
+                    // Deliberately do NOT call scene.render() here: several tests
+                    // set renderCount > 1 and compare an animated frame (particles,
+                    // motion blur), so an extra rendered frame would shift the
+                    // animation phase and change the captured image. Effect
+                    // recompilation is driven by isReadyForSubMesh - which
+                    // isSceneConverged already calls via scene.isReady() - and not
+                    // by rendering. Material._isReadyForSubMesh memoizes its answer
+                    // per render id, so bump the render id to force a fresh
+                    // evaluation on the next tick, exactly as Scene._checkIsReady
+                    // does while polling.
+                    if (!stopped && warmupFrames < MAX_WARMUP_FRAMES && !isSceneConverged(currentScene)) {
+                        warmupFrames++;
+                        currentScene.incrementRenderId();
+                        return;
+                    }
+
                     frameIndex++;
 
                     if (captureFrame > 0 && frameIndex === captureFrame && TestUtils.captureNextFrame) {

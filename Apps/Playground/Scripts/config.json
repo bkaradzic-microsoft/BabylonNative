@@ -2325,8 +2325,6 @@
         {
             "title": "Command encoder order in WebGPU 1",
             "playgroundId": "#064AUB#125",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Flaky on Native, not fixed: bimodal across runs - 1.382% on 2 of 5, 45.489% on the rest; ordering race rather than an accuracy gap [reeval 2026-08-25]",
             "referenceImage": "CommandEncodedWebGPU1.png"
         },
         {
