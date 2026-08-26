@@ -3058,8 +3058,6 @@
         {
             "title": "Clustered Light Serialization",
             "playgroundId": "#QRQPNN#0",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Hangs on Babylon Native (no exit within 60s) [reeval 2026-08-25]",
             "referenceImage": "clustered-light-serialization.png"
         },
         {
