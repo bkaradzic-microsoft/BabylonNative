@@ -2731,8 +2731,6 @@
         {
             "title": "FrameGraph nrge volumetric lighting",
             "playgroundId": "#3VH0AC#2",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails: 96.5% of pixels differ from reference on Native; the FrameGraph volumetric-lighting pass renders nothing [reeval 2026-08-25]",
             "referenceImage": "FrameGraph-nrge-volumetric-lighting.png"
         },
         {
@@ -2855,8 +2853,6 @@
         {
             "title": "FrameGraph volumetric lighting",
             "playgroundId": "#3VH0AC",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails: 96.0% of pixels differ from reference on Native; the FrameGraph volumetric-lighting pass renders nothing [reeval 2026-08-25]",
             "referenceImage": "FrameGraph-volumetric-lighting.png"
         },
         {
