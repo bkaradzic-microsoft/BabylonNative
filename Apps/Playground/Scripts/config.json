@@ -782,8 +782,6 @@
             "title": "Decal map PP",
             "playgroundId": "#9BVW2S#101",
             "renderCount": 50,
-            "excludeFromAutomaticTesting": true,
-            "reason": "Hangs on Babylon Native (no exit within 60s) [reeval 2026-08-25]",
             "referenceImage": "decal-map-pp.png"
         },
         {
