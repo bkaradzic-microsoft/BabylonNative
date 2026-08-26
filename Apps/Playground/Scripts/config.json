@@ -817,8 +817,6 @@
             "title": "BoundingInfo Helper",
             "playgroundId": "#BCNJD4#61",
             "renderCount": 2,
-            "excludeFromAutomaticTesting": true,
-            "reason": "Runtime error on Native: TypeError: Cannot read properties of undefined (reading 'setUInt') [reeval 2026-07-21]",
             "referenceImage": "bbhelper.png"
         },
         {
