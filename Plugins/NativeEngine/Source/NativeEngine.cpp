@@ -99,6 +99,30 @@ namespace Babylon
             constexpr uint64_t SCREENMODE = BGFX_STATE_BLEND_FUNC_SEPARATE(BGFX_STATE_BLEND_ONE, BGFX_STATE_BLEND_INV_SRC_COLOR, BGFX_STATE_BLEND_ONE, BGFX_STATE_BLEND_INV_SRC_ALPHA);
         }
 
+        // True for the formats whose texels carry floating point data. Reading one of these back as
+        // RGBA8 would quantize the values to 8 bits per channel, which silently destroys depth and
+        // HDR readbacks, so they are normalized to RGBA32F instead.
+        constexpr bool IsFloatTextureFormat(bgfx::TextureFormat::Enum format)
+        {
+            switch (format)
+            {
+                case bgfx::TextureFormat::R16F:
+                case bgfx::TextureFormat::RG16F:
+                case bgfx::TextureFormat::RGBA16F:
+                case bgfx::TextureFormat::R32F:
+                case bgfx::TextureFormat::RG32F:
+                case bgfx::TextureFormat::RGBA32F:
+                case bgfx::TextureFormat::RGB9E5F:
+                case bgfx::TextureFormat::RG11B10F:
+                case bgfx::TextureFormat::D16F:
+                case bgfx::TextureFormat::D24F:
+                case bgfx::TextureFormat::D32F:
+                    return true;
+                default:
+                    return false;
+            }
+        }
+
         void FlipImage(gsl::span<uint8_t> image, uint32_t height)
         {
             const size_t rowPitch{image.size() / height};
@@ -2483,8 +2507,10 @@ namespace Babylon
         bgfx::calcTextureSize(sourceTextureInfo, width, height, /*depth*/ 1, /*cubeMap*/ false, /*hasMips*/ false, /*numLayers*/ 1, sourceTextureFormat);
 
         // Calculate target texture storage size.
-        // Always return pixel data in RBGA8 to match the web.
-        const auto targetTextureFormat{bgfx::TextureFormat::Enum::RGBA8};
+        // Always return four channels to match the web, where readPixels is issued with gl.RGBA.
+        // Integer formats are normalized to RGBA8 and float formats to RGBA32F, mirroring the
+        // UNSIGNED_BYTE / FLOAT read types the WebGL engine selects from the texture type.
+        const auto targetTextureFormat{IsFloatTextureFormat(sourceTextureFormat) ? bgfx::TextureFormat::Enum::RGBA32F : bgfx::TextureFormat::Enum::RGBA8};
         bgfx::TextureInfo targetTextureInfo{};
         bgfx::calcTextureSize(targetTextureInfo, width, height, /*depth*/ 1, /*cubeMap*/ false, /*hasMips*/ false, /*numLayers*/ 1, targetTextureFormat);
 
@@ -2575,13 +2601,18 @@ namespace Babylon
                         std::vector<uint8_t> convertedTextureBuffer(targetTextureInfo.storageSize);
                         if (!bimg::imageConvert(&Graphics::DeviceContext::GetDefaultAllocator(), convertedTextureBuffer.data(), bimg::TextureFormat::Enum(targetTextureInfo.format), textureBuffer.data(), bimg::TextureFormat::Enum(sourceTextureInfo.format), sourceTextureInfo.width, sourceTextureInfo.height, /*depth*/ 1))
                         {
-                            throw std::runtime_error{"Texture conversion to RGBA8 failed."};
+                            throw std::runtime_error{"Texture conversion for readback failed."};
                         }
                         textureBuffer = convertedTextureBuffer;
 #endif
                     }
                     assert(textureBuffer.size() == targetTextureInfo.storageSize);
-                    if (bgfx::getCaps()->originBottomLeft)
+                    // gl.readPixels returns rows starting at the BOTTOM of the framebuffer, and every Babylon
+                    // consumer (screenshots, GPU picking, LightingVolume's shadow-map depth readback) is written
+                    // against that convention. bgfx hands back the texture's native storage order: bottom-up on
+                    // OpenGL, which already matches the web, and top-down everywhere else. Flip only in the
+                    // latter case so the buffer always leaves here in web row order.
+                    if (!bgfx::getCaps()->originBottomLeft)
                     {
                         FlipImage(textureBuffer, targetTextureInfo.height);
                     }
