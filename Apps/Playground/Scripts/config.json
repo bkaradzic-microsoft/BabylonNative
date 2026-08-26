@@ -591,8 +591,6 @@
             "title": "Gaussian Splatting SPZ SH",
             "playgroundId": "#XSNFXP#2",
             "renderCount": 15,
-            "excludeFromAutomaticTesting": true,
-            "reason": "Runtime error on Native: RuntimeError: Unable to load from https://raw.githubusercontent.com/CedricGuillemet/dump/master/hornedlizard/hornedlizard.spz: Error opening URL: Unab [reeval 2026-07-21]",
             "referenceImage": "gsplat-spz-sh.png"
         },
         {
@@ -615,8 +613,6 @@
         {
             "title": "SPZ v3 - Splat",
             "playgroundId": "#V7CV8W#4",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Runtime error on Native: RuntimeError: Unable to load from https://assets.babylonjs.com/splats/combined_SPZv3.spz: Error opening URL: Unable to open URL 'import createSpzModul [reeval 2026-07-21]",
             "referenceImage": "gsplat-spz-v3.png"
         },
         {
@@ -914,8 +910,6 @@
         {
             "title": "CSGVertColor",
             "playgroundId": "#R0H1IX#4",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Runtime error on Native: Error: Error opening URL: Unable to open URL ' [reeval 2026-07-21]",
             "referenceImage": "csgVertColor.png"
         },
         {
@@ -1106,8 +1100,6 @@
         {
             "title": "CSG",
             "playgroundId": "#R0H1IX#8",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Runtime error on Native: Error: Error opening URL: Unable to open URL ' [reeval 2026-07-21]",
             "referenceImage": "csg.png"
         },
         {
