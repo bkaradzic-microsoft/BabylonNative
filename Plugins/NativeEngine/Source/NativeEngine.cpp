@@ -1935,6 +1935,7 @@ namespace Babylon
         const auto format{static_cast<bimg::TextureFormat::Enum>(info[4].As<Napi::Number>().Uint32Value())};
         const auto generateMips{info[5].As<Napi::Boolean>().Value()};
         const auto invertY{info[6].As<Napi::Boolean>().Value()};
+        const auto srgb{info.Length() > 7 && !info[7].IsUndefined() ? info[7].As<Napi::Boolean>().Value() : false};
 
         const auto bytes{static_cast<uint8_t*>(data.ArrayBuffer().Data()) + data.ByteOffset()};
         if (data.ByteLength() != bimg::imageGetSize(nullptr, width, height, 1, false, false, 1, format))
@@ -1948,14 +1949,14 @@ namespace Babylon
         // escaping here would not be routed to an onError callback. Surface it as a JS error.
         try
         {
-            image = PrepareImage(Graphics::DeviceContext::GetDefaultAllocator(), image, invertY, false, generateMips);
+            image = PrepareImage(Graphics::DeviceContext::GetDefaultAllocator(), image, invertY, srgb, generateMips);
         }
         catch (const std::exception& exception)
         {
             throw Napi::Error::New(Env(), exception.what());
         }
 
-        LoadTextureFromImage(texture, image, false);
+        LoadTextureFromImage(texture, image, srgb);
 #endif
     }
 

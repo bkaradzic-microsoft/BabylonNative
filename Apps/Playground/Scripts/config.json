@@ -1392,8 +1392,6 @@
             "title": "GLTF Serializer un/compressed texture roundtrip",
             "playgroundId": "#8NTR5X#8",
             "replace": "//options//, roundtrip = true;",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Hangs on Babylon Native (no exit within 60s) [reeval 2026-08-25]",
             "referenceImage": "glTFSerializerTextureExport.png"
         },
         {
