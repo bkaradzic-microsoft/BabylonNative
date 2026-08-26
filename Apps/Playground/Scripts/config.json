@@ -688,7 +688,7 @@
             "playgroundId": "#76D28X#0",
             "renderCount": 15,
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails: 44.768% of pixels differ from reference on Native [reeval 2026-07-21]",
+            "reason": "Pixel comparison fails: 39.912% of pixels differ from reference on Native [reeval 2026-08-25]",
             "referenceImage": "openpbr-base-diffuse-roughness-realtime-ibl.png"
         },
         {
@@ -3130,7 +3130,7 @@
             "title": "OpenPBR IBL F82 Specular Roughness vs Weight",
             "playgroundId": "#GRQHVV#173",
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails: 16.392% of pixels differ from reference on Native [reeval 2026-07-21]",
+            "reason": "Pixel comparison fails: 5.576% of pixels differ from reference on Native [reeval 2026-08-25]",
             "referenceImage": "OpenPBR-IBL-F82-Specular-Roughness-vs-Weight.png"
         },
         {
@@ -3245,7 +3245,7 @@
             "title": "OpenPBR IBL Anisotropy Metal",
             "playgroundId": "#GRQHVV#208",
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails: 14.759% of pixels differ from reference on Native [reeval 2026-07-21]",
+            "reason": "Pixel comparison fails: 11.147% of pixels differ from reference on Native [reeval 2026-08-25]",
             "referenceImage": "OpenPBR-IBL-Anisotropy-Metal.png"
         },
         {
@@ -3266,21 +3266,21 @@
             "title": "OpenPBR Anisotropy - Realtime Filtered IBL",
             "playgroundId": "#GRQHVV#190",
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails: ~14.8% of pixels differ on Native (realtime-anisotropic GPU prefilter quality gap; shader compile hang fixed in Batch 58) [reeval 2026-07-21]",
+            "reason": "Pixel comparison fails: 11.688% of pixels differ from reference on Native (realtime-anisotropic GPU prefilter quality gap; shader compile hang fixed in Batch 58) [reeval 2026-08-25]",
             "referenceImage": "OpenPBR-Anisotropy---Realtime-Filtered-IBL.png"
         },
         {
             "title": "OpenPBR Coat Anisotropy - IBL",
             "playgroundId": "#GRQHVV#193",
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails: 15.903% of pixels differ from reference on Native [reeval 2026-07-21]",
+            "reason": "Pixel comparison fails: 5.329% of pixels differ from reference on Native [reeval 2026-08-25]",
             "referenceImage": "OpenPBR-Coat-Anisotropy---IBL.png"
         },
         {
             "title": "OpenPBR Coat Anisotropy - Realtime Filtered IBL",
             "playgroundId": "#GRQHVV#195",
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails: ~29.2% of pixels differ on Native (realtime-anisotropic GPU prefilter quality gap; shader compile hang fixed in Batch 58) [reeval 2026-07-21]",
+            "reason": "Pixel comparison fails: 12.397% of pixels differ from reference on Native (realtime-anisotropic GPU prefilter quality gap; shader compile hang fixed in Batch 58) [reeval 2026-08-25]",
             "referenceImage": "OpenPBR-Coat-Anisotropy---Realtime-Filtered-IBL.png"
         },
         {
@@ -3302,7 +3302,7 @@
             "title": "OpenPBR Coat Roughness vs Coat Ior - IBL",
             "playgroundId": "#GRQHVV#196",
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails: 15.541% of pixels differ from reference on Native [reeval 2026-07-21]",
+            "reason": "Pixel comparison fails: 5.815% of pixels differ from reference on Native [reeval 2026-08-25]",
             "referenceImage": "OpenPBR-Coat-Roughness-vs-Coat-Ior---IBL.png"
         },
         {
@@ -3332,7 +3332,7 @@
             "title": "OpenPBR Thin Film Thickness VS IOR - IBL",
             "playgroundId": "#GRQHVV#198",
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails: 9.485% of pixels differ from reference on Native [reeval 2026-07-21]",
+            "reason": "Pixel comparison fails: 6.424% of pixels differ from reference on Native [reeval 2026-08-25]",
             "referenceImage": "OpenPBR-Thin-Film-Thickness-VS-IOR---IBL.png"
         },
         {
@@ -3372,14 +3372,14 @@
             "title": "OpenPBR Thin Film and Specular Weight Metals - IBL",
             "playgroundId": "#GRQHVV#202",
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails: 7.039% of pixels differ from reference on Native [reeval 2026-07-21]",
+            "reason": "Pixel comparison fails: 3.701% of pixels differ from reference on Native [reeval 2026-08-25]",
             "referenceImage": "OpenPBR-Thin-Film-and-Specular-Weight-Metals---IBL.png"
         },
         {
             "title": "OpenPBR Thin Film and Specular Weight - IBL",
             "playgroundId": "#GRQHVV#203",
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails: 7.685% of pixels differ from reference on Native [reeval 2026-07-21]",
+            "reason": "Pixel comparison fails: 5.342% of pixels differ from reference on Native [reeval 2026-08-25]",
             "referenceImage": "OpenPBR-Thin-Film-and-Specular-Weight---IBL.png"
         },
         {
@@ -3394,7 +3394,7 @@
             "title": "OpenPBR Fuzz Weight vs Fuzz Roughness - IBL",
             "playgroundId": "#GRQHVV#204",
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails: 27.761% of pixels differ from reference on Native [reeval 2026-07-21]",
+            "reason": "Pixel comparison fails: 3.208% of pixels differ from reference on Native [reeval 2026-08-25]",
             "referenceImage": "OpenPBR-Fuzz-Weight-vs-Fuzz-Roughness---IBL.png"
         },
         {
@@ -3419,7 +3419,7 @@
             "title": "OpenPBR Fuzz Weight vs Coat Weight with Normal Maps - IBL",
             "playgroundId": "#GRQHVV#205",
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails: 24.925% of pixels differ from reference on Native [reeval 2026-07-21]",
+            "reason": "Pixel comparison fails: 3.063% of pixels differ from reference on Native [reeval 2026-08-25]",
             "referenceImage": "OpenPBR-Fuzz-Weight-vs-Coat-Weight-with-Normal-Maps---IBL.png"
         },
         {
@@ -3448,7 +3448,7 @@
             "title": "OpenPBR Transmission Roughness glTF - IBL",
             "playgroundId": "#GRQHVV#123",
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails: 45.075% of pixels differ from reference on Native [reeval 2026-07-21]",
+            "reason": "Pixel comparison fails: 3.264% of pixels differ from reference on Native [reeval 2026-08-25]",
             "referenceImage": "OpenPBR-Transmission-Roughness-glTF---IBL.png"
         },
         {
@@ -3456,7 +3456,7 @@
             "playgroundId": "#GRQHVV#124",
             "referenceImage": "OpenPBR-Transmission-Roughness-glTF---Analytic-Lights.png",
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails: 6.156% of pixels differ from reference on Native [reeval 2026-07-21]"
+            "reason": "Pixel comparison fails: 2.608% of pixels differ from reference on Native [reeval 2026-08-25]"
         },
         {
             "title": "OpenPBR Transmission Roughness vs IOR - Analytic Lights",
@@ -3488,14 +3488,14 @@
             "title": "OpenPBR Transmission Anisotropy vs Roughness - IBL",
             "playgroundId": "#GRQHVV#138",
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails: 18.816% of pixels differ from reference on Native [reeval 2026-07-21]",
+            "reason": "Pixel comparison fails: 14.300% of pixels differ from reference on Native [reeval 2026-08-25]",
             "referenceImage": "OpenPBR-Transmission-Anisotropy-vs-Roughness---IBL.png"
         },
         {
             "title": "OpenPBR Transmission Dispersion glTF - IBL",
             "playgroundId": "#GRQHVV#140",
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails: 53.563% of pixels differ from reference on Native [reeval 2026-07-21]",
+            "reason": "Pixel comparison fails: 14.531% of pixels differ from reference on Native [reeval 2026-08-25]",
             "referenceImage": "OpenPBR-Transmission-Dispersion-glTF---IBL.png"
         },
         {
@@ -3507,21 +3507,21 @@
             "title": "OpenPBR Transmission Dispersion VS IOR - IBL",
             "playgroundId": "#GRQHVV#143",
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails: 6.967% of pixels differ from reference on Native [reeval 2026-07-21]",
+            "reason": "Pixel comparison fails: 16.078% of pixels differ from reference on Native [reeval 2026-08-25]",
             "referenceImage": "OpenPBR-Transmission-Dispersion-VS-IOR---IBL.png"
         },
         {
             "title": "OpenPBR Transmission Forward Scatter and Absorption - IBL",
             "playgroundId": "#GRQHVV#263",
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails: 13.967% of pixels differ from reference on Native [reeval 2026-07-21]",
+            "reason": "Pixel comparison fails: 12.296% of pixels differ from reference on Native [reeval 2026-08-25]",
             "referenceImage": "OpenPBR-Transmission-Forward-Scatter-and-Absorption---IBL.png"
         },
         {
             "title": "OpenPBR Transmission Scatter Anisotropy Reflect - IBL",
             "playgroundId": "#GRQHVV#264",
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails: 20.764% of pixels differ from reference on Native [reeval 2026-07-21]",
+            "reason": "Pixel comparison fails: 8.960% of pixels differ from reference on Native [reeval 2026-08-25]",
             "referenceImage": "OpenPBR-Transmission-Scatter-Anisotropy-Reflect---IBL.png"
         },
         {
@@ -3529,7 +3529,7 @@
             "playgroundId": "#5OBC5W#0",
             "renderCount": 5,
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails: 16.637% of pixels differ from reference on Native [reeval 2026-07-21]",
+            "reason": "Pixel comparison fails: 10.949% of pixels differ from reference on Native [reeval 2026-08-25]",
             "referenceImage": "OpenPBR-Transmission-Scatter-Anisotropy-Refract---IBL.png"
         },
         {
@@ -3552,7 +3552,7 @@
             "playgroundId": "#54A9FQ#0",
             "renderCount": 5,
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails: 20.908% of pixels differ from reference on Native [reeval 2026-07-21]",
+            "reason": "Pixel comparison fails: 20.566% of pixels differ from reference on Native [reeval 2026-08-25]",
             "referenceImage": "OpenPBR-Subsurface-Radius-vs-Roughness---IBL.png"
         },
         {
@@ -3573,7 +3573,7 @@
             "playgroundId": "#SD5EQ1#0",
             "renderCount": 5,
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails: 19.085% of pixels differ from reference on Native [reeval 2026-07-21]",
+            "reason": "Pixel comparison fails: 19.281% of pixels differ from reference on Native [reeval 2026-08-25]",
             "referenceImage": "OpenPBR-Subsurface-Radius-vs-Radius-Scale---IBL.png"
         },
         {
@@ -3581,7 +3581,7 @@
             "playgroundId": "#SXXR4T#0",
             "renderCount": 5,
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails: 26.473% of pixels differ from reference on Native [reeval 2026-07-21]",
+            "reason": "Pixel comparison fails: 3.597% of pixels differ from reference on Native [reeval 2026-08-25]",
             "referenceImage": "OpenPBR-Subsurface-Transmission-Blending---IBL.png"
         },
         {
@@ -3595,7 +3595,7 @@
             "playgroundId": "#UZ7KW4#0",
             "renderCount": 5,
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails: 12.005% of pixels differ from reference on Native [reeval 2026-07-21]",
+            "reason": "Pixel comparison fails: 4.488% of pixels differ from reference on Native [reeval 2026-08-25]",
             "referenceImage": "OpenPBR-Subsurface-Transmission-Blending-Zero-Depth---IBL.png"
         },
         {
@@ -3603,7 +3603,7 @@
             "playgroundId": "#Q3QF1V#0",
             "renderCount": 10,
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails: 27.634% of pixels differ from reference on Native [reeval 2026-07-21]",
+            "reason": "Pixel comparison fails: 3.179% of pixels differ from reference on Native [reeval 2026-08-25]",
             "referenceImage": "OpenPBR-Transmission-Dense-Scattering---IBL.png"
         },
         {
@@ -3611,7 +3611,7 @@
             "playgroundId": "#GRQHVV#293",
             "renderCount": 10,
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails: 9.602% of pixels differ from reference on Native [reeval 2026-07-21]",
+            "reason": "Pixel comparison fails: 3.628% of pixels differ from reference on Native [reeval 2026-08-25]",
             "referenceImage": "OpenPBR-Transmission-Dense-Scattering---SH.png"
         },
         {
@@ -3619,7 +3619,7 @@
             "playgroundId": "#Z8RCM0#0",
             "renderCount": 10,
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails: 30.565% of pixels differ from reference on Native [reeval 2026-07-21]",
+            "reason": "Pixel comparison fails: 3.006% of pixels differ from reference on Native [reeval 2026-08-25]",
             "referenceImage": "OpenPBR-Subsurface-Dense-Scattering---IBL.png"
         },
         {
@@ -3633,7 +3633,7 @@
             "playgroundId": "#5A4TWS#0",
             "renderCount": 5,
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails: 29.940% of pixels differ from reference on Native [reeval 2026-07-21]",
+            "reason": "Pixel comparison fails: 4.157% of pixels differ from reference on Native [reeval 2026-08-25]",
             "referenceImage": "OpenPBR-Subsurface-Dense-Scattering---Realtime-IBL.png"
         },
         {
@@ -3641,7 +3641,7 @@
             "playgroundId": "#YWXM7Z#0",
             "renderCount": 5,
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails: 24.570% of pixels differ from reference on Native [reeval 2026-07-21]",
+            "reason": "Pixel comparison fails: 4.540% of pixels differ from reference on Native [reeval 2026-08-25]",
             "referenceImage": "OpenPBR-Subsurface-Color-Scaling---IBL.png"
         },
         {
@@ -3649,7 +3649,7 @@
             "playgroundId": "#BY1IOY#0",
             "renderCount": 5,
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails: 7.213% of pixels differ from reference on Native [reeval 2026-07-21]",
+            "reason": "Pixel comparison fails: 5.180% of pixels differ from reference on Native [reeval 2026-08-25]",
             "referenceImage": "OpenPBR-Thin-Walled-Transmission-IOR-vs-Roughness---IBL.png"
         },
         {
@@ -3662,7 +3662,7 @@
             "playgroundId": "#GRQHVV#315",
             "renderCount": 5,
             "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails: 6.907% of pixels differ from reference on Native [reeval 2026-07-21]",
+            "reason": "Pixel comparison fails: 20.825% of pixels differ from reference on Native [reeval 2026-08-25]",
             "referenceImage": "OpenPBR-Thin-Walled-Anisotropic-Transmission---IBL.png"
         },
         {
