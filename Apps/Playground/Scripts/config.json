@@ -1987,8 +1987,6 @@
             "title": "Multi cameras and output render target with depth texture (D24)",
             "playgroundId": "#BCYE7J#36",
             "renderCount": 2,
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails: 14.838% of pixels differ from reference on Native [reeval 2026-08-25]",
             "referenceImage": "multiCamerasOutputRenderTarget.png"
         },
         {
@@ -2113,8 +2111,6 @@
             "title": "Fluid rendering particle system",
             "playgroundId": "#544N0Q#67",
             "renderCount": 120,
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails: 99.231% of pixels differ from reference on Native [reeval 2026-08-25]",
             "referenceImage": "fluidParticleSystem.png"
         },
         {
@@ -2755,8 +2751,6 @@
         {
             "title": "FrameGraph nrge transmission",
             "playgroundId": "#ZNTBN2#10",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Runtime error on Native: TypeError: Cannot read properties of undefined (reading 'TEXTURE_2D') [reeval 2026-07-21]",
             "referenceImage": "FrameGraph-nrge-transmission.png"
         },
         {
@@ -2800,8 +2794,6 @@
         {
             "title": "FrameGraph gui bloom",
             "playgroundId": "#RM56RY#26",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails: 99.547% of pixels differ from reference on Native [reeval 2026-08-25]",
             "referenceImage": "FrameGraph-gui-bloom.png"
         },
         {
