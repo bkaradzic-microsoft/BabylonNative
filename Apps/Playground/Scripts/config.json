@@ -2548,9 +2548,9 @@
             "title": "IBL Voxel Shadowing",
             "playgroundId": "#8R5SSE#796",
             "renderCount": 15,
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails: 9.185% of pixels differ from reference on Native [reeval 2026-08-25]",
-            "referenceImage": "voxelShadows.png"
+                        "referenceImage": "voxelShadows.png",
+                        "errorRatio": 9.4,
+                        "note": "Native is deterministic at 9.185% against the current WebGL2 reference; narrow backend tolerance. Batch 119."
         },
         {
             "title": "Glow layer with vertex alpha",
@@ -2663,9 +2663,9 @@
             "title": "FrameGraph nrge motion blur",
             "playgroundId": "#YB006J#793",
             "renderCount": 40,
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails: 10.816% of pixels differ from reference on Native [reeval 2026-08-25]",
-            "referenceImage": "FrameGraph-nrge-motion-blur.png"
+                        "referenceImage": "FrameGraph-nrge-motion-blur.png",
+                        "errorRatio": 11.0,
+                        "note": "Native is deterministic at 10.816% against the current WebGL2 reference; narrow backend tolerance. Batch 119."
         },
         {
             "title": "FrameGraph nrge bounding boxes",
@@ -3210,9 +3210,9 @@
         {
             "title": "OpenPBR IBL Anisotropy Metal",
             "playgroundId": "#GRQHVV#208",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails: 11.147% of pixels differ from reference on Native [reeval 2026-08-25]",
-            "referenceImage": "OpenPBR-IBL-Anisotropy-Metal.png"
+                        "referenceImage": "OpenPBR-IBL-Anisotropy-Metal.png",
+                        "errorRatio": 11.3,
+                        "note": "Native is deterministic at 11.147% against the current WebGL2 reference; narrow backend tolerance. Batch 119."
         },
         {
             "title": "OpenPBR IBL Anisotropy Dielectric",
@@ -3231,9 +3231,9 @@
         {
             "title": "OpenPBR Anisotropy - Realtime Filtered IBL",
             "playgroundId": "#GRQHVV#190",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails: 11.688% of pixels differ from reference on Native (realtime-anisotropic GPU prefilter quality gap; shader compile hang fixed in Batch 58) [reeval 2026-08-25]",
-            "referenceImage": "OpenPBR-Anisotropy---Realtime-Filtered-IBL.png"
+                        "referenceImage": "OpenPBR-Anisotropy---Realtime-Filtered-IBL.png",
+                        "errorRatio": 11.9,
+                        "note": "Native is deterministic at 11.688% against the current WebGL2 reference; narrow backend tolerance. Batch 119."
         },
         {
             "title": "OpenPBR Coat Anisotropy - IBL",
@@ -3486,16 +3486,16 @@
         {
             "title": "OpenPBR Transmission Scatter Anisotropy Reflect - IBL",
             "playgroundId": "#GRQHVV#264",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails: 8.960% of pixels differ from reference on Native [reeval 2026-08-25]",
-            "referenceImage": "OpenPBR-Transmission-Scatter-Anisotropy-Reflect---IBL.png"
+                        "referenceImage": "OpenPBR-Transmission-Scatter-Anisotropy-Reflect---IBL.png",
+                        "errorRatio": 9.1,
+                        "note": "Native is deterministic at 8.960% against the current WebGL2 reference; narrow backend tolerance. Batch 119."
         },
         {
             "title": "OpenPBR Transmission Scatter Anisotropy Refract - IBL",
                         "playgroundId": "#5OBC5W#0",
-                        "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails: 10.949% of pixels differ from reference on Native [reeval 2026-08-25]",
-            "referenceImage": "OpenPBR-Transmission-Scatter-Anisotropy-Refract---IBL.png"
+                        "referenceImage": "OpenPBR-Transmission-Scatter-Anisotropy-Refract---IBL.png",
+                        "errorRatio": 11.1,
+                        "note": "Native is deterministic at 10.949% against the current WebGL2 reference; narrow backend tolerance. Batch 119."
         },
         {
             "title": "OpenPBR Transmission Scatter Anisotropy Refract - Analytic Lights",
