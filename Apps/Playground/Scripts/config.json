@@ -2111,8 +2111,8 @@
             "title": "Fluid rendering box sphere",
             "playgroundId": "#PCMH7A#2",
             "renderCount": 120,
-            "excludeFromAutomaticTesting": true,
-            "reason": "Runtime error on Native: [Uncaught Error] TypeError: document.getElementById is not a function [reeval 2026-07-21]",
+            "replace": "await LoadLiLGUI();, await Promise.resolve();, new FluidRendererGUI, function () {}, this._makeGUI();, void 0;",
+            "note": "The hidden lil-gui controls require a browser DOM and do not affect the rendered scene; skip their bootstrap and construction on Native.",
             "referenceImage": "fluidBoxSphere.png"
         },
         {
