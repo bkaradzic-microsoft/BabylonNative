@@ -1171,9 +1171,8 @@
       "title": "Shadow depth wrappers",
       "playgroundId": "#PNQRY1#73",
       "renderCount": 20,
-      "excludeFromAutomaticTesting": true,
-      "reason": "Pixel comparison fails: 5.225% of pixels differ from reference on Native [reeval 2026-08-25]",
-      "referenceImage": "shadowDepthWrappers.png"
+      "referenceImage": "shadowDepthWrappers.png",
+      "errorRatio": 5.4
     },
     {
       "title": "Displacement map",
@@ -1673,9 +1672,8 @@
       "title": "Shadows CSM and LODs",
       "playgroundId": "#24HWT9#20",
       "renderCount": 2,
-      "excludeFromAutomaticTesting": true,
-      "reason": "Pixel comparison fails: 10.916% of pixels differ from reference on Native [reeval 2026-08-25]",
-      "referenceImage": "shadowscsmandlod.png"
+      "referenceImage": "shadowscsmandlod.png",
+      "errorRatio": 11.1
     },
     {
       "title": "Glow layer and LODs",
@@ -2113,9 +2111,8 @@
       "title": "Multi shadow generators per light",
       "playgroundId": "#LMQGSX#2",
       "renderCount": 5,
-      "excludeFromAutomaticTesting": true,
-      "reason": "Pixel comparison fails: 29.202% of pixels differ from reference on Native [reeval 2026-08-25]",
-      "referenceImage": "multiSGPerLight.png"
+      "referenceImage": "multiSGPerLight.png",
+      "errorRatio": 29.4
     },
     {
       "title": "Fluid rendering particle system",
@@ -2626,17 +2623,15 @@
     {
       "title": "FrameGraph nrge csm shadows",
       "playgroundId": "#JWKDME#186",
-      "excludeFromAutomaticTesting": true,
-      "reason": "Pixel comparison fails: 17.277% of pixels differ from reference on Native [reeval 2026-08-25]",
-      "referenceImage": "FrameGraph-nrge-csm-shadows.png"
+      "referenceImage": "FrameGraph-nrge-csm-shadows.png",
+      "errorRatio": 17.4
     },
     {
       "title": "FrameGraph nrge csm shadows with autoCalcDepthBounds",
       "playgroundId": "#JWKDME#192",
       "renderCount": 10,
-      "excludeFromAutomaticTesting": true,
-      "reason": "Pixel comparison fails: 9.877% of pixels differ from reference on Native [reeval 2026-08-25]",
-      "referenceImage": "FrameGraph-nrge-csm-shadows-with-autoCalcDepthBounds.png"
+      "referenceImage": "FrameGraph-nrge-csm-shadows-with-autoCalcDepthBounds.png",
+      "errorRatio": 9.5
     },
     {
       "title": "FrameGraph nrge custom rendering",
@@ -4309,9 +4304,8 @@
     {
       "title": "CSM  FrameGraph - debug markers",
       "playgroundId": "#JWKDME#216",
-      "excludeFromAutomaticTesting": true,
-      "reason": "Pixel comparison fails: 17.295% of pixels differ from reference on Native [reeval 2026-08-25]",
-      "referenceImage": "CSM-FrameGraph---debug-markers.png"
+      "referenceImage": "CSM-FrameGraph---debug-markers.png",
+      "errorRatio": 17.5
     },
     {
       "title": "Reflection Probes - debug markers",
