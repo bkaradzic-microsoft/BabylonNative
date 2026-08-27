@@ -1083,8 +1083,8 @@
             "title": "Chibi Rex",
             "playgroundId": "#NZ2RZY#4",
             "renderCount": 50,
-            "excludeFromAutomaticTesting": true,
-            "reason": "Cubemap load not implemented on Babylon Native: throws Error: Cannot load cubemap because 6 files were not defined (thrown before pixel comparison)",
+            "replace": "engine.setHardwareScalingLevel(0.75);, engine.setHardwareScalingLevel(1);",
+            "note": "The browser reference captures the 600x400 canvas after downsampling its 0.75 hardware-scaled framebuffer; Native captures the physical 800x533 target, so keep validation at the reference dimensions.",
             "referenceImage": "chibi-rex.png"
         },
         {
