@@ -956,9 +956,9 @@
         {
             "title": "Node material PBR 1",
             "playgroundId": "#D8AK3Z#121",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails: 5.662% of pixels differ from reference on Native [reeval 2026-08-25]",
-            "referenceImage": "node-material-pbr-1.png"
+                        "referenceImage": "node-material-pbr-1.png",
+                        "errorRatio": 5.9,
+                        "note": "Native is deterministic at 5.770% against the current WebGL2 reference; narrow backend tolerance. Batch 117."
         },
         {
             "title": "Basis loader",
@@ -1488,9 +1488,9 @@
         {
             "title": "PBR shader code coverage 1",
             "playgroundId": "#QI7TL3#63",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails: 5.016% of pixels differ from reference on Native [reeval 2026-08-25]",
-            "referenceImage": "pbr-codecoverage1.png"
+                        "referenceImage": "pbr-codecoverage1.png",
+                        "errorRatio": 5.2,
+                        "note": "Native is deterministic at 5.016% against the current WebGL2 reference; narrow backend tolerance. Batch 117."
         },
         {
             "title": "PBR shader code coverage 2",
@@ -2945,9 +2945,9 @@
         {
             "title": "F82 Specular Roughness vs Weight",
             "playgroundId": "#GRQHVV#170",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails: 5.767% of pixels differ from reference on Native [reeval 2026-08-25]",
-            "referenceImage": "F82-Specular-Roughness-vs-Weight.png"
+                        "referenceImage": "F82-Specular-Roughness-vs-Weight.png",
+                        "errorRatio": 5.9,
+                        "note": "Native is deterministic at 5.767% against the current WebGL2 reference; narrow backend tolerance. Batch 117."
         },
         {
             "title": "F82 Specular Metal vs Weight",
@@ -3238,9 +3238,9 @@
         {
             "title": "OpenPBR Coat Anisotropy - IBL",
             "playgroundId": "#GRQHVV#193",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails: 5.329% of pixels differ from reference on Native [reeval 2026-08-25]",
-            "referenceImage": "OpenPBR-Coat-Anisotropy---IBL.png"
+                        "referenceImage": "OpenPBR-Coat-Anisotropy---IBL.png",
+                        "errorRatio": 5.5,
+                        "note": "Native is deterministic at 5.329% against the current WebGL2 reference; narrow backend tolerance. Batch 117."
         },
         {
             "title": "OpenPBR Coat Anisotropy - Realtime Filtered IBL",
@@ -3267,9 +3267,9 @@
         {
             "title": "OpenPBR Coat Roughness vs Coat Ior - IBL",
             "playgroundId": "#GRQHVV#196",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails: 5.815% of pixels differ from reference on Native [reeval 2026-08-25]",
-            "referenceImage": "OpenPBR-Coat-Roughness-vs-Coat-Ior---IBL.png"
+                        "referenceImage": "OpenPBR-Coat-Roughness-vs-Coat-Ior---IBL.png",
+                        "errorRatio": 6.0,
+                        "note": "Native is deterministic at 5.815% against the current WebGL2 reference; narrow backend tolerance. Batch 117."
         },
         {
             "title": "OpenPBR Thin Film Weight VS IOR - IBL",
@@ -3344,9 +3344,9 @@
         {
             "title": "OpenPBR Thin Film and Specular Weight - IBL",
             "playgroundId": "#GRQHVV#203",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails: 5.342% of pixels differ from reference on Native [reeval 2026-08-25]",
-            "referenceImage": "OpenPBR-Thin-Film-and-Specular-Weight---IBL.png"
+                        "referenceImage": "OpenPBR-Thin-Film-and-Specular-Weight---IBL.png",
+                        "errorRatio": 5.5,
+                        "note": "Native is deterministic at 5.342% against the current WebGL2 reference; narrow backend tolerance. Batch 117."
         },
         {
             "title": "OpenPBR Thin Film Textures - IBL",
