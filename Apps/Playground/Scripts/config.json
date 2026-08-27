@@ -2591,8 +2591,7 @@
         {
             "title": "Normed 16 bits texture formats",
             "playgroundId": "#SOCPNB#10",
-            "excludeFromAutomaticTesting": true,
-            "reason": "NativeEngine throws RuntimeError: Unsupported texture format or type: format 33322, type 5. (missing format-converter entry; thrown before pixel comparison, not a pixel-diff)",
+            "note": "Native widens RGB16 normalized uploads to RGBA16 because bgfx has no three-component normalized 16-bit format.",
             "referenceImage": "Normed-16-bits-texture-formats.png"
         },
         {
