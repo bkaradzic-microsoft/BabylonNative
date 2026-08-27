@@ -677,9 +677,8 @@
         },
         {
             "title": "OpenPBR Base Diffuse Roughness Realtime IBL",
-            "playgroundId": "#76D28X#0",
-            "renderCount": 15,
-            "excludeFromAutomaticTesting": true,
+                        "playgroundId": "#76D28X#0",
+                        "excludeFromAutomaticTesting": true,
             "reason": "Pixel comparison fails: 39.912% of pixels differ from reference on Native [reeval 2026-08-25]",
             "referenceImage": "openpbr-base-diffuse-roughness-realtime-ibl.png"
         },
@@ -1001,8 +1000,8 @@
             "title": "GUI Transform StackPanel",
             "playgroundId": "#BS60AB#0",
             "referenceImage": "TransformStackPanel.png",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails: 3.582% of pixels differ from reference on Native [reeval 2026-08-25]"
+                        "errorRatio": 3.7,
+                        "note": "Native is deterministic at 3.582% against the current WebGL2 reference; narrow backend tolerance. Batch 116."
         },
         {
             "title": "GUI StackPanel",
@@ -1501,9 +1500,9 @@
         {
             "title": "PBR shader code coverage 3",
             "playgroundId": "#QI7TL3#65",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails: 4.345% of pixels differ from reference on Native [reeval 2026-08-25]",
-            "referenceImage": "pbr-codecoverage3.png"
+                        "referenceImage": "pbr-codecoverage3.png",
+                        "errorRatio": 4.5,
+                        "note": "Native is deterministic at 4.345% against the current WebGL2 reference; narrow backend tolerance. Batch 116."
         },
         {
             "title": "MultiSample render targets",
@@ -3493,9 +3492,8 @@
         },
         {
             "title": "OpenPBR Transmission Scatter Anisotropy Refract - IBL",
-            "playgroundId": "#5OBC5W#0",
-            "renderCount": 5,
-            "excludeFromAutomaticTesting": true,
+                        "playgroundId": "#5OBC5W#0",
+                        "excludeFromAutomaticTesting": true,
             "reason": "Pixel comparison fails: 10.949% of pixels differ from reference on Native [reeval 2026-08-25]",
             "referenceImage": "OpenPBR-Transmission-Scatter-Anisotropy-Refract---IBL.png"
         },
@@ -3516,9 +3514,8 @@
         },
         {
             "title": "OpenPBR Subsurface Radius vs Roughness - IBL",
-            "playgroundId": "#54A9FQ#0",
-            "renderCount": 5,
-            "excludeFromAutomaticTesting": true,
+                        "playgroundId": "#54A9FQ#0",
+                        "excludeFromAutomaticTesting": true,
             "reason": "Pixel comparison fails: 20.566% of pixels differ from reference on Native [reeval 2026-08-25]",
             "referenceImage": "OpenPBR-Subsurface-Radius-vs-Roughness---IBL.png"
         },
@@ -3537,9 +3534,8 @@
         },
         {
             "title": "OpenPBR Subsurface Radius vs Radius Scale - IBL",
-            "playgroundId": "#SD5EQ1#0",
-            "renderCount": 5,
-            "excludeFromAutomaticTesting": true,
+                        "playgroundId": "#SD5EQ1#0",
+                        "excludeFromAutomaticTesting": true,
             "reason": "Pixel comparison fails: 19.281% of pixels differ from reference on Native [reeval 2026-08-25]",
             "referenceImage": "OpenPBR-Subsurface-Radius-vs-Radius-Scale---IBL.png"
         },
@@ -3599,20 +3595,18 @@
         },
         {
             "title": "OpenPBR Subsurface Color Scaling - IBL",
-            "playgroundId": "#YWXM7Z#0",
-            "renderCount": 5,
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails: 4.543% of pixels differ from reference on Native [reeval 2026-08-25]",
-            "referenceImage": "OpenPBR-Subsurface-Color-Scaling---IBL.png"
-        },
+                        "playgroundId": "#YWXM7Z#0",
+                        "referenceImage": "OpenPBR-Subsurface-Color-Scaling---IBL.png",
+                        "errorRatio": 4.7,
+                        "note": "Native is stable at 4.538-4.544% against the current WebGL2 reference after frame-1 alignment; narrow backend tolerance. Batch 116."
+                    },
         {
             "title": "OpenPBR Thin Walled Transmission IOR vs Roughness - IBL",
-            "playgroundId": "#BY1IOY#0",
-            "renderCount": 5,
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails: 5.180% of pixels differ from reference on Native [reeval 2026-08-25]",
-            "referenceImage": "OpenPBR-Thin-Walled-Transmission-IOR-vs-Roughness---IBL.png"
-        },
+                        "playgroundId": "#BY1IOY#0",
+                        "referenceImage": "OpenPBR-Thin-Walled-Transmission-IOR-vs-Roughness---IBL.png",
+                        "errorRatio": 5.3,
+                        "note": "Native is deterministic at 5.180% against the current WebGL2 reference after frame-1 alignment; narrow backend tolerance. Batch 116."
+                    },
         {
             "title": "OpenPBR Thin Walled Transmission IOR vs Roughness - Analytic Lights",
             "playgroundId": "#GRQHVV#312",
@@ -3620,9 +3614,8 @@
         },
         {
             "title": "OpenPBR Thin Walled Anisotropic Transmission - IBL",
-            "playgroundId": "#GRQHVV#315",
-            "renderCount": 5,
-            "excludeFromAutomaticTesting": true,
+                        "playgroundId": "#GRQHVV#315",
+                        "excludeFromAutomaticTesting": true,
             "reason": "Pixel comparison fails: 20.825% of pixels differ from reference on Native [reeval 2026-08-25]",
             "referenceImage": "OpenPBR-Thin-Walled-Anisotropic-Transmission---IBL.png"
         },
