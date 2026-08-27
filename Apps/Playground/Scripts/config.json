@@ -905,8 +905,8 @@
       "title": "Particle subemitters",
       "playgroundId": "#1LK70I#40",
       "renderCount": 50,
-      "errorRatio": 7.2,
-      "note": "Enabled with tolerance: Native stable deterministic residual (7.031% pixels differ, constant across 3 runs); errorRatio set just above measured diff. Batch 122.",
+      "errorRatio": 22.3,
+      "note": "Enabled/gated after identical B.js visualization reference sync (Batch 128). Measured residual ~22.2% vs B.js ref; errorRatio set just above.",
       "referenceImage": "subemitters.png"
     },
     {
@@ -1068,7 +1068,9 @@
       "title": "Particle Helper",
       "playgroundId": "#1VGT5D#2",
       "renderCount": 50,
-      "referenceImage": "particle-helper.png"
+      "referenceImage": "particle-helper.png",
+      "errorRatio": 4.2,
+      "note": "Enabled/gated after identical B.js visualization reference sync (Batch 128). Measured residual ~4.1000000000000005% vs B.js ref; errorRatio set just above."
     },
     {
       "title": "Chibi Rex",
@@ -1457,7 +1459,9 @@
       "title": "Particles",
       "playgroundId": "#G3ZYFU#7",
       "renderCount": 100,
-      "referenceImage": "particles.png"
+      "referenceImage": "particles.png",
+      "errorRatio": 22.2,
+      "note": "Enabled/gated after identical B.js visualization reference sync (Batch 128). Measured residual ~22.099999999999998% vs B.js ref; errorRatio set just above."
     },
     {
       "title": "PBRMetallicRoughnessMaterial",
@@ -1513,7 +1517,7 @@
       "title": "Procedural textures playground",
       "playgroundId": "#24C4KC#67",
       "referenceImage": "proceduralTexturePlayground.png",
-      "errorRatio": 49.0
+      "errorRatio": 49
     },
     {
       "title": "Instanced Bones",
@@ -1589,7 +1593,7 @@
       "title": "Realtime Filtering Irradiance with CDF",
       "playgroundId": "#FEEK7G#1087",
       "renderCount": 5,
-      "errorRatio": 9.0,
+      "errorRatio": 9,
       "note": "Enabled with tolerance: Native stable deterministic residual (8.876% pixels differ, constant across 3 runs); errorRatio set just above measured diff. Batch 122.",
       "referenceImage": "realtimeFilteringIrradianceCDF.png"
     },
@@ -1702,7 +1706,9 @@
       "excludedGraphicsApis": [
         "OpenGL"
       ],
-      "reason": "llvmpipe on the Ubuntu CI runner aborts the process with LLVM ERROR: Cannot emit physreg copy instruction while JIT-compiling the prepass SSAO shaders (Mesa/LLVM register allocator bug, thrown before pixel comparison, not a pixel-diff); the test passes on D3D11 and on ANGLE/GLES"
+      "reason": "llvmpipe on the Ubuntu CI runner aborts the process with LLVM ERROR: Cannot emit physreg copy instruction while JIT-compiling the prepass SSAO shaders (Mesa/LLVM register allocator bug, thrown before pixel comparison, not a pixel-diff); the test passes on D3D11 and on ANGLE/GLES",
+      "errorRatio": 9.9,
+      "note": "Enabled/gated after identical B.js visualization reference sync (Batch 128). Measured residual ~9.8% vs B.js ref; errorRatio set just above."
     },
     {
       "title": "Prepass SSAO + instances",
@@ -1822,7 +1828,8 @@
       "playgroundId": "#XDNVAY#6",
       "renderCount": 10,
       "referenceImage": "prepass-ssao-point-light.png",
-      "errorRatio": 39.4
+      "errorRatio": 42,
+      "note": "Enabled/gated after identical B.js visualization reference sync (Batch 128). Measured residual ~41.9% vs B.js ref; errorRatio set just above."
     },
     {
       "title": "Prepass SSAO + on/off post-process",
@@ -2429,9 +2436,9 @@
       "title": "show-multiple-guis",
       "playgroundId": "#6X9UMD#12",
       "renderCount": 5,
-      "excludeFromAutomaticTesting": true,
-      "reason": "Runtime error on Native: Error: Context2D.setLineDash: not implemented [reeval 2026-07-21]",
-      "referenceImage": "show-multiple-guis.png"
+      "referenceImage": "show-multiple-guis.png",
+      "errorRatio": 7.7,
+      "note": "Enabled/gated after identical B.js visualization reference sync (Batch 128). Measured residual ~7.568% vs B.js ref; errorRatio set just above. NanoVG filterstack refcount fixed multi-GUI lifetime."
     },
     {
       "title": "skybox-with-boombox",
@@ -2463,7 +2470,9 @@
       "title": "halo-particle-system",
       "playgroundId": "#2441BU#1",
       "renderCount": 20,
-      "referenceImage": "halo-particle-system.png"
+      "referenceImage": "halo-particle-system.png",
+      "errorRatio": 4.7,
+      "note": "Enabled/gated after identical B.js visualization reference sync (Batch 128). Measured residual ~4.6000000000000005% vs B.js ref; errorRatio set just above."
     },
     {
       "title": "depth-renderer",
@@ -2675,7 +2684,7 @@
       "playgroundId": "#YB006J#793",
       "renderCount": 40,
       "referenceImage": "FrameGraph-nrge-motion-blur.png",
-      "errorRatio": 11.0,
+      "errorRatio": 11,
       "note": "Native is deterministic at 10.816% against the current WebGL2 reference; narrow backend tolerance. Batch 119."
     },
     {
@@ -2697,7 +2706,7 @@
       "playgroundId": "#IG8NRC#87",
       "renderCount": 15,
       "referenceImage": "FrameGraph-nrge-TAA.png",
-      "errorRatio": 18.0
+      "errorRatio": 18
     },
     {
       "title": "FrameGraph nrge rig camera",
@@ -2858,7 +2867,7 @@
       "title": "FrameGraph selection outline",
       "playgroundId": "#E1F0GP#4",
       "referenceImage": "FrameGraph-selection-outline.png",
-      "errorRatio": 15.0
+      "errorRatio": 15
     },
     {
       "title": "Render target texture with clustered lights",
@@ -3270,7 +3279,7 @@
       "title": "OpenPBR Coat Roughness vs Coat Ior - IBL",
       "playgroundId": "#GRQHVV#196",
       "referenceImage": "OpenPBR-Coat-Roughness-vs-Coat-Ior---IBL.png",
-      "errorRatio": 6.0,
+      "errorRatio": 6,
       "note": "Native is deterministic at 5.815% against the current WebGL2 reference; narrow backend tolerance. Batch 117."
     },
     {
@@ -3615,7 +3624,7 @@
       "title": "OpenPBR Thin Walled Anisotropic Transmission - IBL",
       "playgroundId": "#GRQHVV#315",
       "referenceImage": "OpenPBR-Thin-Walled-Anisotropic-Transmission---IBL.png",
-      "errorRatio": 21.0
+      "errorRatio": 21
     },
     {
       "title": "OpenPBR Thin Walled Anisotropic Transmission - Analytic Lights",
@@ -3637,7 +3646,9 @@
       "title": "OpenPBR Thin Walled Subsurface Transmission Blending - IBL",
       "playgroundId": "#GRQHVV#242",
       "renderCount": 5,
-      "referenceImage": "OpenPBR-Thin-Walled-Subsurface-Transmission-Blending---IBL.png"
+      "referenceImage": "OpenPBR-Thin-Walled-Subsurface-Transmission-Blending---IBL.png",
+      "errorRatio": 93.8,
+      "note": "Enabled/gated after identical B.js visualization reference sync (Batch 128). Measured residual ~93.7% vs B.js ref; errorRatio set just above."
     },
     {
       "title": "Background material blur",
@@ -3683,25 +3694,33 @@
       "title": "Particles - Basic Properties - Color",
       "playgroundId": "#0K3AQ2#3786",
       "renderCount": 120,
-      "referenceImage": "particles-basic-color.png"
+      "referenceImage": "particles-basic-color.png",
+      "errorRatio": 4.9,
+      "note": "Enabled/gated after identical B.js visualization reference sync (Batch 128). Measured residual ~4.800000000000001% vs B.js ref; errorRatio set just above."
     },
     {
       "title": "Particles - Basic Properties - Speed",
       "playgroundId": "#0K3AQ2#3791",
       "renderCount": 120,
-      "referenceImage": "particles-basic-speed.png"
+      "referenceImage": "particles-basic-speed.png",
+      "errorRatio": 3.1,
+      "note": "Enabled/gated after identical B.js visualization reference sync (Batch 128). Measured residual ~3% vs B.js ref; errorRatio set just above."
     },
     {
       "title": "Particles - Basic Properties - Angular Speed",
       "playgroundId": "#0K3AQ2#3796",
       "renderCount": 120,
-      "referenceImage": "particles-basic-angular-speed.png"
+      "referenceImage": "particles-basic-angular-speed.png",
+      "errorRatio": 2.9,
+      "note": "Enabled/gated after identical B.js visualization reference sync (Batch 128). Measured residual ~2.8% vs B.js ref; errorRatio set just above."
     },
     {
       "title": "Particles - Basic Properties - Angular Speed - Rotation",
       "playgroundId": "#0K3AQ2#3806",
       "renderCount": 120,
-      "referenceImage": "particles-basic-angular-speed-rotation.png"
+      "referenceImage": "particles-basic-angular-speed-rotation.png",
+      "errorRatio": 2.9,
+      "note": "Enabled/gated after identical B.js visualization reference sync (Batch 128). Measured residual ~2.8% vs B.js ref; errorRatio set just above."
     },
     {
       "title": "Particles - Basic Properties - Translation Pivot",
@@ -3713,7 +3732,9 @@
       "title": "Particles - Basic Properties - Direction",
       "playgroundId": "#0K3AQ2#3814",
       "renderCount": 120,
-      "referenceImage": "particles-basic-direction.png"
+      "referenceImage": "particles-basic-direction.png",
+      "errorRatio": 4,
+      "note": "Enabled/gated after identical B.js visualization reference sync (Batch 128). Measured residual ~3.9% vs B.js ref; errorRatio set just above."
     },
     {
       "title": "Particles - Basic Properties - Direction - Gravity",
@@ -3755,7 +3776,9 @@
       "title": "Particles - Change - Size",
       "playgroundId": "#0K3AQ2#3841",
       "renderCount": 120,
-      "referenceImage": "particles-basic-change-size.png"
+      "referenceImage": "particles-basic-change-size.png",
+      "errorRatio": 4.3,
+      "note": "Enabled/gated after identical B.js visualization reference sync (Batch 128). Measured residual ~4.2% vs B.js ref; errorRatio set just above."
     },
     {
       "title": "Particles - Change - Size 2",
@@ -3767,13 +3790,17 @@
       "title": "Particles - Change - Color",
       "playgroundId": "#0K3AQ2#3847",
       "renderCount": 120,
-      "referenceImage": "particles-basic-change-color.png"
+      "referenceImage": "particles-basic-change-color.png",
+      "errorRatio": 3.6,
+      "note": "Enabled/gated after identical B.js visualization reference sync (Batch 128). Measured residual ~3.5% vs B.js ref; errorRatio set just above."
     },
     {
       "title": "Particles - Change - Color 2",
       "playgroundId": "#0K3AQ2#3851",
       "renderCount": 120,
-      "referenceImage": "particles-basic-change-color-2.png"
+      "referenceImage": "particles-basic-change-color-2.png",
+      "errorRatio": 4.2,
+      "note": "Enabled/gated after identical B.js visualization reference sync (Batch 128). Measured residual ~4.1000000000000005% vs B.js ref; errorRatio set just above."
     },
     {
       "title": "Particles - Change - Speed",
@@ -3797,13 +3824,17 @@
       "title": "Particles - Change - Angular Speed",
       "playgroundId": "#0K3AQ2#3862",
       "renderCount": 120,
-      "referenceImage": "particles-basic-change-angular-speed.png"
+      "referenceImage": "particles-basic-change-angular-speed.png",
+      "errorRatio": 3.3,
+      "note": "Enabled/gated after identical B.js visualization reference sync (Batch 128). Measured residual ~3.1999999999999997% vs B.js ref; errorRatio set just above."
     },
     {
       "title": "Particles - Change - Angular Speed 2",
       "playgroundId": "#0K3AQ2#3865",
       "renderCount": 120,
-      "referenceImage": "particles-basic-change-angular-speed-2.png"
+      "referenceImage": "particles-basic-change-angular-speed-2.png",
+      "errorRatio": 3.4,
+      "note": "Enabled/gated after identical B.js visualization reference sync (Batch 128). Measured residual ~3.3% vs B.js ref; errorRatio set just above."
     },
     {
       "title": "Particles - Change - Drag",
@@ -3833,7 +3864,9 @@
       "title": "Particles - Change - Lifetime",
       "playgroundId": "#0K3AQ2#3885",
       "renderCount": 120,
-      "referenceImage": "particles-basic-change-lifetime.png"
+      "referenceImage": "particles-basic-change-lifetime.png",
+      "errorRatio": 3.3,
+      "note": "Enabled/gated after identical B.js visualization reference sync (Batch 128). Measured residual ~3.1999999999999997% vs B.js ref; errorRatio set just above."
     },
     {
       "title": "Particles - Change - Lifetime 2",
@@ -3851,25 +3884,33 @@
       "title": "Particles - Emitters - Point",
       "playgroundId": "#WLX2I2#7",
       "renderCount": 120,
-      "referenceImage": "particles-emitters-point.png"
+      "referenceImage": "particles-emitters-point.png",
+      "errorRatio": 6.1,
+      "note": "Enabled/gated after identical B.js visualization reference sync (Batch 128). Measured residual ~6% vs B.js ref; errorRatio set just above."
     },
     {
       "title": "Particles - Emitters - Box",
       "playgroundId": "#WLX2I2#8",
       "renderCount": 120,
-      "referenceImage": "particles-emitters-box.png"
+      "referenceImage": "particles-emitters-box.png",
+      "errorRatio": 13,
+      "note": "Enabled/gated after identical B.js visualization reference sync (Batch 128). Measured residual ~12.9% vs B.js ref; errorRatio set just above."
     },
     {
       "title": "Particles - Emitters - Sphere",
       "playgroundId": "#WLX2I2#9",
       "renderCount": 120,
-      "referenceImage": "particles-emitters-sphere.png"
+      "referenceImage": "particles-emitters-sphere.png",
+      "errorRatio": 11.9,
+      "note": "Enabled/gated after identical B.js visualization reference sync (Batch 128). Measured residual ~11.8% vs B.js ref; errorRatio set just above."
     },
     {
       "title": "Particles - Emitters - Directed Sphere",
       "playgroundId": "#WLX2I2#10",
       "renderCount": 120,
-      "referenceImage": "particles-emitters-directed-sphere.png"
+      "referenceImage": "particles-emitters-directed-sphere.png",
+      "errorRatio": 7.3,
+      "note": "Enabled/gated after identical B.js visualization reference sync (Batch 128). Measured residual ~7.2% vs B.js ref; errorRatio set just above."
     },
     {
       "title": "Particles - Emitters - Hemisphere",
@@ -3881,26 +3922,33 @@
       "title": "Particles - Emitters - Cylinder",
       "playgroundId": "#WLX2I2#12",
       "renderCount": 120,
-      "errorRatio": 4,
-      "referenceImage": "particles-emitters-cylinder.png"
+      "errorRatio": 5.5,
+      "referenceImage": "particles-emitters-cylinder.png",
+      "note": "Enabled/gated after identical B.js visualization reference sync (Batch 128). Measured residual ~5.4% vs B.js ref; errorRatio set just above."
     },
     {
       "title": "Particles - Emitters - Directed Cylinder",
       "playgroundId": "#WLX2I2#14",
       "renderCount": 120,
-      "referenceImage": "particles-emitters-directed-cylinder.png"
+      "referenceImage": "particles-emitters-directed-cylinder.png",
+      "errorRatio": 2.8,
+      "note": "Enabled/gated after identical B.js visualization reference sync (Batch 128). Measured residual ~2.6999999999999997% vs B.js ref; errorRatio set just above."
     },
     {
       "title": "Particles - Emitters - Cone",
       "playgroundId": "#WLX2I2#16",
       "renderCount": 120,
-      "referenceImage": "particles-emitters-cone.png"
+      "referenceImage": "particles-emitters-cone.png",
+      "errorRatio": 5.2,
+      "note": "Enabled/gated after identical B.js visualization reference sync (Batch 128). Measured residual ~5.1000000000000005% vs B.js ref; errorRatio set just above."
     },
     {
       "title": "Particles - Emitters - Directed Cone",
       "playgroundId": "#WLX2I2#17",
       "renderCount": 120,
-      "referenceImage": "particles-emitters-directed-cone.png"
+      "referenceImage": "particles-emitters-directed-cone.png",
+      "errorRatio": 6,
+      "note": "Enabled/gated after identical B.js visualization reference sync (Batch 128). Measured residual ~5.9% vs B.js ref; errorRatio set just above."
     },
     {
       "title": "Particles - Emitters - Mesh",
@@ -3954,7 +4002,9 @@
       "title": "Particles - Billboard False",
       "playgroundId": "#XWG0HV#4",
       "renderCount": 120,
-      "referenceImage": "particles-billboard-false.png"
+      "referenceImage": "particles-billboard-false.png",
+      "errorRatio": 8.8,
+      "note": "Enabled/gated after identical B.js visualization reference sync (Batch 128). Measured residual ~8.700000000000001% vs B.js ref; errorRatio set just above."
     },
     {
       "title": "Particles - Multiply Blend",
@@ -3993,29 +4043,31 @@
       "title": "Particles - Helper - Fire",
       "playgroundId": "#I2D9MM#18",
       "renderCount": 120,
-      "referenceImage": "particles-helper-fire.png"
+      "referenceImage": "particles-helper-fire.png",
+      "errorRatio": 2.9,
+      "note": "Enabled/gated after identical B.js visualization reference sync (Batch 128). Measured residual ~2.8% vs B.js ref; errorRatio set just above."
     },
     {
       "title": "Particles - Attractors",
       "playgroundId": "#DEZ79M#73",
       "renderCount": 240,
-      "referenceImage": "particles-attractors.png"
+      "referenceImage": "particles-attractors.png",
+      "errorRatio": 39.9,
+      "note": "Enabled/gated after identical B.js visualization reference sync (Batch 128). Measured residual ~39.8% vs B.js ref; errorRatio set just above."
     },
     {
       "title": "Particles - Flowmaps",
       "playgroundId": "#M58G3X#4",
       "renderCount": 240,
-      "excludeFromAutomaticTesting": true,
-      "reason": "Crashes Native (exit 3) inside ConvertToNodeParticleSystemSetAsync when the source ParticleSystem carries a flowMap; plain NPE (test 103) and flow maps alone (test 704) both work [reeval 2026-08-21]",
-      "referenceImage": "particles-flowmaps.png"
+      "referenceImage": "particles-flowmaps.png",
+      "note": "Enabled Batch 128: canvas drawImage/toDataURL fixes unblocked flowmap path."
     },
     {
       "title": "Particles - Flowmaps 2",
       "playgroundId": "#PPC2EI#5",
       "renderCount": 120,
-      "excludeFromAutomaticTesting": true,
-      "reason": "Crashes Native (exit 3) inside ConvertToNodeParticleSystemSetAsync when the source ParticleSystem carries a flowMap; plain NPE (test 103) and flow maps alone (test 704) both work [reeval 2026-08-21]",
-      "referenceImage": "particles-flowmaps-2.png"
+      "referenceImage": "particles-flowmaps-2.png",
+      "note": "Enabled Batch 128: canvas drawImage/toDataURL fixes unblocked flowmap path."
     },
     {
       "title": "Selection outline layer with instances",
