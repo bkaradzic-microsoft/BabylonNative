@@ -107,7 +107,7 @@ void main() {
     }
 
     bgfx::DynamicVertexBufferHandle InstanceRepacker::Repack(bgfx::Encoder* encoder, Graphics::FrameBuffer& frameBuffer, VertexArray* vertexArray,
-        const std::map<bgfx::Attrib::Enum, VertexBuffer::InstanceInfo>& instances, uint32_t instanceCount)
+            const std::map<uint32_t, VertexBuffer::InstanceInfo>& instances, uint32_t instanceCount)
     {
         if (instances.empty() || instanceCount == 0)
         {

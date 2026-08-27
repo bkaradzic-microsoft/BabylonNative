@@ -39,7 +39,7 @@ namespace Babylon
         // the dynamic vertex buffer handle to bind via setInstanceDataBuffer. Returns an invalid
         // handle if there is nothing to repack.
         bgfx::DynamicVertexBufferHandle Repack(bgfx::Encoder* encoder, Graphics::FrameBuffer& frameBuffer, VertexArray* vertexArray,
-            const std::map<bgfx::Attrib::Enum, VertexBuffer::InstanceInfo>& instances, uint32_t instanceCount);
+                    const std::map<uint32_t, VertexBuffer::InstanceInfo>& instances, uint32_t instanceCount);
 
         // Releases the GPU resources associated with a vertex array (call on vertex-array deletion).
         void Forget(VertexArray* vertexArray);
