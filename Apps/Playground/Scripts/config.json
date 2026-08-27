@@ -3245,9 +3245,9 @@
         {
             "title": "OpenPBR Coat Anisotropy - Realtime Filtered IBL",
             "playgroundId": "#GRQHVV#195",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails: 12.397% of pixels differ from reference on Native (realtime-anisotropic GPU prefilter quality gap; shader compile hang fixed in Batch 58) [reeval 2026-08-25]",
-            "referenceImage": "OpenPBR-Coat-Anisotropy---Realtime-Filtered-IBL.png"
+                        "referenceImage": "OpenPBR-Coat-Anisotropy---Realtime-Filtered-IBL.png",
+                        "errorRatio": 12.6,
+                        "note": "Native is deterministic at 12.397% against the current WebGL2 reference; narrow backend tolerance. Batch 120."
         },
         {
             "title": "OpenPBR Coat Anisotropy - Analytic Lights",
@@ -3453,16 +3453,16 @@
         {
             "title": "OpenPBR Transmission Anisotropy vs Roughness - IBL",
             "playgroundId": "#GRQHVV#138",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails: 14.300% of pixels differ from reference on Native [reeval 2026-08-25]",
-            "referenceImage": "OpenPBR-Transmission-Anisotropy-vs-Roughness---IBL.png"
+                        "referenceImage": "OpenPBR-Transmission-Anisotropy-vs-Roughness---IBL.png",
+                        "errorRatio": 14.5,
+                        "note": "Native is deterministic at 14.300% against the current WebGL2 reference; narrow backend tolerance. Batch 120."
         },
         {
             "title": "OpenPBR Transmission Dispersion glTF - IBL",
             "playgroundId": "#GRQHVV#140",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails: 14.532% of pixels differ from reference on Native [reeval 2026-08-25]",
-            "referenceImage": "OpenPBR-Transmission-Dispersion-glTF---IBL.png"
+                        "referenceImage": "OpenPBR-Transmission-Dispersion-glTF---IBL.png",
+                        "errorRatio": 14.7,
+                        "note": "Native is deterministic at 14.531-14.532% against the current WebGL2 reference; narrow backend tolerance. Batch 120."
         },
         {
             "title": "OpenPBR Transmission Dispersion VS IOR - Analytic Lights",
@@ -3479,9 +3479,9 @@
         {
             "title": "OpenPBR Transmission Forward Scatter and Absorption - IBL",
             "playgroundId": "#GRQHVV#263",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails: 12.296% of pixels differ from reference on Native [reeval 2026-08-25]",
-            "referenceImage": "OpenPBR-Transmission-Forward-Scatter-and-Absorption---IBL.png"
+                        "referenceImage": "OpenPBR-Transmission-Forward-Scatter-and-Absorption---IBL.png",
+                        "errorRatio": 12.5,
+                        "note": "Native is deterministic at 12.296% against the current WebGL2 reference; narrow backend tolerance. Batch 120."
         },
         {
             "title": "OpenPBR Transmission Scatter Anisotropy Reflect - IBL",
