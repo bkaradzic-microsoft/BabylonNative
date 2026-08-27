@@ -143,9 +143,13 @@ namespace Babylon::Polyfills::Internal
 
     Context::~Context()
     {
-        Dispose();
-        m_cancellationSource->cancel();
-    }
+            if (m_canvas != nullptr && m_canvas->GetBoundContext() == this)
+            {
+                m_canvas->SetBoundContext(nullptr);
+            }
+            Dispose();
+            m_cancellationSource->cancel();
+        }
 
     void Context::Dispose(const Napi::CallbackInfo&)
     {
@@ -1241,23 +1245,51 @@ namespace Babylon::Polyfills::Internal
 #endif
         }
 
-        const NativeCanvasImage* canvasImage = NativeCanvasImage::Unwrap(imageObj);
+        // Canvas-to-canvas drawImage (HTML Canvas 2D). Must come before Image unwrap:
+                // a Canvas is not an Image, and ObjectWrap::Unwrap on the wrong type AVs.
+                if (NativeCanvas* const srcCanvas = NativeCanvas::TryUnwrap(info.Env(), imageObj))
+                {
+                    const uint32_t width = srcCanvas->GetWidth();
+                    const uint32_t height = srcCanvas->GetHeight();
+                    if (width == 0 || height == 0)
+                    {
+                        return;
+                    }
 
-        int imageIndex{-1};
-        const auto nvgImageIter = m_nvgImageIndices.find(canvasImage);
-        if (nvgImageIter == m_nvgImageIndices.end())
-        {
-            imageIndex = canvasImage->CreateNVGImageForContext(*m_nvg);
-            m_nvgImageIndices.try_emplace(canvasImage, imageIndex);
-        }
-        else
-        {
-            imageIndex = nvgImageIter->second;
-        }
-        assert(imageIndex != -1);
+                    Context* const srcContext = srcCanvas->GetBoundContext();
+                    std::vector<uint8_t> rgba(static_cast<size_t>(width) * height * 4, 0);
+                    if (srcContext != nullptr)
+                    {
+                        srcContext->ReadPixels(0, 0, width, height, rgba.data());
+                    }
 
-        DrawImageCommon(info, imageIndex, canvasImage->GetPixels(), canvasImage->GetWidth(), canvasImage->GetHeight());
-    }
+                    const int imageIndex = nvgCreateImageRGBA(*m_nvg, static_cast<int>(width), static_cast<int>(height), 0, rgba.data());
+                    DrawImageCommon(info, imageIndex, rgba.data(), width, height);
+                    nvgDeleteImage(*m_nvg, imageIndex);
+                    return;
+                }
+
+                const NativeCanvasImage* const canvasImage = NativeCanvasImage::TryUnwrap(info.Env(), imageObj);
+                if (canvasImage == nullptr)
+                {
+                    throw Napi::TypeError::New(info.Env(), "drawImage: first argument must be an Image, Canvas, or ImageBitmap-like object.");
+                }
+
+                int imageIndex{-1};
+                const auto nvgImageIter = m_nvgImageIndices.find(canvasImage);
+                if (nvgImageIter == m_nvgImageIndices.end())
+                {
+                    imageIndex = canvasImage->CreateNVGImageForContext(*m_nvg);
+                    m_nvgImageIndices.try_emplace(canvasImage, imageIndex);
+                }
+                else
+                {
+                    imageIndex = nvgImageIter->second;
+                }
+                assert(imageIndex != -1);
+
+                DrawImageCommon(info, imageIndex, canvasImage->GetPixels(), canvasImage->GetWidth(), canvasImage->GetHeight());
+            }
 
     void Context::DrawImageCommon(const Napi::CallbackInfo& info, int imageIndex, const uint8_t* srcPixels, uint32_t srcWidth, uint32_t srcHeight)
     {

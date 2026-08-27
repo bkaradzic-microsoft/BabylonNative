@@ -83,13 +83,33 @@ namespace Babylon::Plugins::Internal
             return info.Env().Undefined();
         }
 
-        auto data = Napi::Uint8Array::New(info.Env(), imageData->m_Image->m_size);
-        const auto ptr = static_cast<uint8_t*>(imageData->m_Image->m_data);
-        memcpy(data.Data(), ptr, imageData->m_Image->m_size);
+            // Babylon.js visualization refs are often RGB PNGs (color type 2). Native
+            // screenshots are always RGBA8. Expand every reference to RGBA8 so pixel
+            // comparison is apples-to-apples with identical image content.
+            const bimg::ImageContainer* src = imageData->m_Image;
+            const uint32_t width = src->m_width;
+            const uint32_t height = src->m_height;
+            const size_t rgbaSize = static_cast<size_t>(width) * height * 4;
+            auto data = Napi::Uint8Array::New(info.Env(), rgbaSize);
+            uint8_t* dst = data.Data();
+            const uint8_t* ptr = static_cast<const uint8_t*>(src->m_data);
 
-        return Napi::Value::From(info.Env(), data);
-#endif
-    }
+            if (src->m_format == bimg::TextureFormat::RGBA8)
+            {
+                if (src->m_size < rgbaSize)
+                {
+                    throw Napi::Error::New(info.Env(), "Reference image RGBA8 buffer is smaller than width*height*4.");
+                }
+                memcpy(dst, ptr, rgbaSize);
+            }
+            else if (!bimg::imageConvert(&Graphics::DeviceContext::GetDefaultAllocator(), dst, bimg::TextureFormat::RGBA8, ptr, src->m_format, width, height, 1))
+            {
+                throw Napi::Error::New(info.Env(), "Failed to convert reference image to RGBA8.");
+            }
+
+            return Napi::Value::From(info.Env(), data);
+    #endif
+        }
 
     void TestUtils::GetFrameBufferData(const Napi::CallbackInfo& info)
     {

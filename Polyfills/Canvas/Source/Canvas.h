@@ -54,22 +54,31 @@ namespace Babylon::Polyfills
 
 namespace Babylon::Polyfills::Internal
 {
-    class NativeCanvas final : public Napi::ObjectWrap<NativeCanvas>, Polyfills::Canvas::Impl::MonitoredResource
-    {
-    public:
-        static void Initialize(Napi::Env env);
+    class Context;
 
-        explicit NativeCanvas(const Napi::CallbackInfo& info);
-        virtual ~NativeCanvas();
+        class NativeCanvas final : public Napi::ObjectWrap<NativeCanvas>, Polyfills::Canvas::Impl::MonitoredResource
+        {
+        public:
+            static void Initialize(Napi::Env env);
 
-        uint32_t GetWidth() const { return m_width; }
-        uint32_t GetHeight() const { return m_height; }
+            // Safe brand check — never use ObjectWrap::Unwrap on an unchecked JS value.
+            static NativeCanvas* TryUnwrap(Napi::Env env, const Napi::Value& value);
 
-        static inline std::map<std::string, std::vector<uint8_t>> fontsInfos;
+            explicit NativeCanvas(const Napi::CallbackInfo& info);
+            virtual ~NativeCanvas();
 
-        bool UpdateRenderTarget();
-        Babylon::Graphics::FrameBuffer& GetFrameBuffer() { return *m_frameBuffer; }
-        FrameBufferPool m_frameBufferPool;
+            uint32_t GetWidth() const { return m_width; }
+            uint32_t GetHeight() const { return m_height; }
+
+            // Bound 2D context, if getContext("2d") has been called; nullptr otherwise.
+            Context* GetBoundContext() const { return m_context; }
+            void SetBoundContext(Context* context) { m_context = context; }
+
+            static inline std::map<std::string, std::vector<uint8_t>> fontsInfos;
+
+            bool UpdateRenderTarget();
+            Babylon::Graphics::FrameBuffer& GetFrameBuffer() { return *m_frameBuffer; }
+            FrameBufferPool m_frameBufferPool;
 
         // View id reserved by Context::Flush (right after this canvas' draws) for the
         // canvas->texture blit issued from NativeEngine::CopyTexture, plus the view-id
@@ -92,8 +101,9 @@ namespace Babylon::Polyfills::Internal
         Napi::Value GetHeight(const Napi::CallbackInfo&);
         void SetHeight(const Napi::CallbackInfo&, const Napi::Value& value);
         Napi::Value GetCanvasTexture(const Napi::CallbackInfo& info);
-        static void LoadTTF(const Napi::CallbackInfo& info);
-        static Napi::Value LoadTTFAsync(const Napi::CallbackInfo& info);
+                Napi::Value ToDataURL(const Napi::CallbackInfo& info);
+                static void LoadTTF(const Napi::CallbackInfo& info);
+                static Napi::Value LoadTTFAsync(const Napi::CallbackInfo& info);
         // Both entry points share this; each passes its own name so the diagnostics name the
         // method the caller actually invoked rather than the one it happens to delegate to.
         static void LoadTTFCore(const Napi::CallbackInfo& info, const char* methodName);
@@ -103,9 +113,10 @@ namespace Babylon::Polyfills::Internal
         void Dispose();
 
         Napi::ObjectReference m_contextObject{};
+                Context* m_context{nullptr};
 
-        uint16_t m_width{1};
-        uint16_t m_height{1};
+                uint16_t m_width{1};
+                uint16_t m_height{1};
 
         Graphics::DeviceContext& m_graphicsContext;
 
