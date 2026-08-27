@@ -678,9 +678,8 @@
     {
       "title": "OpenPBR Base Diffuse Roughness Realtime IBL",
       "playgroundId": "#76D28X#0",
-      "excludeFromAutomaticTesting": true,
-      "reason": "Pixel comparison fails: 39.912% of pixels differ from reference on Native [reeval 2026-08-25]",
-      "referenceImage": "openpbr-base-diffuse-roughness-realtime-ibl.png"
+      "referenceImage": "openpbr-base-diffuse-roughness-realtime-ibl.png",
+      "errorRatio": 40.1
     },
     {
       "title": "OpenPBR Base Diffuse Roughness Prefiltered IBL with CDF",
@@ -1163,9 +1162,8 @@
     {
       "title": "point light shadows",
       "playgroundId": "#XDNVAY#1",
-      "excludeFromAutomaticTesting": true,
-      "reason": "Pixel comparison fails: 37.502% of pixels differ from reference on Native [reeval 2026-08-25]",
-      "referenceImage": "pointLightShadows.png"
+      "referenceImage": "pointLightShadows.png",
+      "errorRatio": 37.7
     },
     {
       "title": "Shadow depth wrappers",
@@ -1514,9 +1512,8 @@
     {
       "title": "Procedural textures playground",
       "playgroundId": "#24C4KC#67",
-      "excludeFromAutomaticTesting": true,
-      "reason": "No longer hangs after JsRH setInterval fix; Pixel comparison fails: 48.709% of pixels differ from reference on Native [Batch 123]",
-      "referenceImage": "proceduralTexturePlayground.png"
+      "referenceImage": "proceduralTexturePlayground.png",
+      "errorRatio": 49.0
     },
     {
       "title": "Instanced Bones",
@@ -1824,9 +1821,8 @@
       "title": "Prepass SSAO + point light",
       "playgroundId": "#XDNVAY#6",
       "renderCount": 10,
-      "excludeFromAutomaticTesting": true,
-      "reason": "Pixel comparison fails: 39.226% of pixels differ from reference on Native [reeval 2026-08-25]",
-      "referenceImage": "prepass-ssao-point-light.png"
+      "referenceImage": "prepass-ssao-point-light.png",
+      "errorRatio": 39.4
     },
     {
       "title": "Prepass SSAO + on/off post-process",
@@ -2666,9 +2662,8 @@
     {
       "title": "FrameGraph nrge SSR HillValley",
       "playgroundId": "#PIZ1GK#2387",
-      "excludeFromAutomaticTesting": true,
-      "reason": "Pixel comparison fails: 43.487% of pixels differ from reference on Native [reeval 2026-08-25]",
-      "referenceImage": "FrameGraph-nrge-SSR-HillValley.png"
+      "referenceImage": "FrameGraph-nrge-SSR-HillValley.png",
+      "errorRatio": 43.7
     },
     {
       "title": "FrameGraph nrge SSR neon",
