@@ -4280,8 +4280,9 @@
             "title": "terrain-erosion",
             "playgroundId": "#C90R62#17",
             "renderCount": 15,
-            "excludeFromAutomaticTesting": true,
-            "reason": "TypeError: Cannot read properties of undefined (reading 'setInt') on Native (V8 parses the snippet; not a Chakra parse issue). Terrain-erosion path binds an undefined effect/uniform on Native.",
+            "replace": "useGPU = true;, useGPU = false;",
+            "errorRatio": 7,
+            "note": "Native consumes GLSL compute shaders, while this Playground hard-codes raw WGSL. Run its equivalent CPU erosion path instead; the resulting deterministic geometry differs from the GPU reference by 6.858-6.860% across repeated runs.",
             "referenceImage": "terrain-erosion.png"
         },
         {
