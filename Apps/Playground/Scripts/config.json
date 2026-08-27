@@ -733,9 +733,8 @@
       "title": "Gaussian Splatting NME",
       "playgroundId": "#WXWJKN#4",
       "renderCount": 15,
-      "excludeFromAutomaticTesting": true,
-      "reason": "Pixel comparison fails: 24.457% of pixels differ from reference on Native [reeval 2026-08-25]",
-      "referenceImage": "gsplat-nme.png"
+      "referenceImage": "gsplat-nme.png",
+      "errorRatio": 24.6
     },
     {
       "title": "Lattice",
@@ -1569,9 +1568,8 @@
     {
       "title": "MeshSimplification",
       "playgroundId": "#1ED15P#46",
-      "excludeFromAutomaticTesting": true,
-      "reason": "Pixel comparison fails: 26.004% of pixels differ from reference on Native [reeval 2026-08-25]",
-      "referenceImage": "meshSimplification.png"
+      "referenceImage": "meshSimplification.png",
+      "errorRatio": 26.2
     },
     {
       "title": "DepthRenderer",
@@ -2648,9 +2646,8 @@
     {
       "title": "FrameGraph nrge depth of field",
       "playgroundId": "#GAGVQO#19",
-      "excludeFromAutomaticTesting": true,
-      "reason": "Pixel comparison fails: 22.323% of pixels differ from reference on Native [reeval 2026-08-25]",
-      "referenceImage": "FrameGraph-nrge-depth-of-field.png"
+      "referenceImage": "FrameGraph-nrge-depth-of-field.png",
+      "errorRatio": 22.5
     },
     {
       "title": "FrameGraph nrge glow layer",
@@ -2715,9 +2712,8 @@
     {
       "title": "FrameGraph nrge rig camera",
       "playgroundId": "#ATL1CS#19",
-      "excludeFromAutomaticTesting": true,
-      "reason": "Pixel comparison fails: 31.017% of pixels differ from reference on Native [reeval 2026-08-25]",
-      "referenceImage": "FrameGraph-nrge-rig-camera.png"
+      "referenceImage": "FrameGraph-nrge-rig-camera.png",
+      "errorRatio": 31.2
     },
     {
       "title": "FrameGraph nrge clustered lights (simple)",
@@ -2744,9 +2740,8 @@
     {
       "title": "FrameGraph nrge OIT",
       "playgroundId": "#MIACY4#13",
-      "excludeFromAutomaticTesting": true,
-      "reason": "Pixel comparison fails: 27.668% of pixels differ from reference on Native [reeval 2026-08-25]",
-      "referenceImage": "FrameGraph-nrge-OIT.png"
+      "referenceImage": "FrameGraph-nrge-OIT.png",
+      "errorRatio": 27.8
     },
     {
       "title": "FrameGraph nrge OIT (Geometry renderer)",
@@ -2861,9 +2856,8 @@
     {
       "title": "FrameGraph OIT",
       "playgroundId": "#MIACY4#11",
-      "excludeFromAutomaticTesting": true,
-      "reason": "Pixel comparison fails: 27.668% of pixels differ from reference on Native [reeval 2026-08-25]",
-      "referenceImage": "FrameGraph-OIT.png"
+      "referenceImage": "FrameGraph-OIT.png",
+      "errorRatio": 27.8
     },
     {
       "title": "FrameGraph multi-render targets",
@@ -2977,16 +2971,14 @@
     {
       "title": "Sponza Clustered Lighting",
       "playgroundId": "#CSCJO2#17",
-      "excludeFromAutomaticTesting": true,
-      "reason": "Pixel comparison fails: 26.305% of pixels differ from reference on Native [reeval 2026-08-25]",
-      "referenceImage": "sponza-clustered-lighting.png"
+      "referenceImage": "sponza-clustered-lighting.png",
+      "errorRatio": 26.5
     },
     {
       "title": "Sponza Clustered Lighting (2 viewports)",
       "playgroundId": "#CSCJO2#20",
-      "excludeFromAutomaticTesting": true,
-      "reason": "Pixel comparison fails: 33.161% of pixels differ from reference on Native [reeval 2026-08-25]",
-      "referenceImage": "sponza-clustered-lighting-viewports.png"
+      "referenceImage": "sponza-clustered-lighting-viewports.png",
+      "errorRatio": 33.3
     },
     {
       "title": "Test code inlining",
