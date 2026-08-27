@@ -135,7 +135,7 @@ namespace Babylon
         void DeleteFrameBuffer(NativeDataStream::Reader& data);
         void BindFrameBuffer(NativeDataStream::Reader& data);
         void UnbindFrameBuffer(NativeDataStream::Reader& data);
-        uint32_t GetBuiltInInstanceDataSlotCount() const;
+        VertexBuffer::InstanceDataLayout GetInstanceDataLayout() const;
         void DrawIndexed(NativeDataStream::Reader& data);
         void DrawIndexedInstanced(NativeDataStream::Reader& data);
         void Draw(NativeDataStream::Reader& data);
@@ -157,7 +157,7 @@ namespace Babylon
         void PopulateFrameStats(const Napi::CallbackInfo& info);
         void BeginFrame(const Napi::CallbackInfo&);
         void EndFrame(const Napi::CallbackInfo&);
-        void DrawInternal(bgfx::Encoder* encoder, uint32_t fillMode);
+        void DrawInternal(bgfx::Encoder* encoder, uint32_t fillMode, const VertexBuffer::InstanceDataLayout& instanceDataLayout);
 
         // Dispatches the GPU instance-data repack for a vertex array whose per-instance sources are
         // GPU storage buffers, returning the dynamic vertex buffer to bind as instance data (or an

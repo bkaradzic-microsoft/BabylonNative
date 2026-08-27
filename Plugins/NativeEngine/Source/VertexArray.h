@@ -27,9 +27,9 @@ namespace Babylon
         void RecordStorageBuffer(StorageBuffer* storageBuffer, uint32_t location, uint32_t byteOffset, uint32_t byteStride, uint32_t numElements);
 
         void SetIndexBuffer(bgfx::Encoder* encoder, uint32_t firstIndex, uint32_t numIndices);
-        void SetVertexBuffers(bgfx::Encoder* encoder, uint32_t startVertex, uint32_t numVertices, uint32_t instanceCount = 0, uint32_t minInstanceDataSlotCount = 0);
+        void SetVertexBuffers(bgfx::Encoder* encoder, uint32_t startVertex, uint32_t numVertices, uint32_t instanceCount, const VertexBuffer::InstanceDataLayout& instanceDataLayout);
 
-        const std::map<bgfx::Attrib::Enum, VertexBuffer::InstanceInfo>& GetInstances() const { return m_vertexBufferInstances; }
+        const std::map<uint32_t, VertexBuffer::InstanceInfo>& GetInstances() const { return m_vertexBufferInstances; }
 
         // True when any recorded instance source is a GPU storage buffer, in which case the CPU
         // BuildInstanceDataBuffer path is skipped and NativeEngine binds a GPU-repacked buffer.
@@ -54,7 +54,7 @@ namespace Babylon
 
         std::map<bgfx::Attrib::Enum, VertexBufferRecord> m_vertexBufferRecords{};
 
-        std::map<bgfx::Attrib::Enum, VertexBuffer::InstanceInfo> m_vertexBufferInstances;
+        std::map<uint32_t, VertexBuffer::InstanceInfo> m_vertexBufferInstances;
 
         bool m_disposed{};
     };

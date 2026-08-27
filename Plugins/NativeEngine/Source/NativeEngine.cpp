@@ -2926,17 +2926,17 @@ namespace Babylon
         m_boundFrameBufferNeedsRebinding.Set(false);
     }
 
-    // The dense run of i_data slots the current program's vertex shader reads for its built-in
-    // per-instance attributes. The instance data buffer must cover it even when the draw supplied
-    // fewer attributes, or D3D11 rejects the input layout.
-    uint32_t NativeEngine::GetBuiltInInstanceDataSlotCount() const
+    VertexBuffer::InstanceDataLayout NativeEngine::GetInstanceDataLayout() const
     {
-        if (m_currentProgram == nullptr)
+        if (m_currentProgram == nullptr || m_boundVertexArray == nullptr)
         {
-            return 0;
+            return {};
         }
 
-        return m_currentProgram->BuiltInInstanceDataSlotCount();
+        return VertexBuffer::CreateInstanceDataLayout(
+            m_boundVertexArray->GetInstances(),
+            m_currentProgram->BuiltInInstanceDataSlots(),
+            bgfx::getCaps()->limits.maxInstanceData);
     }
 
     // Note: For legacy reasons JS might call this function for instance drawing.
@@ -2948,12 +2948,13 @@ namespace Babylon
         const uint32_t indexCount = data.ReadUint32();
 
         bgfx::Encoder* encoder = GetEncoder();
+        const auto instanceDataLayout = GetInstanceDataLayout();
         if (m_boundVertexArray != nullptr)
         {
             m_boundVertexArray->SetIndexBuffer(encoder, indexStart, indexCount);
-            m_boundVertexArray->SetVertexBuffers(encoder, 0, std::numeric_limits<uint32_t>::max(), 0, GetBuiltInInstanceDataSlotCount());
+            m_boundVertexArray->SetVertexBuffers(encoder, 0, std::numeric_limits<uint32_t>::max(), 0, instanceDataLayout);
         }
-        DrawInternal(encoder, fillMode);
+        DrawInternal(encoder, fillMode, instanceDataLayout);
     }
 
     void NativeEngine::DrawIndexedInstanced(NativeDataStream::Reader& data)
@@ -2964,33 +2965,35 @@ namespace Babylon
         const uint32_t instanceCount = data.ReadUint32();
 
         bgfx::Encoder* encoder = GetEncoder();
+        const auto instanceDataLayout = GetInstanceDataLayout();
         if (m_boundVertexArray != nullptr)
         {
             const bgfx::DynamicVertexBufferHandle repacked = RepackStorageInstances(encoder, m_boundVertexArray, instanceCount);
-            m_boundVertexArray->SetIndexBuffer(encoder, indexStart, indexCount);
-            m_boundVertexArray->SetVertexBuffers(encoder, 0, std::numeric_limits<uint32_t>::max(), instanceCount, GetBuiltInInstanceDataSlotCount());
-            if (bgfx::isValid(repacked))
-            {
-                encoder->setInstanceDataBuffer(repacked, 0, instanceCount);
-            }
-        }
-        DrawInternal(encoder, fillMode);
-    }
+                        m_boundVertexArray->SetIndexBuffer(encoder, indexStart, indexCount);
+                        m_boundVertexArray->SetVertexBuffers(encoder, 0, std::numeric_limits<uint32_t>::max(), instanceCount, instanceDataLayout);
+                        if (bgfx::isValid(repacked))
+                        {
+                            encoder->setInstanceDataBuffer(repacked, 0, instanceCount);
+                        }
+                    }
+                    DrawInternal(encoder, fillMode, instanceDataLayout);
+                }
 
-    // Note: For legacy reasons JS might call this function for instance drawing.
-    // In that case the instanceCount will be calculated inside the SetVertexBuffers method.
-    void NativeEngine::Draw(NativeDataStream::Reader& data)
+                // Note: For legacy reasons JS might call this function for instance drawing.
+                // In that case the instanceCount will be calculated inside the SetVertexBuffers method.
+                void NativeEngine::Draw(NativeDataStream::Reader& data)
     {
         const uint32_t fillMode = data.ReadUint32();
         const uint32_t verticesStart = data.ReadUint32();
         const uint32_t verticesCount = data.ReadUint32();
 
         bgfx::Encoder* encoder = GetEncoder();
+        const auto instanceDataLayout = GetInstanceDataLayout();
         if (m_boundVertexArray != nullptr)
         {
-            m_boundVertexArray->SetVertexBuffers(encoder, verticesStart, verticesCount, 0, GetBuiltInInstanceDataSlotCount());
+            m_boundVertexArray->SetVertexBuffers(encoder, verticesStart, verticesCount, 0, instanceDataLayout);
         }
-        DrawInternal(encoder, fillMode);
+        DrawInternal(encoder, fillMode, instanceDataLayout);
     }
 
     void NativeEngine::DrawInstanced(NativeDataStream::Reader& data)
@@ -3001,22 +3004,23 @@ namespace Babylon
         const uint32_t instanceCount = data.ReadUint32();
 
         bgfx::Encoder* encoder = GetEncoder();
+        const auto instanceDataLayout = GetInstanceDataLayout();
         if (m_boundVertexArray != nullptr)
-        {
-            // GPU compute-written instance sources (e.g. GPU particles) are repacked into bgfx
-            // i_data slots on the GPU. Dispatch first: encoder->dispatch resets the pending draw
-            // bindings, so the vertex/instance bindings below must be set afterwards.
-            const bgfx::DynamicVertexBufferHandle repacked = RepackStorageInstances(encoder, m_boundVertexArray, instanceCount);
-            m_boundVertexArray->SetVertexBuffers(encoder, verticesStart, verticesCount, instanceCount, GetBuiltInInstanceDataSlotCount());
-            if (bgfx::isValid(repacked))
-            {
-                encoder->setInstanceDataBuffer(repacked, 0, instanceCount);
+                {
+                    // GPU compute-written instance sources (e.g. GPU particles) are repacked into bgfx
+                    // i_data slots on the GPU. Dispatch first: encoder->dispatch resets the pending draw
+                    // bindings, so the vertex/instance bindings below must be set afterwards.
+                    const bgfx::DynamicVertexBufferHandle repacked = RepackStorageInstances(encoder, m_boundVertexArray, instanceCount);
+                    m_boundVertexArray->SetVertexBuffers(encoder, verticesStart, verticesCount, instanceCount, instanceDataLayout);
+                    if (bgfx::isValid(repacked))
+                    {
+                        encoder->setInstanceDataBuffer(repacked, 0, instanceCount);
+                    }
+                }
+                DrawInternal(encoder, fillMode, instanceDataLayout);
             }
-        }
-        DrawInternal(encoder, fillMode);
-    }
 
-    void NativeEngine::Clear(NativeDataStream::Reader& data)
+            void NativeEngine::Clear(NativeDataStream::Reader& data)
     {
         uint16_t flags{0};
         uint32_t rgba{0x000000ff};
@@ -3358,7 +3362,7 @@ namespace Babylon
         // Nothing to do here.
     }
 
-    bgfx::DynamicVertexBufferHandle NativeEngine::RepackStorageInstances(bgfx::Encoder* encoder, VertexArray* vertexArray, uint32_t instanceCount)
+bgfx::DynamicVertexBufferHandle NativeEngine::RepackStorageInstances(bgfx::Encoder* encoder, VertexArray* vertexArray, uint32_t instanceCount)
     {
         if (vertexArray == nullptr || instanceCount == 0 || !vertexArray->HasStorageInstances())
         {
@@ -3373,7 +3377,7 @@ namespace Babylon
         return m_instanceRepacker->Repack(encoder, GetBoundFrameBuffer(), vertexArray, vertexArray->GetInstances(), instanceCount);
     }
 
-    void NativeEngine::DrawInternal(bgfx::Encoder* encoder, uint32_t fillMode)
+    void NativeEngine::DrawInternal(bgfx::Encoder* encoder, uint32_t fillMode, const VertexBuffer::InstanceDataLayout& instanceDataLayout)
     {
         uint64_t fillModeState{0}; // indexed triangle list
 
@@ -3424,7 +3428,7 @@ namespace Babylon
             encoder->setUniform({it.first}, value.Data.data(), value.ElementLength);
         }
 
-        // Resolve the gl_FragCoord Y flip the shader compiler injected (see
+// Resolve the gl_FragCoord Y flip the shader compiler injected (see
         // ShaderCompilerTraversers::FlipFragCoordY). The height must be the bound framebuffer's,
         // not the bgfx view rect's: FrameBuffer::SetBgfxViewPortAndScissor narrows the view rect to
         // the viewport whenever one is set, while gl_FragCoord is relative to the whole target.
@@ -3439,12 +3443,9 @@ namespace Babylon
             encoder->setUniform(fragCoordTargetSize->Handle, targetSize, 1);
         }
 
-        // Divisor-driven instancing: a consumer-instanced attribute (divisor==1) recorded at a
-        // real per-vertex bgfx location was compiled to a per-vertex slot. bgfx can only feed
-        // per-instance data into i_data slots (the top TEXCOORD semantics), so route those attributes
-        // to the correct i_data slot via a lazily-compiled program variant. The target location mirrors
-        // BuildInstanceDataBuffer's reverse-attrib packing: highest base attrib -> i_data0 (TEXCOORD31),
-        // i.e. INSTANCE_DATA_FIRST_LOCATION - rank.
+        // Generic divisor-driven attributes are per-vertex inputs in the base shader. Recompile a
+        // variant that routes each one to the exact i_data slot used by the instance buffer.
+        // Built-ins keep the compiler-assigned base slots carried by Program.
         bgfx::ProgramHandle programHandle = m_currentProgram->Handle();
         if (m_boundVertexArray != nullptr)
         {
@@ -3456,34 +3457,24 @@ namespace Babylon
                 // INSTANCE_DATA_FIRST_LOCATION), matching BuildInstanceDataBuffer's reverse packing.
                 std::map<std::string, uint32_t> genericInstancedAttributes;
                 const auto& attributeLocations = m_currentProgram->VertexAttributeLocations();
-                const size_t count = instances.size();
-                size_t ascendingIndex = 0;
                 for (const auto& instance : instances)
                 {
-                    const bgfx::Attrib::Enum attrib = instance.first;
-                    // "Real per-vertex slot" means Position..TexCoord15, i.e. < Attrib::Count. The
-                    // built-in instanced attributes (world0-3, splatIndex0-3, previousWorld0-3,
-                    // instanceColor) are assigned synthetic locations at or above
-                    // BUILTIN_INSTANCE_DATA_LAST_LOCATION, which is >= Attrib::Count, so they compare
-                    // false here and are correctly skipped: they already arrive as instance data.
-                    // The previous TexCoord3 boundary silently dropped generic instanced attributes
-                    // landing on TexCoord3..TexCoord15 (e.g. sprite cellInfo -> TexCoord3), leaving
-                    // them reading per-vertex garbage even though BuildInstanceDataBuffer had
-                    // already packed them into the instance data buffer.
-                    if (attrib < bgfx::Attrib::Count)
+                    const uint32_t location = instance.first;
+                    if (m_currentProgram->BuiltInInstanceDataSlots().count(location) != 0)
                     {
-                        const size_t rank = count - 1 - ascendingIndex;
-                        const uint32_t targetLocation = Babylon::Graphics::INSTANCE_DATA_FIRST_LOCATION - static_cast<uint32_t>(rank);
-                        for (const auto& [name, location] : attributeLocations)
+                        continue;
+                    }
+
+                    const uint32_t targetLocation =
+                        Babylon::Graphics::INSTANCE_DATA_FIRST_LOCATION - instanceDataLayout.Slots.at(location);
+                    for (const auto& [name, attributeLocation] : attributeLocations)
+                    {
+                        if (attributeLocation == location)
                         {
-                            if (location == static_cast<uint32_t>(attrib))
-                            {
-                                genericInstancedAttributes.emplace(name, targetLocation);
-                                break;
-                            }
+                            genericInstancedAttributes.emplace(name, targetLocation);
+                            break;
                         }
                     }
-                    ++ascendingIndex;
                 }
 
                 if (!genericInstancedAttributes.empty())

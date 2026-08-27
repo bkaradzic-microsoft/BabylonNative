@@ -81,7 +81,7 @@ namespace Babylon::ShaderCompilerCommon
         std::map<std::string, std::string> AttributeRenaming;
     };
 
-    Graphics::BgfxShaderInfo CreateBgfxShader(ShaderInfo vertexShaderInfo, ShaderInfo fragmentShaderInfo);
+Graphics::BgfxShaderInfo CreateBgfxShader(ShaderInfo vertexShaderInfo, ShaderInfo fragmentShaderInfo, std::map<std::string, uint32_t> builtInInstanceDataSlots);
 
     /// Assembles a bgfx CSH (compute) shader binary from a compiled compute shader. The binary
     /// layout mirrors the per-shader block of CreateBgfxShader (fourcc 'CSH' + hashes + uniform

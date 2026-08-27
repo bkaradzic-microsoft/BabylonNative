@@ -6,6 +6,7 @@
 #include <list>
 #include <map>
 #include <optional>
+#include <vector>
 
 namespace Babylon
 {
@@ -48,9 +49,22 @@ namespace Babylon
             StorageBuffer* StorageSource{};
         };
 
-        /// `minSlotCount` is the number of i_data slots the vertex shader reads; the buffer is
-        /// padded with zeroed slots when the draw supplied fewer instanced attributes than that.
-        static void BuildInstanceDataBuffer(bgfx::InstanceDataBuffer& instanceDataBuffer, const std::map<bgfx::Attrib::Enum, InstanceInfo>& instances, uint32_t instanceCount, uint32_t minSlotCount = 0);
+        struct InstanceDataLayout
+        {
+            uint32_t SlotCount{};
+            std::map<uint32_t, uint32_t> Slots{};
+        };
+
+        static InstanceDataLayout CreateInstanceDataLayout(
+            const std::map<uint32_t, InstanceInfo>& instances,
+            const std::map<uint32_t, uint32_t>& builtInSlots,
+            uint32_t maxSlotCount);
+
+        static void BuildInstanceDataBuffer(
+            bgfx::InstanceDataBuffer& instanceDataBuffer,
+            const std::map<uint32_t, InstanceInfo>& instances,
+            uint32_t instanceCount,
+            const InstanceDataLayout& layout);
 
     private:
         Graphics::DeviceContext& m_deviceContext;
