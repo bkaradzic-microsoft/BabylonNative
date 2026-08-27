@@ -48,6 +48,30 @@
     // executeWhenReady fired, so a scene that never settles fails on a stale
     // frame rather than hanging. See isSceneConverged.
     const MAX_WARMUP_FRAMES = 240;
+    let havokInitializationPromise;
+
+    function initializeHavokAsync() {
+        if (typeof HK !== "undefined") {
+            return Promise.resolve();
+        }
+
+        if (!havokInitializationPromise) {
+            havokInitializationPromise = Promise.all([
+                BABYLON.Tools.LoadFileAsync("app:///Scripts/HavokPhysics_umd.js", false),
+                BABYLON.Tools.LoadFileAsync("app:///Scripts/HavokPhysics.wasm", true)
+            ]).then(function (sources) {
+                (0, eval)(sources[0]);
+                if (typeof HavokPhysics !== "function") {
+                    throw new Error("HavokPhysics_umd.js did not register HavokPhysics");
+                }
+                return HavokPhysics({ wasmBinary: new Uint8Array(sources[1]) });
+            }).then(function (instance) {
+                globalThis.HK = instance;
+            });
+        }
+
+        return havokInitializationPromise;
+    }
 
     function shouldRunTest(test, index) {
         if (testIndices.length > 0 && testIndices.indexOf(index) === -1) {
@@ -665,8 +689,10 @@
                                 // eslint-disable-next-line no-unused-vars
                                 var name = ""; // see the note on the scriptToRun eval below
                                 try {
-                                    // Runs before the first await, so the eval still happens at the
-                                    // shallow stack depth this setTimeout exists to provide.
+                                    if (test.requiresHavok) {
+                                        await initializeHavokAsync();
+                                    }
+
                                     currentScene = eval(pgCode);
 
                                     if (currentScene && currentScene.then) {
