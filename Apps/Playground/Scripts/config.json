@@ -556,10 +556,8 @@
         },
         {
             "title": "Gaussian Splatting modify",
-            "playgroundId": "#RKKCHG#15",
-            "renderCount": 15,
-            "excludeFromAutomaticTesting": true,
-            "reason": "Runtime error on Native: [Uncaught Error] Error: Invalid argument [reeval 2026-07-21]",
+            "playgroundId": "#O53CPP#0",
+            "errorRatio": 3.5,
             "referenceImage": "gsplat-splat-modify.png"
         },
         {
