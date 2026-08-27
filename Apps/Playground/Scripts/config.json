@@ -977,8 +977,6 @@
         {
             "title": "Nested BBG",
             "playgroundId": "#ZG0C8B#12",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Hangs on Babylon Native (no exit within 45s) [reeval 2026-07-21]",
             "referenceImage": "nested-BBG.png"
         },
         {
