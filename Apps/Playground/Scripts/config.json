@@ -3546,7 +3546,6 @@
         {
             "title": "OpenPBR Subsurface Transmission Blending - IBL",
             "playgroundId": "#SXXR4T#0",
-            "renderCount": 5,
             "excludeFromAutomaticTesting": true,
             "reason": "Pixel comparison fails: 3.600% of pixels differ from reference on Native [reeval 2026-08-25]",
             "referenceImage": "OpenPBR-Subsurface-Transmission-Blending---IBL.png"
@@ -3560,7 +3559,6 @@
         {
             "title": "OpenPBR Subsurface Transmission Blending Zero Depth - IBL",
             "playgroundId": "#UZ7KW4#0",
-            "renderCount": 5,
             "excludeFromAutomaticTesting": true,
             "reason": "Pixel comparison fails: 4.488% of pixels differ from reference on Native [reeval 2026-08-25]",
             "referenceImage": "OpenPBR-Subsurface-Transmission-Blending-Zero-Depth---IBL.png"
@@ -3568,15 +3566,13 @@
         {
             "title": "OpenPBR Transmission Dense Scattering - IBL",
             "playgroundId": "#Q3QF1V#0",
-            "renderCount": 10,
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails: 3.180% of pixels differ from reference on Native [reeval 2026-08-25]",
-            "referenceImage": "OpenPBR-Transmission-Dense-Scattering---IBL.png"
+            "referenceImage": "OpenPBR-Transmission-Dense-Scattering---IBL.png",
+            "errorRatio": 3.3,
+            "note": "Native is stable at 3.178-3.181% against the current WebGL2 reference; narrow backend tolerance. Batch 113."
         },
         {
             "title": "OpenPBR Transmission Dense Scattering - SH",
             "playgroundId": "#GRQHVV#293",
-            "renderCount": 10,
             "excludeFromAutomaticTesting": true,
             "reason": "Pixel comparison fails: 3.626% of pixels differ from reference on Native [reeval 2026-08-25]",
             "referenceImage": "OpenPBR-Transmission-Dense-Scattering---SH.png"
@@ -3584,10 +3580,9 @@
         {
             "title": "OpenPBR Subsurface Dense Scattering - IBL",
             "playgroundId": "#Z8RCM0#0",
-            "renderCount": 10,
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails: 3.007% of pixels differ from reference on Native [reeval 2026-08-25]",
-            "referenceImage": "OpenPBR-Subsurface-Dense-Scattering---IBL.png"
+            "referenceImage": "OpenPBR-Subsurface-Dense-Scattering---IBL.png",
+            "errorRatio": 3.1,
+            "note": "Native is stable at 3.005-3.007% against the current WebGL2 reference; narrow backend tolerance. Batch 113."
         },
         {
             "title": "OpenPBR Subsurface Dense Scattering - Analytic Lights",
@@ -3598,7 +3593,6 @@
         {
             "title": "OpenPBR Subsurface Dense Scattering - Realtime IBL",
             "playgroundId": "#5A4TWS#0",
-            "renderCount": 5,
             "excludeFromAutomaticTesting": true,
             "reason": "Pixel comparison fails: 4.154% of pixels differ from reference on Native [reeval 2026-08-25]",
             "referenceImage": "OpenPBR-Subsurface-Dense-Scattering---Realtime-IBL.png"
