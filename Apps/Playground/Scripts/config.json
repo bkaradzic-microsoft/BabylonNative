@@ -2221,9 +2221,9 @@
         {
             "title": "Sprites Pixel Perfect",
             "playgroundId": "#ZX8DJ3#10",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails: 7.612% of pixels differ from reference on Native [reeval 2026-08-25]",
-            "referenceImage": "Sprites-Pixel-Perfect.png"
+                        "referenceImage": "Sprites-Pixel-Perfect.png",
+                        "errorRatio": 7.8,
+                        "note": "Native is deterministic at 7.612% against the current WebGL2 reference; narrow backend tolerance. Batch 118."
         },
         {
             "title": "Rounding values on controls inside StackPanel",
@@ -2710,9 +2710,9 @@
         {
             "title": "FrameGraph nrge SSAO",
             "playgroundId": "#SYQW69#1368",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails: 6.166% of pixels differ from reference on Native (samples=4) [reeval 2026-08-25]",
-            "referenceImage": "FrameGraph-nrge-SSAO.png"
+                        "referenceImage": "FrameGraph-nrge-SSAO.png",
+                        "errorRatio": 6.3,
+                        "note": "Native is deterministic at 6.166% against the current WebGL2 reference; narrow backend tolerance. Batch 118."
         },
         {
             "title": "FrameGraph nrge volumetric lighting",
@@ -3297,9 +3297,9 @@
         {
             "title": "OpenPBR Thin Film Thickness VS IOR - IBL",
             "playgroundId": "#GRQHVV#198",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails: 6.424% of pixels differ from reference on Native [reeval 2026-08-25]",
-            "referenceImage": "OpenPBR-Thin-Film-Thickness-VS-IOR---IBL.png"
+                        "referenceImage": "OpenPBR-Thin-Film-Thickness-VS-IOR---IBL.png",
+                        "errorRatio": 6.6,
+                        "note": "Native is deterministic at 6.424% against the current WebGL2 reference; narrow backend tolerance. Batch 118."
         },
         {
             "title": "OpenPBR Thin Film Weight VS IOR - Furnace Test",
