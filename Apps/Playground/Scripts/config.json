@@ -3422,8 +3422,8 @@
             "title": "OpenPBR Transmission Roughness glTF - Analytic Lights",
             "playgroundId": "#GRQHVV#124",
             "referenceImage": "OpenPBR-Transmission-Roughness-glTF---Analytic-Lights.png",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails: 2.608% of pixels differ from reference on Native [reeval 2026-08-25]"
+            "errorRatio": 2.7,
+            "note": "Native is deterministic at 2.608% against the current WebGL2 reference; narrow backend tolerance. Batch 111."
         },
         {
             "title": "OpenPBR Transmission Roughness vs IOR - Analytic Lights",
