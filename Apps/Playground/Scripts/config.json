@@ -3360,9 +3360,9 @@
         {
             "title": "OpenPBR Fuzz Weight vs Fuzz Roughness - IBL",
             "playgroundId": "#GRQHVV#204",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails: 3.208% of pixels differ from reference on Native [reeval 2026-08-25]",
-            "referenceImage": "OpenPBR-Fuzz-Weight-vs-Fuzz-Roughness---IBL.png"
+            "referenceImage": "OpenPBR-Fuzz-Weight-vs-Fuzz-Roughness---IBL.png",
+            "errorRatio": 3.3,
+            "note": "Native is deterministic at 3.208% against the current WebGL2 reference; narrow backend tolerance. Batch 112."
         },
         {
             "title": "OpenPBR Fuzz Weight vs Fuzz Roughness - Analytic Lights",
@@ -3385,9 +3385,9 @@
         {
             "title": "OpenPBR Fuzz Weight vs Coat Weight with Normal Maps - IBL",
             "playgroundId": "#GRQHVV#205",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails: 3.063% of pixels differ from reference on Native [reeval 2026-08-25]",
-            "referenceImage": "OpenPBR-Fuzz-Weight-vs-Coat-Weight-with-Normal-Maps---IBL.png"
+            "referenceImage": "OpenPBR-Fuzz-Weight-vs-Coat-Weight-with-Normal-Maps---IBL.png",
+            "errorRatio": 3.2,
+            "note": "Native is deterministic at 3.063% against the current WebGL2 reference; narrow backend tolerance. Batch 112."
         },
         {
             "title": "OpenPBR Fuzz Weight vs Fuzz Roughness - Realtime IBL",
@@ -3414,9 +3414,9 @@
         {
             "title": "OpenPBR Transmission Roughness glTF - IBL",
             "playgroundId": "#GRQHVV#123",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails: 3.264% of pixels differ from reference on Native [reeval 2026-08-25]",
-            "referenceImage": "OpenPBR-Transmission-Roughness-glTF---IBL.png"
+            "referenceImage": "OpenPBR-Transmission-Roughness-glTF---IBL.png",
+            "errorRatio": 3.4,
+            "note": "Native is deterministic at 3.264% against the current WebGL2 reference; narrow backend tolerance. Batch 112."
         },
         {
             "title": "OpenPBR Transmission Roughness glTF - Analytic Lights",
