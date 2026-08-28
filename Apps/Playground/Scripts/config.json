@@ -2760,12 +2760,10 @@
             "errorRatio": 17.3
         },
         {
-            "title": "FrameGraph nrge multi RTT MSAA",
-            "playgroundId": "#JAG54A",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails: 93.231% of pixels differ from reference on Native [reeval 2026-08-25]",
-            "referenceImage": "FrameGraph-nrge-multi-RTT-MSAA.png"
-        },
+                    "title": "FrameGraph nrge multi RTT MSAA",
+                    "playgroundId": "#JAG54A",
+                    "referenceImage": "FrameGraph-nrge-multi-RTT-MSAA.png"
+                },
         {
             "title": "FrameGraph nrg gui bloom",
             "playgroundId": "#3LB017#3",
