@@ -1102,8 +1102,6 @@
             "title": "Highlights",
             "playgroundId": "#P7N8YW#1",
             "renderCount": 5,
-            "excludeFromAutomaticTesting": true,
-            "reason": "Pixel comparison fails: 70.786% of pixels differ from reference on Native [reeval 2026-08-25]",
             "referenceImage": "highlights.png"
         },
         {

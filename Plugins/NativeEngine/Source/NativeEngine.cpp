@@ -2033,10 +2033,16 @@ namespace Babylon
 
         const auto bytes{static_cast<uint8_t*>(data.ArrayBuffer().Data()) + data.ByteOffset()};
 
-        // Match the vertical orientation the base upload applies (PrepareImage flips the whole image when
-        // originBottomLeft ? invertY : !invertY). To land a sub-rectangle at the same place, flip it to the
-        // mirrored Y origin and reverse its rows so row 0 of the source lines up with the flipped base data.
-        const bool flip{bgfx::getCaps()->originBottomLeft ? invertY : !invertY};
+        // Match the vertical orientation the base upload applies for 2D (PrepareImage flips when
+        // originBottomLeft ? invertY : !invertY). Cube faces are different: WebGL's
+        // gl.pixelStorei(UNPACK_FLIP_Y_WEBGL, invertY) flips only when invertY is true and does
+        // NOT apply a backend origin compensation. Using the 2D formula on D3D/Metal
+        // (originBottomLeft=false) inverted every HDR/raw cube face when invertY=false (the
+        // default for HDRCubeTexture), which rotated the skybox and skewed PBR IBL sampling
+        // (Highlights residual ~70%). Cubes therefore honor invertY directly.
+        const bool flip{texture->IsCube()
+            ? invertY
+            : (bgfx::getCaps()->originBottomLeft ? invertY : !invertY)};
         const uint16_t targetY{flip ? static_cast<uint16_t>(mipHeight - y - height) : y};
         const bgfx::Memory* mem{bgfx::alloc(requiredSize)};
         if (flip)
@@ -3270,8 +3276,12 @@ namespace Babylon
         const uint32_t depthOpPass{data.ReadUint32()};
         const uint32_t func{data.ReadUint32()};
         const uint32_t ref{data.ReadUint32()};
+        // Function mask (gl.stencilFunc's mask / BGFX_STENCIL_FUNC_RMASK). HighlightLayer
+        // compares only the high glowing-mesh bits; without this, Native always forced 0xFF
+        // and outer/inner glow stencil tests matched the wrong fragments.
+        const uint32_t funcMask{data.ReadUint32()};
 
-        m_stencilState = BGFX_STENCIL_FUNC_RMASK(0xFF); //  always 0xFF
+        m_stencilState = BGFX_STENCIL_FUNC_RMASK(funcMask & 0xFFu);
         m_stencilState |= stencilOpFail;
         m_stencilState |= depthOpFail;
         // bgfx write mask is always 0xFF, to not change stencil value when writemask is 0
