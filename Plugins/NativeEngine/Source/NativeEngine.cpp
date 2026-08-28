@@ -2573,20 +2573,32 @@ namespace Babylon
             const uint32_t mipWidth{std::max(1u, static_cast<uint32_t>(texture->Width()) >> mipLevel)};
             const uint32_t mipHeight{std::max(1u, static_cast<uint32_t>(texture->Height()) >> mipLevel)};
 
-            // If the image needs to be cropped, the texture lacks the READ_BACK flag, or we are reading a
-            // specific cube-map face, blit to a temp 2D texture. bgfx::readTexture cannot address an
-            // individual cube face, so a cube-face read always goes through the blit (srcZ = face index).
-            if (isCubeFace || x != 0 || y != 0 || width != mipWidth || height != mipHeight || (texture->Flags() & BGFX_TEXTURE_READ_BACK) == 0)
-            {
-                const bgfx::TextureHandle blitTextureHandle{bgfx::createTexture2D(width, height, /*hasMips*/ false, /*numLayers*/ 1, sourceTextureFormat, BGFX_TEXTURE_BLIT_DST | BGFX_TEXTURE_READ_BACK)};
+                        // Babylon callers (GPUPicker, screenshots, depth readback) pass gl.readPixels coordinates:
+                        // y is measured from the BOTTOM of the image. bgfx blit srcY is top-origin on D3D/Metal
+                        // (!originBottomLeft). Convert before the crop blit so a 1x1 pick lands on the scissored
+                        // fragment. OpenGL already matches web bottom-origin, so leave y alone there.
+                        // Full-image reads (y == 0, height == mipHeight) are unchanged either way.
+                        uint16_t blitX{x};
+                        uint16_t blitY{y};
+                        if (!bgfx::getCaps()->originBottomLeft && static_cast<uint32_t>(blitY) + height <= mipHeight)
+                        {
+                            blitY = static_cast<uint16_t>(mipHeight - static_cast<uint32_t>(blitY) - height);
+                        }
 
-                bgfx::Encoder* encoder = GetEncoder();
-                encoder->blit(static_cast<uint16_t>(bgfx::getCaps()->limits.maxViews - 1), blitTextureHandle, /*dstMip*/ 0, /*dstX*/ 0, /*dstY*/ 0, /*dstZ*/ 0, sourceTextureHandle, mipLevel, x, y, srcZ, width, height, /*depth*/ 0);
+                        // If the image needs to be cropped, the texture lacks the READ_BACK flag, or we are reading a
+                        // specific cube-map face, blit to a temp 2D texture. bgfx::readTexture cannot address an
+                        // individual cube face, so a cube-face read always goes through the blit (srcZ = face index).
+                        if (isCubeFace || blitX != 0 || blitY != 0 || width != mipWidth || height != mipHeight || (texture->Flags() & BGFX_TEXTURE_READ_BACK) == 0)
+                        {
+                            const bgfx::TextureHandle blitTextureHandle{bgfx::createTexture2D(width, height, /*hasMips*/ false, /*numLayers*/ 1, sourceTextureFormat, BGFX_TEXTURE_BLIT_DST | BGFX_TEXTURE_READ_BACK)};
 
-                sourceTextureHandle = blitTextureHandle;
-                *tempTexture = true;
-                mipLevel = 0;
-            }
+                            bgfx::Encoder* encoder = GetEncoder();
+                            encoder->blit(static_cast<uint16_t>(bgfx::getCaps()->limits.maxViews - 1), blitTextureHandle, /*dstMip*/ 0, /*dstX*/ 0, /*dstY*/ 0, /*dstZ*/ 0, sourceTextureHandle, mipLevel, blitX, blitY, srcZ, width, height, /*depth*/ 0);
+
+                            sourceTextureHandle = blitTextureHandle;
+                            *tempTexture = true;
+                            mipLevel = 0;
+                        }
 
             // Allocate a buffer to store the source pixel data.
             std::vector<uint8_t> textureBuffer(sourceTextureInfo.storageSize);

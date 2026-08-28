@@ -817,13 +817,7 @@
       "playgroundId": "#WGZLGJ#10320",
       "referenceImage": "nmegltf.png"
     },
-    {
-      "title": "GPUPicker",
-      "playgroundId": "#1RWFMT#8",
-      "excludeFromAutomaticTesting": true,
-      "reason": "Pixel comparison fails: 97.765% of pixels differ from reference on Native [reeval 2026-08-25]",
-      "referenceImage": "gpuPicker.png"
-    },
+    { "title": "GPUPicker", "playgroundId": "#1RWFMT#8", "referenceImage": "gpuPicker.png", "note": "ReadTexture y bottom-origin (gl.readPixels); D3D blit converts to top-origin. Residual ~0.13%. Shotgun Batch 130." },
     {
       "title": "Trailmesh tapered and untapered",
       "playgroundId": "#XGGSWJ#4",
