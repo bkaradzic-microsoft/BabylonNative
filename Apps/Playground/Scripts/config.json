@@ -2140,8 +2140,6 @@
         {
             "title": "GUI Images in Grid",
             "playgroundId": "#8Y0XJL#8",
-            "excludeFromAutomaticTesting": true,
-            "reason": "Flaky on Native: usually stable 5.481% pixel residual but intermittent process exit=1 under parallel/load. Keep excluded. Batch 122.",
             "referenceImage": "GUI-Images-in-Grid.png"
         },
         {

@@ -7,6 +7,10 @@
 #include <functional>
 #include <sstream>
 #include <assert.h>
+#include <algorithm>
+#include <cctype>
+#include <cstring>
+#include <vector>
 #ifdef BABYLON_NATIVE_PLUGIN_NATIVEENGINE_LOAD_IMAGES
 #include <bimg/bimg.h>
 #include <bimg/decode.h>
@@ -16,6 +20,11 @@
 #include <stdexcept>
 #include <napi/pointer.h>
 #include <basen.hpp>
+
+// Path2D.cpp owns NANOSVG_IMPLEMENTATION; Image only needs the parser API + rasterizer.
+#include "nanosvg.h"
+#define NANOSVGRAST_IMPLEMENTATION
+#include "nanosvgrast.h"
 
 namespace Babylon::Polyfills::Internal
 {
@@ -111,10 +120,128 @@ namespace Babylon::Polyfills::Internal
         return Env().Null();
     }
 
+    namespace
+    {
+#ifdef BABYLON_NATIVE_PLUGIN_NATIVEENGINE_LOAD_IMAGES
+        // bimg cannot decode SVG. Rasterize with nanosvg (already used for Path2D).
+        bimg::ImageContainer* TryParseSvg(gsl::span<const std::byte> buffer)
+        {
+            if (buffer.empty())
+            {
+                return nullptr;
+            }
+
+            // Cheap reject: must look like XML/SVG text (not a binary image).
+            const auto* bytes = reinterpret_cast<const unsigned char*>(buffer.data());
+            const size_t n = buffer.size_bytes();
+            size_t i = 0;
+            while (i < n && std::isspace(bytes[i]))
+            {
+                ++i;
+            }
+            if (i >= n || (bytes[i] != '<' && bytes[i] != 0xEF /* BOM */))
+            {
+                return nullptr;
+            }
+
+            // nsvgParse mutates and requires a NUL-terminated string.
+            std::vector<char> text(n + 1);
+            std::memcpy(text.data(), buffer.data(), n);
+            text[n] = '\0';
+
+            // Case-insensitive search for "<svg".
+            const char* svgTag = nullptr;
+            for (size_t p = 0; p + 4 < text.size(); ++p)
+            {
+                if (text[p] == '<' &&
+                    (text[p + 1] == 's' || text[p + 1] == 'S') &&
+                    (text[p + 2] == 'v' || text[p + 2] == 'V') &&
+                    (text[p + 3] == 'g' || text[p + 3] == 'G') &&
+                    (text[p + 4] == ' ' || text[p + 4] == '\t' || text[p + 4] == '\n' || text[p + 4] == '\r' || text[p + 4] == '>'))
+                {
+                    svgTag = text.data() + p;
+                    break;
+                }
+            }
+            if (svgTag == nullptr)
+            {
+                return nullptr;
+            }
+
+            NSVGimage* svg = nsvgParse(text.data(), "px", 96.0f);
+            if (svg == nullptr)
+            {
+                return nullptr;
+            }
+
+            int w = static_cast<int>(svg->width + 0.5f);
+            int h = static_cast<int>(svg->height + 0.5f);
+            if (w < 1 || h < 1)
+            {
+                nsvgDelete(svg);
+                return nullptr;
+            }
+
+            // Cap enormous SVGs (viewBox mistakes) to keep GUI images bounded.
+            constexpr int kMaxEdge = 2048;
+            float scale = 1.0f;
+            if (w > kMaxEdge || h > kMaxEdge)
+            {
+                scale = static_cast<float>(kMaxEdge) / static_cast<float>(std::max(w, h));
+                w = std::max(1, static_cast<int>(w * scale + 0.5f));
+                h = std::max(1, static_cast<int>(h * scale + 0.5f));
+            }
+
+            auto* allocator = &Graphics::DeviceContext::GetDefaultAllocator();
+            bimg::ImageContainer* container = bimg::imageAlloc(
+                allocator,
+                bimg::TextureFormat::RGBA8,
+                static_cast<uint32_t>(w),
+                static_cast<uint32_t>(h),
+                0, 1, false, false, nullptr);
+            if (container == nullptr || container->m_data == nullptr)
+            {
+                nsvgDelete(svg);
+                if (container)
+                {
+                    bimg::imageFree(container);
+                }
+                return nullptr;
+            }
+
+            std::memset(container->m_data, 0, static_cast<size_t>(w) * static_cast<size_t>(h) * 4u);
+
+            NSVGrasterizer* rast = nsvgCreateRasterizer();
+            if (rast == nullptr)
+            {
+                bimg::imageFree(container);
+                nsvgDelete(svg);
+                return nullptr;
+            }
+
+            nsvgRasterize(rast, svg, 0.0f, 0.0f, scale, static_cast<unsigned char*>(container->m_data), w, h, w * 4);
+            nsvgDeleteRasterizer(rast);
+            nsvgDelete(svg);
+            return container;
+        }
+#endif
+    }
+
     bool NativeCanvasImage::SetBuffer(gsl::span<const std::byte> buffer)
     {
 #ifdef BABYLON_NATIVE_PLUGIN_NATIVEENGINE_LOAD_IMAGES
+        if (m_imageContainer)
+        {
+            bimg::imageFree(m_imageContainer);
+            m_imageContainer = nullptr;
+        }
+
         m_imageContainer = bimg::imageParse(&Graphics::DeviceContext::GetDefaultAllocator(), buffer.data(), static_cast<uint32_t>(buffer.size_bytes()), bimg::TextureFormat::RGBA8);
+
+        if (m_imageContainer == nullptr)
+        {
+            m_imageContainer = TryParseSvg(buffer);
+        }
 
         if (m_imageContainer == nullptr)
         {
@@ -143,6 +270,12 @@ namespace Babylon::Polyfills::Internal
         return;
 #else
         auto text{value.As<Napi::String>().Utf8Value()};
+        m_src = text;
+
+        // Cancel any in-flight load and start a fresh lifetime for this assignment.
+        // (Dispose used to cancel the shared source mid-flight and poisoned reloads.)
+        m_cancellationSource->cancel();
+        m_cancellationSource = std::make_shared<arcana::cancellation_source>();
 
         // try with base64
         static const std::string base64{"base64,"};
@@ -166,14 +299,17 @@ namespace Babylon::Polyfills::Internal
         UrlLib::UrlRequest request{};
         request.Open(UrlLib::UrlMethod::Get, text);
         request.ResponseType(UrlLib::UrlResponseType::Buffer);
-        request.SendAsync().then(m_runtimeScheduler, *m_cancellationSource, [env{info.Env()}, this, cancellationSource{m_cancellationSource}, request{std::move(request)}, text](arcana::expected<void, std::exception_ptr> result) {
+        request.SendAsync().then(m_runtimeScheduler, *m_cancellationSource, [env{info.Env()}, this, cancellationSource{m_cancellationSource}, request{std::move(request)}](arcana::expected<void, std::exception_ptr> result) {
+            if (cancellationSource->cancelled())
+            {
+                return;
+            }
+
             if (result.has_error())
             {
                 HandleLoadImageError(Napi::Error::New(env, result.error()));
                 return;
             }
-
-            Dispose();
 
             auto buffer{request.ResponseBuffer()};
             if (buffer.data() == nullptr || buffer.size_bytes() == 0)
@@ -225,12 +361,11 @@ namespace Babylon::Polyfills::Internal
 
     void NativeCanvasImage::HandleLoadImageError(const Napi::Error& error)
     {
+        // Match HTML <img>: fire onerror when set; otherwise fail silently.
+        // Throwing here made GUI image tests flaky (async decode after/during ready).
         if (!m_onerrorHandlerRef.IsEmpty())
         {
             m_onerrorHandlerRef.Call({error.Value()});
-            return;
         }
-
-        error.ThrowAsJavaScriptException();
     }
 }
