@@ -91,6 +91,7 @@ namespace Babylon
         void SetDepthWrite(NativeDataStream::Reader& data);
         void SetColorWrite(NativeDataStream::Reader& data);
         void SetBlendMode(NativeDataStream::Reader& data);
+        void SetBlendEquation(NativeDataStream::Reader& data);
         void SetMatrix(NativeDataStream::Reader& data);
         void SetInt(NativeDataStream::Reader& data);
         void SetIntArray(NativeDataStream::Reader& data);

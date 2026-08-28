@@ -99,6 +99,17 @@ namespace Babylon
             constexpr uint64_t SCREENMODE = BGFX_STATE_BLEND_FUNC_SEPARATE(BGFX_STATE_BLEND_ONE, BGFX_STATE_BLEND_INV_SRC_COLOR, BGFX_STATE_BLEND_ONE, BGFX_STATE_BLEND_INV_SRC_ALPHA);
         }
 
+                // Matches BABYLON.Constants.ALPHA_EQUATION_* (not bgfx's internal equation indices).
+                namespace AlphaEquation
+                {
+                    constexpr uint32_t ADD = 0;
+                    constexpr uint32_t SUBTRACT = 1;
+                    constexpr uint32_t REVERSE_SUBTRACT = 2;
+                    constexpr uint32_t MAX = 3;
+                    constexpr uint32_t MIN = 4;
+                    constexpr uint32_t DARKEN = 5;
+                }
+
         // True for the formats whose texels carry floating point data. Reading one of these back as
         // RGBA8 would quantize the values to 8 bits per channel, which silently destroys depth and
         // HDR readbacks, so they are normalized to RGBA32F instead.
@@ -918,7 +929,14 @@ namespace Babylon
                 StaticValue("ALPHA_INTERPOLATE", Napi::Number::From(env, AlphaMode::INTERPOLATE)),
                 StaticValue("ALPHA_SCREENMODE", Napi::Number::From(env, AlphaMode::SCREENMODE)),
 
-                StaticValue("STENCIL_TEST_LESS", Napi::Number::From(env, BGFX_STENCIL_TEST_LESS)),
+                                StaticValue("ALPHA_EQUATION_ADD", Napi::Number::From(env, AlphaEquation::ADD)),
+                                StaticValue("ALPHA_EQUATION_SUBTRACT", Napi::Number::From(env, AlphaEquation::SUBTRACT)),
+                                StaticValue("ALPHA_EQUATION_REVERSE_SUBTRACT", Napi::Number::From(env, AlphaEquation::REVERSE_SUBTRACT)),
+                                StaticValue("ALPHA_EQUATION_MAX", Napi::Number::From(env, AlphaEquation::MAX)),
+                                StaticValue("ALPHA_EQUATION_MIN", Napi::Number::From(env, AlphaEquation::MIN)),
+                                StaticValue("ALPHA_EQUATION_DARKEN", Napi::Number::From(env, AlphaEquation::DARKEN)),
+
+                                StaticValue("STENCIL_TEST_LESS", Napi::Number::From(env, BGFX_STENCIL_TEST_LESS)),
                 StaticValue("STENCIL_TEST_LEQUAL", Napi::Number::From(env, BGFX_STENCIL_TEST_LEQUAL)),
                 StaticValue("STENCIL_TEST_EQUAL", Napi::Number::From(env, BGFX_STENCIL_TEST_EQUAL)),
                 StaticValue("STENCIL_TEST_GEQUAL", Napi::Number::From(env, BGFX_STENCIL_TEST_GEQUAL)),
@@ -988,6 +1006,7 @@ namespace Babylon
                 StaticValue("COMMAND_SETDEPTHWRITE", Napi::FunctionPointer::Create(env, &NativeEngine::SetDepthWrite)),
                 StaticValue("COMMAND_SETCOLORWRITE", Napi::FunctionPointer::Create(env, &NativeEngine::SetColorWrite)),
                 StaticValue("COMMAND_SETBLENDMODE", Napi::FunctionPointer::Create(env, &NativeEngine::SetBlendMode)),
+                StaticValue("COMMAND_SETBLENDEQUATION", Napi::FunctionPointer::Create(env, &NativeEngine::SetBlendEquation)),
                 StaticValue("COMMAND_SETFLOAT", Napi::FunctionPointer::Create(env, &NativeEngine::SetFloat)),
                 StaticValue("COMMAND_SETFLOAT2", Napi::FunctionPointer::Create(env, &NativeEngine::SetFloat2)),
                 StaticValue("COMMAND_SETFLOAT3", Napi::FunctionPointer::Create(env, &NativeEngine::SetFloat3)),
@@ -1610,6 +1629,40 @@ namespace Babylon
         m_engineState &= ~BGFX_STATE_BLEND_MASK;
         m_engineState |= blendMode;
     }
+
+        void NativeEngine::SetBlendEquation(NativeDataStream::Reader& data)
+        {
+            // Dual depth peeling (OIT) needs ALPHA_EQUATION_MAX so peel passes write the farthest /
+            // nearest depth via max blending. Without this, setAlphaEquation is a no-op on Native
+            // (only blend *factors* were wired) and transparent geometry never accumulates.
+            const auto equation = data.ReadUint32();
+
+            m_engineState &= ~BGFX_STATE_BLEND_EQUATION_MASK;
+            switch (equation)
+            {
+                case AlphaEquation::ADD:
+                    // BGFX_STATE_BLEND_EQUATION_ADD is 0
+                    break;
+                case AlphaEquation::SUBTRACT:
+                    m_engineState |= BGFX_STATE_BLEND_EQUATION(BGFX_STATE_BLEND_EQUATION_SUB);
+                    break;
+                case AlphaEquation::REVERSE_SUBTRACT:
+                    m_engineState |= BGFX_STATE_BLEND_EQUATION(BGFX_STATE_BLEND_EQUATION_REVSUB);
+                    break;
+                case AlphaEquation::MAX:
+                    m_engineState |= BGFX_STATE_BLEND_EQUATION(BGFX_STATE_BLEND_EQUATION_MAX);
+                    break;
+                case AlphaEquation::MIN:
+                    m_engineState |= BGFX_STATE_BLEND_EQUATION(BGFX_STATE_BLEND_EQUATION_MIN);
+                    break;
+                case AlphaEquation::DARKEN:
+                    // MIN for RGB, ADD for alpha — matches Constants.ALPHA_EQUATION_DARKEN.
+                    m_engineState |= BGFX_STATE_BLEND_EQUATION_SEPARATE(BGFX_STATE_BLEND_EQUATION_MIN, BGFX_STATE_BLEND_EQUATION_ADD);
+                    break;
+                default:
+                    break;
+            }
+        }
 
     void NativeEngine::SetInt(NativeDataStream::Reader& data)
     {
