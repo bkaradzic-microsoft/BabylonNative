@@ -2111,24 +2111,43 @@ namespace Babylon::ShaderCompilerTraversers
         protected:
             virtual bool visitAggregate(TVisit visit, TIntermAggregate* node) override
             {
-                if (visit == EvPreVisit && (node->getOp() == EOpTexture || node->getOp() == EOpTextureLod))
+                if (visit == EvPreVisit && (node->getOp() == EOpTexture || node->getOp() == EOpTextureLod || node->getOp() == EOpTextureProj))
                 {
                     auto& sequence = node->getSequence();
                     if (sequence.size() >= 2)
                     {
-                        // The coordinate is the operand right after the sampler. Only 2-component
-                        // float coordinates (sampler2D-style) are flipped; cube/array/3D coordinates
-                        // (vec3+) are left untouched, matching the original flip(vec2)/flip(vec3).
-                        auto* coordinate = sequence[1]->getAsTyped();
-                        if (coordinate != nullptr &&
-                            coordinate->getType().getBasicType() == EbtFloat &&
-                            !coordinate->getType().isArray() &&
-                            coordinate->getType().getVectorSize() == 2)
-                        {
-                            sequence[1] = FlipVerticalCoordinate(coordinate);
-                        }
-                    }
-                }
+                                        // The coordinate is the operand right after the sampler.
+                                        // - sampler2D (vec2): flip V
+                                        // - sampler2DShadow (vec3 = uv + depth) / sampler2DArrayShadow (vec4 = uv + layer + depth):
+                                        //   flip V only. Hardware PCF (SampleCmp) feeds these multi-component coords, so leaving
+                                        //   them unflipped produced Y-mirrored cascade "ghost" silhouettes while Poisson (vec2
+                                        //   depth texture samples) looked correct.
+                                        // - cube / plain 3D / plain 2DArray (non-shadow): left untouched, matching the original
+                                        //   flip(vec2)/identity-flip(vec3) convention for non-shadow samplers.
+                                        auto* coordinate = sequence[1]->getAsTyped();
+                                        if (coordinate != nullptr &&
+                                            coordinate->getType().getBasicType() == EbtFloat &&
+                                            !coordinate->getType().isArray())
+                                        {
+                                            const int vecSize = coordinate->getType().getVectorSize();
+                                            if (vecSize == 2)
+                                            {
+                                                sequence[1] = FlipVerticalCoordinate(coordinate);
+                                            }
+                                            else if (vecSize == 3 || vecSize == 4)
+                                            {
+                                                auto* sampler = sequence[0]->getAsTyped();
+                                                if (sampler != nullptr &&
+                                                    sampler->getType().getBasicType() == EbtSampler &&
+                                                    sampler->getType().getSampler().isShadow() &&
+                                                    sampler->getType().getSampler().dim == Esd2D)
+                                                {
+                                                    sequence[1] = FlipVerticalCoordinateKeepExtra(coordinate);
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
                 else if (visit == EvPostVisit && node->getOp() == EOpTextureFetch)
                 {
                     // texelFetch(sampler, ivec coord, lod). The vertical flip that used to be applied
@@ -2187,6 +2206,53 @@ namespace Babylon::ShaderCompilerTraversers
                 TIntermTyped* scaled{m_intermediate->addBinaryMath(EOpMul, coordinate, scale, loc)};
                 return m_intermediate->addBinaryMath(EOpAdd, scaled, offset, loc);
             }
+
+                        // Flips V of a shadow sampler coordinate while preserving depth (and layer for arrays):
+                        //   vec3(u, v, depth)        -> coordinate * vec3(1,-1,1) + vec3(0,1,0)
+                        //   vec4(u, v, layer, depth) -> coordinate * vec4(1,-1,1,1) + vec4(0,1,0,0)
+                        // Float vector mul/add is retained by SPIRV-Cross webmin (unlike integer OpIMul).
+                        TIntermTyped* FlipVerticalCoordinateKeepExtra(TIntermTyped* coordinate)
+                        {
+                            const TSourceLoc& loc{coordinate->getLoc()};
+                            // Shadow coords are only vec3 (2D) or vec4 (2DArray); branch avoids non-literal
+                            // TType/TConstUnionArray sizes that MSVC rejects as narrowing conversions.
+                            if (coordinate->getType().getVectorSize() == 3)
+                            {
+                                TType vec3Type{EbtFloat, EvqConst, 3};
+                                TConstUnionArray scaleValues{3};
+                                scaleValues[0].setDConst(1.0);
+                                scaleValues[1].setDConst(-1.0);
+                                scaleValues[2].setDConst(1.0);
+                                TIntermTyped* scale{m_intermediate->addConstantUnion(scaleValues, vec3Type, loc)};
+
+                                TConstUnionArray offsetValues{3};
+                                offsetValues[0].setDConst(0.0);
+                                offsetValues[1].setDConst(1.0);
+                                offsetValues[2].setDConst(0.0);
+                                TIntermTyped* offset{m_intermediate->addConstantUnion(offsetValues, vec3Type, loc)};
+
+                                TIntermTyped* scaled{m_intermediate->addBinaryMath(EOpMul, coordinate, scale, loc)};
+                                return m_intermediate->addBinaryMath(EOpAdd, scaled, offset, loc);
+                            }
+
+                            TType vec4Type{EbtFloat, EvqConst, 4};
+                            TConstUnionArray scaleValues{4};
+                            scaleValues[0].setDConst(1.0);
+                            scaleValues[1].setDConst(-1.0);
+                            scaleValues[2].setDConst(1.0);
+                            scaleValues[3].setDConst(1.0);
+                            TIntermTyped* scale{m_intermediate->addConstantUnion(scaleValues, vec4Type, loc)};
+
+                            TConstUnionArray offsetValues{4};
+                            offsetValues[0].setDConst(0.0);
+                            offsetValues[1].setDConst(1.0);
+                            offsetValues[2].setDConst(0.0);
+                            offsetValues[3].setDConst(0.0);
+                            TIntermTyped* offset{m_intermediate->addConstantUnion(offsetValues, vec4Type, loc)};
+
+                            TIntermTyped* scaled{m_intermediate->addBinaryMath(EOpMul, coordinate, scale, loc)};
+                            return m_intermediate->addBinaryMath(EOpAdd, scaled, offset, loc);
+                        }
 
             // Builds `ivec2(coordinate.x, textureSize(sampler, lod).y - 1 - coordinate.y)`, the
             // integer-texel-coordinate equivalent of FlipVerticalCoordinate. This is exactly the
