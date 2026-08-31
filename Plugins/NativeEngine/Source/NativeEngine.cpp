@@ -45,6 +45,7 @@ namespace bgfx
 #include <limits>
 #include <optional>
 #include <array>
+#include <vector>
 
 #ifdef BABYLON_NATIVE_NATIVEENGINE_TEST_HOOKS
 #include <atomic>
@@ -1484,6 +1485,9 @@ namespace Babylon
         const uint32_t numY = data.ReadUint32();
         const uint32_t numZ = data.ReadUint32();
 
+        // Always use the frame encoder. begin(true) per dispatch exhausts bgfx's encoder
+        // pool (handles are only reset at frame end). Dispatch clears encoder texture binds;
+        // RestoreBoundTextures brings material samplers back for subsequent draws.
         bgfx::Encoder* encoder = GetEncoder();
 
         const uint32_t bufferCount = data.ReadUint32();
@@ -1504,11 +1508,13 @@ namespace Babylon
             const UniformInfo* samplerInfo = program->GetSamplerInfoByStage(stage);
             if (samplerInfo != nullptr)
             {
-                encoder->setTexture(stage, samplerInfo->Handle, texture->Handle(), texture->SamplerFlags());
+                // Use the shader's own stage for setTexture (matches bgfx uniform table / HLSL s#).
+                encoder->setTexture(samplerInfo->Stage, samplerInfo->Handle, texture->Handle(), texture->SamplerFlags());
             }
         }
 
         GetBoundFrameBuffer().Compute(*encoder, program->Handle(), numX, numY, numZ);
+        RestoreBoundTextures(encoder);
     }
 
     Napi::Value NativeEngine::GetUniforms(const Napi::CallbackInfo& info)
@@ -2556,16 +2562,24 @@ namespace Babylon
 
         bgfx::Encoder* encoder = GetEncoder();
 
-        const uint16_t numLayers = texture->ViewNumLayers();
+        BoundTexture bound{};
+        bound.Handle = uniformInfo->Handle;
+        bound.Texture = texture->Handle();
+        bound.Flags = texture->SamplerFlags();
+        bound.FirstLayer = texture->ViewFirstLayer();
+        bound.NumLayers = texture->ViewNumLayers();
+        m_boundTextures[uniformInfo->Stage] = bound;
+
+        const uint16_t numLayers = bound.NumLayers;
         if (numLayers != 0)
         {
             // Select a single array slice of a multi-layer texture at bind time (e.g. NV12 decoder
             // frame-pool slice). The texture itself stays a full TEXTURE2DARRAY.
-            encoder->setTexture(uniformInfo->Stage, uniformInfo->Handle, texture->Handle(), texture->ViewFirstLayer(), numLayers, 0, UINT8_MAX, texture->SamplerFlags());
+            encoder->setTexture(uniformInfo->Stage, uniformInfo->Handle, texture->Handle(), bound.FirstLayer, numLayers, 0, UINT8_MAX, bound.Flags);
         }
         else
         {
-            encoder->setTexture(uniformInfo->Stage, uniformInfo->Handle, texture->Handle(), texture->SamplerFlags());
+            encoder->setTexture(uniformInfo->Stage, uniformInfo->Handle, texture->Handle(), bound.Flags);
         }
     }
     void NativeEngine::UnsetTexture(NativeDataStream::Reader& data)
@@ -2573,13 +2587,38 @@ namespace Babylon
         const UniformInfo* uniformInfo = data.ReadPointer<UniformInfo>();
 
         bgfx::Encoder* encoder = GetEncoder();
+        m_boundTextures.erase(uniformInfo->Stage);
         encoder->setTexture(uniformInfo->Stage, uniformInfo->Handle, BGFX_INVALID_HANDLE);
     }
 
     void NativeEngine::DiscardAllTextures(NativeDataStream::Reader&)
     {
         bgfx::Encoder* encoder = GetEncoder();
+        m_boundTextures.clear();
         encoder->discard(BGFX_DISCARD_BINDINGS);
+    }
+
+    void NativeEngine::RestoreBoundTextures(bgfx::Encoder* encoder)
+    {
+        if (encoder == nullptr)
+        {
+            return;
+        }
+        for (const auto& [stage, bound] : m_boundTextures)
+        {
+            if (!bgfx::isValid(bound.Handle) || !bgfx::isValid(bound.Texture))
+            {
+                continue;
+            }
+            if (bound.NumLayers != 0)
+            {
+                encoder->setTexture(stage, bound.Handle, bound.Texture, bound.FirstLayer, bound.NumLayers, 0, UINT8_MAX, bound.Flags);
+            }
+            else
+            {
+                encoder->setTexture(stage, bound.Handle, bound.Texture, bound.Flags);
+            }
+        }
     }
 
     void NativeEngine::DeleteTexture(const Napi::CallbackInfo& info)
@@ -3112,19 +3151,20 @@ namespace Babylon
         if (m_boundVertexArray != nullptr)
         {
             const bgfx::DynamicVertexBufferHandle repacked = RepackStorageInstances(encoder, m_boundVertexArray, instanceCount);
-                        m_boundVertexArray->SetIndexBuffer(encoder, indexStart, indexCount);
-                        m_boundVertexArray->SetVertexBuffers(encoder, 0, std::numeric_limits<uint32_t>::max(), instanceCount, instanceDataLayout);
-                        if (bgfx::isValid(repacked))
-                        {
-                            encoder->setInstanceDataBuffer(repacked, 0, instanceCount);
-                        }
-                    }
-                    DrawInternal(encoder, fillMode, instanceDataLayout);
-                }
+            RestoreBoundTextures(encoder);
+            m_boundVertexArray->SetIndexBuffer(encoder, indexStart, indexCount);
+            m_boundVertexArray->SetVertexBuffers(encoder, 0, std::numeric_limits<uint32_t>::max(), instanceCount, instanceDataLayout);
+            if (bgfx::isValid(repacked))
+            {
+                encoder->setInstanceDataBuffer(repacked, 0, instanceCount);
+            }
+        }
+        DrawInternal(encoder, fillMode, instanceDataLayout);
+    }
 
-                // Note: For legacy reasons JS might call this function for instance drawing.
-                // In that case the instanceCount will be calculated inside the SetVertexBuffers method.
-                void NativeEngine::Draw(NativeDataStream::Reader& data)
+    // Note: For legacy reasons JS might call this function for instance drawing.
+    // In that case the instanceCount will be calculated inside the SetVertexBuffers method.
+    void NativeEngine::Draw(NativeDataStream::Reader& data)
     {
         const uint32_t fillMode = data.ReadUint32();
         const uint32_t verticesStart = data.ReadUint32();
@@ -3149,21 +3189,21 @@ namespace Babylon
         bgfx::Encoder* encoder = GetEncoder();
         const auto instanceDataLayout = GetInstanceDataLayout();
         if (m_boundVertexArray != nullptr)
-                {
-                    // GPU compute-written instance sources (e.g. GPU particles) are repacked into bgfx
-                    // i_data slots on the GPU. Dispatch first: encoder->dispatch resets the pending draw
-                    // bindings, so the vertex/instance bindings below must be set afterwards.
-                    const bgfx::DynamicVertexBufferHandle repacked = RepackStorageInstances(encoder, m_boundVertexArray, instanceCount);
-                    m_boundVertexArray->SetVertexBuffers(encoder, verticesStart, verticesCount, instanceCount, instanceDataLayout);
-                    if (bgfx::isValid(repacked))
-                    {
-                        encoder->setInstanceDataBuffer(repacked, 0, instanceCount);
-                    }
-                }
-                DrawInternal(encoder, fillMode, instanceDataLayout);
+        {
+            // GPU compute-written instance sources (e.g. GPU particles) are repacked into bgfx
+            // i_data slots. Repack dispatch clears encoder texture binds; restore material samplers.
+            const bgfx::DynamicVertexBufferHandle repacked = RepackStorageInstances(encoder, m_boundVertexArray, instanceCount);
+            RestoreBoundTextures(encoder);
+            m_boundVertexArray->SetVertexBuffers(encoder, verticesStart, verticesCount, instanceCount, instanceDataLayout);
+            if (bgfx::isValid(repacked))
+            {
+                encoder->setInstanceDataBuffer(repacked, 0, instanceCount);
             }
+        }
+        DrawInternal(encoder, fillMode, instanceDataLayout);
+    }
 
-            void NativeEngine::Clear(NativeDataStream::Reader& data)
+    void NativeEngine::Clear(NativeDataStream::Reader& data)
     {
         uint16_t flags{0};
         uint32_t rgba{0x000000ff};

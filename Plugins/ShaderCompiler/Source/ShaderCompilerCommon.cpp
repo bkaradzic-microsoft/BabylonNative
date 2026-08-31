@@ -397,7 +397,12 @@ namespace Babylon::ShaderCompilerCommon
 #elif OPENGL
         const spirv_cross::SmallVector<spirv_cross::Resource>& samplers = resources.sampled_images;
 #else
-        const spirv_cross::SmallVector<spirv_cross::Resource>& samplers = resources.separate_samplers;
+        // Graphics shaders run SplitSamplersIntoSamplersAndTextures, so separate_samplers is
+        // populated. Compute skips that pass and keeps combined sampled_images; without the
+        // fallback the CSH uniform table has zero samplers and setTexture never binds
+        // randomTexture (GPU particles stay dead). Prefer separate_samplers when present.
+        const spirv_cross::SmallVector<spirv_cross::Resource>& samplers =
+            resources.separate_samplers.empty() ? resources.sampled_images : resources.separate_samplers;
 #endif
         const size_t numUniforms{uniformsInfo.Uniforms.size() + samplers.size()};
 

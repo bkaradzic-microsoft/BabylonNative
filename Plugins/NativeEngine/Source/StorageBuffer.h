@@ -19,7 +19,11 @@ namespace Babylon
     class StorageBuffer final
     {
     public:
-        StorageBuffer(Graphics::DeviceContext& deviceContext, uint32_t byteLength, bool asVertexBuffer);
+        // byteStride is the bgfx vertex-layout stride used when the buffer is also bound as a
+        // vertex/instance buffer. For pure compute RAW buffers leave it at the default 16.
+        // Instance-data destinations must pass (numSlots * 16) so setInstanceDataBuffer advances
+        // a full multi-slot instance per step.
+        StorageBuffer(Graphics::DeviceContext& deviceContext, uint32_t byteLength, bool asVertexBuffer, uint32_t byteStride = 16);
         ~StorageBuffer();
 
         // No copy or move semantics.
@@ -40,6 +44,7 @@ namespace Babylon
         void SetVertex(bgfx::Encoder* encoder, uint8_t stream, uint32_t startVertex, uint32_t numVertices, bgfx::VertexLayoutHandle layout);
 
         uint32_t ByteLength() const { return m_byteLength; }
+        gsl::span<const uint8_t> ShadowBytes() const { return gsl::make_span(m_shadow.data(), m_shadow.size()); }
         bgfx::DynamicVertexBufferHandle Handle();
 
     private:
@@ -50,6 +55,7 @@ namespace Babylon
 
         const uint32_t m_byteLength{};
         const bool m_asVertexBuffer{};
+        const uint32_t m_byteStride{};
 
         std::vector<uint8_t> m_shadow{};
         bgfx::DynamicVertexBufferHandle m_handle{bgfx::kInvalidHandle};

@@ -51,7 +51,9 @@ namespace Babylon
 
         struct PerVertexArray
         {
-            bgfx::DynamicVertexBufferHandle Dest{bgfx::kInvalidHandle};
+            // Destination is a StorageBuffer so the repack kernel can bind it as a RAW UAV
+            // (same path as Params/Src). Handle() is then passed to setInstanceDataBuffer.
+            std::shared_ptr<StorageBuffer> DestStorage;
             uint32_t Capacity{}; // in instances
             uint16_t Stride{};   // bytes per instance (== attributeCount * 16)
             std::shared_ptr<StorageBuffer> Params;
