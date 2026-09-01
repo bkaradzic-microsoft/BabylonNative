@@ -977,7 +977,8 @@ namespace Babylon
                 StaticValue("COMMAND_DELETEINDEXBUFFER", Napi::FunctionPointer::Create(env, &NativeEngine::DeleteIndexBuffer)),
                 StaticValue("COMMAND_DELETEVERTEXBUFFER", Napi::FunctionPointer::Create(env, &NativeEngine::DeleteVertexBuffer)),
                 StaticValue("COMMAND_DELETESTORAGEBUFFER", Napi::FunctionPointer::Create(env, &NativeEngine::DeleteStorageBuffer)),
-                StaticValue("COMMAND_COMPUTEDISPATCH", Napi::FunctionPointer::Create(env, &NativeEngine::ComputeDispatch)),
+                                StaticValue("COMMAND_UPDATESTORAGEBUFFER", Napi::FunctionPointer::Create(env, &NativeEngine::UpdateStorageBufferCommand)),
+                                StaticValue("COMMAND_COMPUTEDISPATCH", Napi::FunctionPointer::Create(env, &NativeEngine::ComputeDispatch)),
                 StaticValue("COMMAND_SETPROGRAM", Napi::FunctionPointer::Create(env, &NativeEngine::SetProgram)),
                 StaticValue("COMMAND_DELETEPROGRAM", Napi::FunctionPointer::Create(env, &NativeEngine::DeleteProgram)),
                 StaticValue("COMMAND_SETMATRICES", Napi::FunctionPointer::Create(env, &NativeEngine::SetMatrices)),
@@ -1425,7 +1426,7 @@ namespace Babylon
     Napi::Value NativeEngine::CreateComputeProgram(const Napi::CallbackInfo& info)
     {
         const std::string computeSource = info[0].As<Napi::String>().Utf8Value();
-        Program* program = new Program{m_deviceContext};
+                Program* program = new Program{m_deviceContext};
         Napi::Value jsProgram = Napi::Pointer<Program>::Create(info.Env(), program, Napi::NapiPointerDeleter(program));
         try
         {
@@ -1439,15 +1440,17 @@ namespace Babylon
     }
 
     // Creates a raw (ByteAddressBuffer) compute storage buffer. asVertexBuffer lets the same buffer
-    // double as a vertex stream (particles). The buffer is created lazily on first bind.
-    Napi::Value NativeEngine::CreateStorageBuffer(const Napi::CallbackInfo& info)
-    {
-        const uint32_t byteLength = info[0].As<Napi::Number>().Uint32Value();
-        const bool asVertexBuffer = info.Length() > 1 && info[1].As<Napi::Boolean>().Value();
+        // double as a vertex stream (particles). computeWrite=false omits BGFX_BUFFER_COMPUTE_WRITE so
+        // CPU-updated readonly params buffers stay dynamic and updates stick on D3D11.
+        Napi::Value NativeEngine::CreateStorageBuffer(const Napi::CallbackInfo& info)
+        {
+            const uint32_t byteLength = info[0].As<Napi::Number>().Uint32Value();
+            const bool asVertexBuffer = info.Length() > 1 && info[1].As<Napi::Boolean>().Value();
+            const bool computeWrite = info.Length() <= 2 || info[2].As<Napi::Boolean>().Value();
 
-        StorageBuffer* storageBuffer = new StorageBuffer{m_deviceContext, byteLength, asVertexBuffer};
-        return Napi::Pointer<StorageBuffer>::Create(info.Env(), storageBuffer, Napi::NapiPointerDeleter(storageBuffer));
-    }
+            StorageBuffer* storageBuffer = new StorageBuffer{m_deviceContext, byteLength, asVertexBuffer, 16, computeWrite};
+            return Napi::Pointer<StorageBuffer>::Create(info.Env(), storageBuffer, Napi::NapiPointerDeleter(storageBuffer));
+        }
 
     void NativeEngine::UpdateStorageBuffer(const Napi::CallbackInfo& info)
     {
@@ -1467,55 +1470,149 @@ namespace Babylon
         }
     }
 
-    void NativeEngine::DeleteStorageBuffer(NativeDataStream::Reader& data)
-    {
-        data.ReadPointer<StorageBuffer>()->Dispose();
-    }
+        // Stream layout: StorageBuffer*, destByteOffset, float32[] payload (copied at encode time).
+            // Must run before the matching COMMAND_COMPUTEDISPATCH so each particle prewarm sees its own params.
+            void NativeEngine::UpdateStorageBufferCommand(NativeDataStream::Reader& data)
+            {
+                StorageBuffer* storageBuffer = data.ReadPointer<StorageBuffer>();
+                const uint32_t destByteOffset = data.ReadUint32();
+                const auto floats = data.ReadFloat32Array();
+                const auto bytes = gsl::make_span(reinterpret_cast<const uint8_t*>(floats.data()), floats.size_bytes());
+                storageBuffer->Update(bytes, destByteOffset);
+            }
+
+            void NativeEngine::DeleteStorageBuffer(NativeDataStream::Reader& data)
+            {
+                data.ReadPointer<StorageBuffer>()->Dispose();
+            }
 
     // Replays a compute dispatch recorded into the command stream. Stream layout:
-    //   program, numX, numY, numZ,
-    //   bufferCount, [stage, StorageBuffer*, access]*,
-    //   textureCount, [stage, Graphics::Texture*]*
-    // Storage buffers are bound as UAVs (u#), textures as sampler resources (t#/s#), matching the
-    // SPIRV-Cross force_storage_buffer_as_uav compute compilation.
-    void NativeEngine::ComputeDispatch(NativeDataStream::Reader& data)
-    {
-        Program* program = data.ReadPointer<Program>();
-        const uint32_t numX = data.ReadUint32();
-        const uint32_t numY = data.ReadUint32();
-        const uint32_t numZ = data.ReadUint32();
-
-        // Always use the frame encoder. begin(true) per dispatch exhausts bgfx's encoder
-        // pool (handles are only reset at frame end). Dispatch clears encoder texture binds;
-        // RestoreBoundTextures brings material samplers back for subsequent draws.
-        bgfx::Encoder* encoder = GetEncoder();
-
-        const uint32_t bufferCount = data.ReadUint32();
-        for (uint32_t i = 0; i < bufferCount; ++i)
+        //   program, numX, numY, numZ,
+        //   bufferCount, [stage, StorageBuffer*, access]*,
+        //   textureCount, [stage, Graphics::Texture*]*
+        // access: 0=Read (SRV), 1=Write, 2=ReadWrite (UAV). Readonly params/particlesIn bind SRV;
+        // writeable particlesOut bind UAV (SPIRV-Cross without force_storage_buffer_as_uav).
+        void NativeEngine::ComputeDispatch(NativeDataStream::Reader& data)
         {
-            const uint8_t stage = static_cast<uint8_t>(data.ReadUint32());
-            StorageBuffer* buffer = data.ReadPointer<StorageBuffer>();
-            const uint32_t access = data.ReadUint32();
-            bgfx::Access::Enum bgfxAccess = access == 0 ? bgfx::Access::Read : (access == 1 ? bgfx::Access::Write : bgfx::Access::ReadWrite);
-            buffer->SetCompute(encoder, stage, bgfxAccess);
-        }
+            Program* program = data.ReadPointer<Program>();
+            const uint32_t numX = data.ReadUint32();
+            const uint32_t numY = data.ReadUint32();
+            const uint32_t numZ = data.ReadUint32();
 
-        const uint32_t textureCount = data.ReadUint32();
-        for (uint32_t i = 0; i < textureCount; ++i)
-        {
-            const uint8_t stage = static_cast<uint8_t>(data.ReadUint32());
-            const Graphics::Texture* texture = data.ReadPointer<Graphics::Texture>();
-            const UniformInfo* samplerInfo = program->GetSamplerInfoByStage(stage);
-            if (samplerInfo != nullptr)
+            // Always use the frame encoder. begin(true) per dispatch exhausts bgfx's encoder
+            // pool (handles are only reset at frame end). Dispatch clears encoder texture binds;
+            // RestoreBoundTextures brings material samplers back for subsequent draws.
+            bgfx::Encoder* encoder = GetEncoder();
+
+            const uint32_t bufferCount = data.ReadUint32();
+            for (uint32_t i = 0; i < bufferCount; ++i)
             {
-                // Use the shader's own stage for setTexture (matches bgfx uniform table / HLSL s#).
-                encoder->setTexture(samplerInfo->Stage, samplerInfo->Handle, texture->Handle(), texture->SamplerFlags());
-            }
-        }
+                const uint8_t stage = static_cast<uint8_t>(data.ReadUint32());
+                StorageBuffer* buffer = data.ReadPointer<StorageBuffer>();
+                const uint32_t access = data.ReadUint32();
+                bgfx::Access::Enum bgfxAccess = access == 0 ? bgfx::Access::Read : (access == 1 ? bgfx::Access::Write : bgfx::Access::ReadWrite);
+                // Params SSBO (stage 0): ensure deferred shadow uploads are visible this dispatch.
+                if (stage == 0)
+                {
+                    buffer->FlushShadowToGpu();
+                    // TEMP: log first few + every 50th params bind
+                    static int s_p = 0;
+                    auto sh = buffer->ShadowBytes();
+                    if (sh.size() >= 112 && (s_p < 3 || s_p == 50 || s_p == 100 || s_p == 119 || s_p % 30 == 0))
+                    {
+                        const float* f = reinterpret_cast<const float*>(sh.data());
+                        FILE* fp = nullptr;
+                        if (fopen_s(&fp, "params_bind.txt", s_p == 0 ? "wb" : "ab") == 0 && fp)
+                        {
+                            const int rtex = *reinterpret_cast<const int*>(&f[3]);
+                            fprintf(fp, "#%d cc=%.1f dt=%.4f stop=%.1f rtex=%d life=%.2f,%.2f power=%.2f,%.2f emitIdx=%.1f emitCnt=%.1f\n",
+                                s_p, f[0], f[1], f[2], rtex, f[4], f[5], f[6], f[7], f[8], f[9]);
+                            fprintf(fp, "  size=%.3f,%.3f scale=%.3f,%.3f,%.3f,%.3f angle=%.2f,%.2f,%.2f,%.2f grav=%.2f,%.2f,%.2f\n",
+                                f[20], f[21], f[24], f[25], f[26], f[27], f[28], f[29], f[30], f[31], f[32], f[33], f[34]);
+                            fprintf(fp, "  wmT=%.2f,%.2f,%.2f minBox=%.2f,%.2f,%.2f maxBox=%.2f,%.2f,%.2f dir1=%.2f,%.2f,%.2f\n",
+                                f[48], f[49], f[50],
+                                f[60], f[61], f[62],
+                                f[64], f[65], f[66],
+                                f[52], f[53], f[54]);
+                            fprintf(fp, "  f:");
+                            for (int fi = 0; fi < 40; ++fi)
+                            {
+                                fprintf(fp, " %d=%.4g", fi, f[fi]);
+                            }
+                            fprintf(fp, "\n");
+                            fclose(fp);
+                        }
+                    }
+                    ++s_p;
+                }
+                // TEMP: log particle buffer pointers for stages 1/2
+                                if (stage == 1 || stage == 2)
+                                {
+                                    static int s_b = 0;
+                                    if (s_b < 8)
+                                    {
+                                        FILE* fp = nullptr;
+                                        if (fopen_s(&fp, "buf_ptr.txt", s_b == 0 ? "wb" : "ab") == 0 && fp)
+                                        {
+                                            fprintf(fp, "CS stage=%u access=%u ptr=%p handle=%u bytes=%u\n",
+                                                stage, access, (void*)buffer,
+                                                buffer->Handle().idx, buffer->ByteLength());
+                                            fclose(fp);
+                                        }
+                                        ++s_b;
+                                    }
+                                }
+                                buffer->SetCompute(encoder, stage, bgfxAccess);
+                            }
 
-        GetBoundFrameBuffer().Compute(*encoder, program->Handle(), numX, numY, numZ);
-        RestoreBoundTextures(encoder);
-    }
+            const uint32_t textureCount = data.ReadUint32();
+                        {
+                            static int s_texLog = 0;
+                            if (s_texLog < 6)
+                            {
+                                FILE* fp = nullptr;
+                                if (fopen_s(&fp, "cs_tex_bind.txt", s_texLog == 0 ? "wb" : "ab") == 0 && fp)
+                                {
+                                    fprintf(fp, "dispatch texCount=%u\n", textureCount);
+                                    fclose(fp);
+                                }
+                            }
+                            for (uint32_t i = 0; i < textureCount; ++i)
+                            {
+                                const uint8_t stage = static_cast<uint8_t>(data.ReadUint32());
+                                const Graphics::Texture* texture = data.ReadPointer<Graphics::Texture>();
+                                const UniformInfo* samplerInfo = program->GetSamplerInfoByStage(stage);
+                                if (s_texLog < 6)
+                                {
+                                    FILE* fp = nullptr;
+                                    if (fopen_s(&fp, "cs_tex_bind.txt", "ab") == 0 && fp)
+                                    {
+                                        fprintf(fp, "  stage=%u tex=%p sampler=%s handleValid=%d\n",
+                                            stage, (void*)texture, samplerInfo ? "yes" : "NO",
+                                            texture && bgfx::isValid(texture->Handle()) ? 1 : 0);
+                                        fclose(fp);
+                                    }
+                                }
+                                if (samplerInfo != nullptr)
+                                {
+                                    encoder->setTexture(samplerInfo->Stage, samplerInfo->Handle, texture->Handle(), texture->SamplerFlags());
+                                }
+                            }
+                            if (s_texLog < 6)
+                            {
+                                ++s_texLog;
+                            }
+                        }
+
+            GetBoundFrameBuffer().Compute(*encoder, program->Handle(), numX, numY, numZ);
+
+                        // Particle preWarm issues many ping-pong UAV dispatches in one logical frame.
+                        // Without a mid-frame submit, D3D11/bgfx can leave intermediate Out writes
+                        // invisible to the next In bind — only the last dispatch's particles survive.
+                        // RestoreBoundTextures first: ForceMidFrameFlush ends this encoder.
+                        RestoreBoundTextures(encoder);
+                        m_deviceContext.ForceMidFrameFlush();
+                    }
 
     Napi::Value NativeEngine::GetUniforms(const Napi::CallbackInfo& info)
     {
@@ -3216,18 +3313,39 @@ const bool requestDepthStencilTexture = (depthStencilTextureRequest != nullptr);
         const auto instanceDataLayout = GetInstanceDataLayout();
         if (m_boundVertexArray != nullptr)
         {
-            // GPU compute-written instance sources (e.g. GPU particles) are repacked into bgfx
-            // i_data slots. Repack dispatch clears encoder texture binds; restore material samplers.
-            const bgfx::DynamicVertexBufferHandle repacked = RepackStorageInstances(encoder, m_boundVertexArray, instanceCount);
-            RestoreBoundTextures(encoder);
-            m_boundVertexArray->SetVertexBuffers(encoder, verticesStart, verticesCount, instanceCount, instanceDataLayout);
-            if (bgfx::isValid(repacked))
             {
-                encoder->setInstanceDataBuffer(repacked, 0, instanceCount);
+                        static int s_di = 0;
+                        if (s_di < 8 && m_boundVertexArray && m_boundVertexArray->HasStorageInstances())
+                        {
+                            FILE* fp = nullptr;
+                            if (fopen_s(&fp, "draw_inst.txt", s_di == 0 ? "wb" : "ab") == 0 && fp)
+                            {
+                                fprintf(fp, "DrawInstanced count=%u verts=%u start=%u attrs=%zu\n",
+                                    instanceCount, verticesCount, verticesStart, m_boundVertexArray->GetInstances().size());
+                                fclose(fp);
+                            }
+                            ++s_di;
+                        }
+                    }
+                    // GPU compute-written instance sources (e.g. GPU particles) are repacked into bgfx
+                    // i_data slots. Repack dispatch clears encoder texture binds; restore material samplers.
+                                        // Repack runs on the draw encoder; force a mid-frame flush so UAV→vertex
+                                        // sees completed writes, then re-acquire encoder for the draw.
+                                        const bgfx::DynamicVertexBufferHandle repacked = RepackStorageInstances(encoder, m_boundVertexArray, instanceCount);
+                    if (bgfx::isValid(repacked))
+                    {
+                                            m_deviceContext.ForceMidFrameFlush();
+                                            encoder = GetEncoder();
+                                        }
+                                        RestoreBoundTextures(encoder);
+                                        m_boundVertexArray->SetVertexBuffers(encoder, verticesStart, verticesCount, instanceCount, instanceDataLayout);
+                                        if (bgfx::isValid(repacked))
+                                        {
+                                            encoder->setInstanceDataBuffer(repacked, 0, instanceCount);
+                                        }
             }
+            DrawInternal(encoder, fillMode, instanceDataLayout);
         }
-        DrawInternal(encoder, fillMode, instanceDataLayout);
-    }
 
     void NativeEngine::Clear(NativeDataStream::Reader& data)
     {
@@ -3635,6 +3753,19 @@ bgfx::DynamicVertexBufferHandle NativeEngine::RepackStorageInstances(bgfx::Encod
             }
         }
 
+        {
+            static int s_fm = 0;
+            if (s_fm < 12) {
+                FILE* fp = nullptr;
+                if (fopen_s(&fp, "fillmode_dump.txt", s_fm == 0 ? "wb" : "ab") == 0 && fp) {
+                    fprintf(fp, "fillMode=%u engState=0x%llx strip=%d cullMask=0x%llx\n",
+                        fillMode, (unsigned long long)m_engineState,
+                        (int)(fillMode==7), (unsigned long long)(m_engineState & BGFX_STATE_CULL_MASK));
+                    fclose(fp);
+                }
+                ++s_fm;
+            }
+        }
         for (const auto& it : m_currentProgram->Uniforms())
         {
             const UniformValue& value = it.second;
@@ -3691,27 +3822,59 @@ bgfx::DynamicVertexBufferHandle NativeEngine::RepackStorageInstances(bgfx::Encod
                 }
 
                 if (!genericInstancedAttributes.empty())
-                {
-                    programHandle = m_currentProgram->GetOrCreateInstancedVariant(genericInstancedAttributes, m_shaderProvider);
-                }
-            }
-        }
+                                {
+                                    static int s_ia = 0;
+                                    if (s_ia < 2)
+                                    {
+                                        FILE* fp = nullptr;
+                                        if (fopen_s(&fp, "inst_attr_map.txt", s_ia == 0 ? "wb" : "ab") == 0 && fp)
+                                        {
+                                            fprintf(fp, "generic instanced attrs:\n");
+                                            for (const auto& [name, loc] : genericInstancedAttributes)
+                                            {
+                                                const uint32_t slot = Babylon::Graphics::INSTANCE_DATA_FIRST_LOCATION - loc;
+                                                fprintf(fp, "  %s -> texcoord=%u i_data%u\n", name.c_str(), loc, slot);
+                                            }
+                                            fprintf(fp, "layout slots (attribLoc -> slot):\n");
+                                            for (const auto& [aloc, slot] : instanceDataLayout.Slots)
+                                            {
+                                                fprintf(fp, "  attribLoc=%u slot=%u\n", aloc, slot);
+                                            }
+                                            fclose(fp);
+                                        }
+                                        ++s_ia;
+                                    }
+                                    programHandle = m_currentProgram->GetOrCreateInstancedVariant(genericInstancedAttributes, m_shaderProvider);
+                                }
+                            }
+                        }
 
-        auto& boundFrameBuffer = GetBoundFrameBuffer();
-        if (boundFrameBuffer.HasDepth())
-        {
-            encoder->setState(m_engineState | fillModeState);
-        }
-        else
-        {
-            encoder->setState((m_engineState & ~BGFX_STATE_WRITE_Z) | fillModeState);
-        }
+                        auto& boundFrameBuffer = GetBoundFrameBuffer();
+                        if (boundFrameBuffer.HasDepth())
+                        {
+                            // Triangle strips alternate winding (e.g. GPU particle billboard quads).
+                        // Drop cull for this draw only so both tris survive; do not mutate m_engineState.
+                        // fillMode 7 = triangle strip (GPU/CPU particle quads). Disable cull AND
+                        // depth write: coplanar strip tris share Z; with WRITE_Z + DEPTH_LESS the
+                        // second tri is rejected → half particles.
+                        const uint64_t drawState = (fillMode == 7)
+                            ? ((m_engineState | fillModeState) & ~(BGFX_STATE_CULL_MASK | BGFX_STATE_WRITE_Z))
+                            : (m_engineState | fillModeState);
+                        encoder->setState(drawState);
+                        }
+                        else
+                        {
+                            const uint64_t drawState = (fillMode == 7)
+                                ? (((m_engineState & ~BGFX_STATE_WRITE_Z) | fillModeState) & ~BGFX_STATE_CULL_MASK)
+                                : ((m_engineState & ~BGFX_STATE_WRITE_Z) | fillModeState);
+                            encoder->setState(drawState);
+                        }
 
-        boundFrameBuffer.SetStencil(*encoder, m_stencilState);
+                        boundFrameBuffer.SetStencil(*encoder, m_stencilState);
 
-        // Discard everything except textures since we keep the state of everything else.
-        boundFrameBuffer.Submit(*encoder, programHandle, BGFX_DISCARD_ALL & ~BGFX_DISCARD_BINDINGS);
-    }
+                        // Discard everything except textures since we keep the state of everything else.
+                        boundFrameBuffer.Submit(*encoder, programHandle, BGFX_DISCARD_ALL & ~BGFX_DISCARD_BINDINGS);
+                    }
 
     Graphics::FrameBuffer& NativeEngine::GetBoundFrameBuffer()
     {
@@ -3897,9 +4060,9 @@ void main() {
                 // Pass 1: fill the raw buffer (buf[i] = i).
                 storage->SetCompute(encoder, 0, bgfx::Access::ReadWrite);
                 encoder->dispatch(0, writeProgram->Handle(), kCount, 1, 1);
-                // Pass 2: read the raw buffer into the image.
+                // Pass 2: read the raw buffer into the image (readonly SSBO → SRV).
                 encoder->setImage(0, texture, 0, bgfx::Access::Write, bgfx::TextureFormat::RGBA8);
-                storage->SetCompute(encoder, 1, bgfx::Access::ReadWrite);
+                                storage->SetCompute(encoder, 1, bgfx::Access::Read);
                 encoder->dispatch(0, readProgram->Handle(), kSize, kSize, 1);
             }
 

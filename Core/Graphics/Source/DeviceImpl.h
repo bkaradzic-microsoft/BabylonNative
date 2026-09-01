@@ -103,10 +103,11 @@ namespace Babylon::Graphics
         // (which previously threw "Too many views"). Called from the JS thread at
         // draw/clear operation boundaries where no encoder work is pending.
         void FlushViewsIfNeeded();
+                void ForceMidFrameFlush();
 
-        // Frame completion scope support
-        void IncrementPendingFrameScopes();
-        void DecrementPendingFrameScopes();
+                // Frame completion scope support
+                void IncrementPendingFrameScopes();
+                void DecrementPendingFrameScopes();
 
         // Active encoder for the current frame.
         void SetActiveEncoder(bgfx::Encoder* encoder);

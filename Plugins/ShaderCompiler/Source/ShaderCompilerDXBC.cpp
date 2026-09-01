@@ -10,6 +10,7 @@
 #include <spirv_hlsl.hpp>
 #include <d3dcompiler.h>
 #include <wrl/client.h>
+#include <cstring>
 
 namespace
 {
@@ -49,22 +50,39 @@ namespace
 
         std::string hlsl = compiler->compile();
 
-        Microsoft::WRL::ComPtr<ID3DBlob> errorMsgs;
-        const char* target = stage == EShLangVertex ? "vs_5_0" : "ps_5_0";
+                // TEMP shotgun: dump particle instanced VS (has i_data + particle varyings)
+                if (stage == EShLangVertex && hlsl.find("i_data") != std::string::npos && hlsl.find("vColor") != std::string::npos)
+                {
+                    static int s_vsDump = 0;
+                    if (s_vsDump < 2)
+                    {
+                        char path[64];
+                        snprintf(path, sizeof(path), "particle_vs_%d.hlsl", s_vsDump++);
+                        FILE* f = nullptr;
+                        if (fopen_s(&f, path, "wb") == 0 && f)
+                        {
+                            fwrite(hlsl.data(), 1, hlsl.size(), f);
+                            fclose(f);
+                        }
+                    }
+                }
 
-        UINT flags = 0;
+                Microsoft::WRL::ComPtr<ID3DBlob> errorMsgs;
+                const char* target = stage == EShLangVertex ? "vs_5_0" : "ps_5_0";
 
-#ifdef _DEBUG
-        flags |= D3DCOMPILE_DEBUG;
-#endif
+                UINT flags = 0;
 
-        if (FAILED(D3DCompile(hlsl.data(), hlsl.size(), nullptr, nullptr, nullptr, "main", target, flags, 0, blob, &errorMsgs)))
-        {
-            throw std::runtime_error{static_cast<const char*>(errorMsgs->GetBufferPointer())};
-        }
+        #ifdef _DEBUG
+                flags |= D3DCOMPILE_DEBUG;
+        #endif
 
-        return {std::move(parser), std::move(compiler)};
-    }
+                if (FAILED(D3DCompile(hlsl.data(), hlsl.size(), nullptr, nullptr, nullptr, "main", target, flags, 0, blob, &errorMsgs)))
+                {
+                    throw std::runtime_error{static_cast<const char*>(errorMsgs->GetBufferPointer())};
+                }
+
+                return {std::move(parser), std::move(compiler)};
+            }
 
     std::pair<std::unique_ptr<spirv_cross::Parser>, std::unique_ptr<spirv_cross::Compiler>> CompileComputeShader(glslang::TProgram& program, ID3DBlob** blob)
     {
@@ -76,33 +94,57 @@ namespace
 
         auto compiler = std::make_unique<spirv_cross::CompilerHLSL>(parser->get_parsed_ir());
 
-        // Compute requires Shader Model 5.0 (cs_5_0). Force read-write storage buffers to be
-        // emitted as UAVs so bgfx::setBuffer(...ACCESS_READWRITE) binds them to the u# registers.
-        spirv_cross::CompilerHLSL::Options hlslOptions{};
-        hlslOptions.shader_model = 50;
-        hlslOptions.force_storage_buffer_as_uav = true;
-        compiler->set_hlsl_options(hlslOptions);
+        // Compute requires Shader Model 5.0 (cs_5_0). Do NOT force every SSBO to UAV:
+                // readonly buffers (params, particlesIn) must stay SRVs so they can be created
+                // without BGFX_BUFFER_COMPUTE_WRITE. bgfx marks COMPUTE_WRITE buffers as
+                // non-dynamic (m_dynamic=false); CPU updates then fail to stick on D3D11, which
+                // left GPU particle sim params at zero (no emit). Read-write SSBOs still become
+                // UAVs via normal SPIRV-Cross decoration.
+                spirv_cross::CompilerHLSL::Options hlslOptions{};
+                hlslOptions.shader_model = 50;
+                hlslOptions.force_storage_buffer_as_uav = false;
+                compiler->set_hlsl_options(hlslOptions);
 
         Babylon::ShaderCompilerCommon::AssignUniformBufferBindings(*compiler);
 
         std::string hlsl = compiler->compile();
 
-        Microsoft::WRL::ComPtr<ID3DBlob> errorMsgs;
+                                // TEMP: dump particle update + repack CS
+                                if (hlsl.find("particlesOut") != std::string::npos || hlsl.find("SimParams") != std::string::npos
+                                                                    || (hlsl.find("currentCount") != std::string::npos && hlsl.find("emitCount") != std::string::npos)
+                                                                    || (hlsl.find("srcData") != std::string::npos && hlsl.find("dstData") != std::string::npos)
+                                                                    || hlsl.find("dstStride") != std::string::npos)
+                                                                {
+                                                                    static int s_csN = 0;
+                                                                    if (s_csN < 6)
+                                                                    {
+                                                                        char path[64];
+                                                                        snprintf(path, sizeof(path), "compute_cs_%d.hlsl", s_csN++);
+                                                                        FILE* f = nullptr;
+                                                                        if (fopen_s(&f, path, "wb") == 0 && f)
+                                                                        {
+                                                                            fwrite(hlsl.data(), 1, hlsl.size(), f);
+                                                                            fclose(f);
+                                                                        }
+                                                                    }
+                                                                }
 
-        UINT flags = 0;
+                                Microsoft::WRL::ComPtr<ID3DBlob> errorMsgs;
 
-#ifdef _DEBUG
-        flags |= D3DCOMPILE_DEBUG;
-#endif
+                        UINT flags = 0;
 
-        if (FAILED(D3DCompile(hlsl.data(), hlsl.size(), nullptr, nullptr, nullptr, "main", "cs_5_0", flags, 0, blob, &errorMsgs)))
-        {
-            throw std::runtime_error{static_cast<const char*>(errorMsgs->GetBufferPointer())};
+                #ifdef _DEBUG
+                        flags |= D3DCOMPILE_DEBUG;
+                #endif
+
+                        if (FAILED(D3DCompile(hlsl.data(), hlsl.size(), nullptr, nullptr, nullptr, "main", "cs_5_0", flags, 0, blob, &errorMsgs)))
+                        {
+                            throw std::runtime_error{static_cast<const char*>(errorMsgs->GetBufferPointer())};
+                        }
+
+                return {std::move(parser), std::move(compiler)};
+            }
         }
-
-        return {std::move(parser), std::move(compiler)};
-    }
-}
 
 namespace Babylon::Plugins
 {

@@ -129,6 +129,11 @@ namespace Babylon::Graphics
         // continue within the same logical frame. Call at draw/clear op boundaries.
         void FlushViewsIfNeeded();
 
+                // Always submit a mid-frame flush when possible (same machinery as
+                // FlushViewsIfNeeded, without the view-budget gate). Used after compute
+                // dispatches that ping-pong UAVs so the next dispatch sees prior writes.
+                void ForceMidFrameFlush();
+
         // TODO: find a different way to get the texture info for frame capture
         void AddTexture(bgfx::TextureHandle handle, uint16_t width, uint16_t height, bool hasMips, uint16_t numLayers, bgfx::TextureFormat::Enum format);
         void RemoveTexture(bgfx::TextureHandle handle);

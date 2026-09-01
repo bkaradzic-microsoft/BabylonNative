@@ -78,8 +78,12 @@ namespace Babylon
         Napi::Value CreateComputeProgram(const Napi::CallbackInfo& info);
         Napi::Value CreateStorageBuffer(const Napi::CallbackInfo& info);
         void UpdateStorageBuffer(const Napi::CallbackInfo& info);
-        void DeleteStorageBuffer(NativeDataStream::Reader& data);
-        void ComputeDispatch(NativeDataStream::Reader& data);
+                // Deferred SSBO upload ordered with COMMAND_COMPUTEDISPATCH in the command stream.
+                // Immediate updateStorageBuffer races ahead of deferred dispatches (e.g. GPU particle
+                // prewarm), so only the last params blob is visible to every dispatch.
+                void UpdateStorageBufferCommand(NativeDataStream::Reader& data);
+                void DeleteStorageBuffer(NativeDataStream::Reader& data);
+                void ComputeDispatch(NativeDataStream::Reader& data);
         Napi::Value GetUniforms(const Napi::CallbackInfo& info);
         Napi::Value GetAttributes(const Napi::CallbackInfo& info);
         void SetProgram(NativeDataStream::Reader& data);

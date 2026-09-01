@@ -551,74 +551,87 @@ namespace Babylon::Graphics
     }
 
     void DeviceImpl::FlushViewsIfNeeded()
-    {
-        // Reserve headroom below the hard cap: a single draw/clear operation can
-        // acquire a couple of views before the next flush check, and one view
-        // (maxViews - 1) is reserved for readback blits.
-        constexpr bgfx::ViewId kViewFlushMargin = 16;
-
-        // Maximum mid-frame flushes allowed in one logical frame. Measured: no test in the
-        // validation suite needs any at the real 256-view budget, and the heaviest content
-        // found so far (the excluded "Nested BBG", which renders in a setInterval) peaks at
-        // 5. 64 leaves generous headroom for legitimately heavy content while bounding a
-        // mechanism that is otherwise unlimited: each flush is a blocking round-trip to the
-        // render thread, so an unbounded number of them would degrade into an apparent hang
-        // rather than an error.
-        constexpr uint32_t kMaxMidFrameViewFlushes = 64;
-
-        const bgfx::ViewId maxViews = static_cast<bgfx::ViewId>(bgfx::getCaps()->limits.maxViews);
-        if (maxViews <= kViewFlushMargin)
         {
-            return;
+            // Reserve headroom below the hard cap: a single draw/clear operation can
+            // acquire a couple of views before the next flush check, and one view
+            // (maxViews - 1) is reserved for readback blits.
+            constexpr bgfx::ViewId kViewFlushMargin = 16;
+
+            const bgfx::ViewId maxViews = static_cast<bgfx::ViewId>(bgfx::getCaps()->limits.maxViews);
+            if (maxViews <= kViewFlushMargin)
+            {
+                return;
+            }
+
+            if (m_nextViewId.load() < static_cast<uint32_t>(maxViews - kViewFlushMargin))
+            {
+                return;
+            }
+
+            ForceMidFrameFlush();
         }
 
-        if (m_nextViewId.load() < static_cast<uint32_t>(maxViews - kViewFlushMargin))
+        void DeviceImpl::ForceMidFrameFlush()
         {
-            return;
-        }
+            // Bound mid-frame flushes. Particle preWarm alone can request ~120; keep headroom.
+            constexpr uint32_t kMaxMidFrameViewFlushes = 256;
 
-        // Bound the rescue. Each flush is a blocking round-trip to the render thread, so
-        // content that needs an unbounded number of them (e.g. a snippet that renders in a
-        // setInterval without ever letting the frame present) would appear to hang rather
-        // than fail. Past the budget, stop flushing and let AcquireNewViewId throw
-        // "Too many views" — the pre-existing behaviour, and a far better diagnostic than a
-        // process that makes progress too slowly to ever finish.
-        if (m_midFrameFlushCount.load() >= kMaxMidFrameViewFlushes)
-        {
-            return;
-        }
+                    static std::atomic<uint32_t> s_attempt{0};
+                    static std::atomic<uint32_t> s_ok{0};
+                    static std::atomic<uint32_t> s_skipBudget{0};
+                    static std::atomic<uint32_t> s_skipAffinity{0};
+                    static std::atomic<uint32_t> s_skipGate{0};
+                    const uint32_t attempt = s_attempt.fetch_add(1) + 1;
 
-        // The flush advances a bgfx frame, which must happen on the render (bgfx API)
-        // thread. This method is only expected to be called from the JS thread while
-        // the render thread is parked in FinishRenderingCurrentFrame. If we're on the
-        // render thread (or affinity is unset), there is nothing safe to do here.
-        if (m_renderThreadAffinity.check())
-        {
-            return;
-        }
+                    if (m_midFrameFlushCount.load() >= kMaxMidFrameViewFlushes)
+            {
+                        s_skipBudget.fetch_add(1);
+                        return;
+                    }
 
-        std::unique_lock lock{m_frameSyncMutex};
+                    // Must run on the JS thread while the render thread is parked in
+                    // FinishRenderingCurrentFrame (FrameCompletionScope held).
+                    if (m_renderThreadAffinity.check())
+                    {
+                        s_skipAffinity.fetch_add(1);
+                        return;
+                    }
 
-        // The mid-frame flush advances a bgfx frame on the render thread, which
-        // can only be serviced while the render thread is parked in
-        // FinishRenderingCurrentFrame waiting for frame scopes to drain. That is
-        // only guaranteed while at least one FrameCompletionScope is active (the
-        // normal requestAnimationFrame render path). When a snippet drives frames
-        // manually (e.g. setInterval + engine.beginFrame/scene.render/
-        // engine.endFrame) there is no frame scope, the render thread is not
-        // parked to service the request, and parking the JS thread on
-        // m_flushCompleteCV would deadlock. Skip the flush in that case; the hard
-        // cap in AcquireNewViewId remains as a backstop. Likewise skip if the gate
-        // is currently closed (bgfx::frame() in progress).
-        if (m_frameBlocked || m_pendingFrameScopes == 0)
-        {
-            return;
-        }
+                    std::unique_lock lock{m_frameSyncMutex};
 
-        m_flushRequested = true;
-        m_frameSyncCV.notify_all();
-        m_flushCompleteCV.wait(lock, [this] { return !m_flushRequested; });
-    }
+                    if (m_frameBlocked || m_pendingFrameScopes == 0)
+                    {
+                        s_skipGate.fetch_add(1);
+                        // TEMP diagnostic: dump skip reasons periodically
+                        if (attempt <= 3 || (attempt % 50) == 0)
+                        {
+                            FILE* f = nullptr;
+                            if (fopen_s(&f, "force_flush_diag.txt", "a") == 0 && f)
+                            {
+                                fprintf(f, "skipGate attempt=%u blocked=%d scopes=%d ok=%u skipBudget=%u skipAff=%u skipGate=%u\n",
+                                    attempt, (int)m_frameBlocked, m_pendingFrameScopes,
+                                    s_ok.load(), s_skipBudget.load(), s_skipAffinity.load(), s_skipGate.load());
+                                fclose(f);
+                            }
+                        }
+                        return;
+                    }
+
+                    m_flushRequested = true;
+                    m_frameSyncCV.notify_all();
+                    m_flushCompleteCV.wait(lock, [this] { return !m_flushRequested; });
+                    s_ok.fetch_add(1);
+                    if (attempt <= 3 || (attempt % 50) == 0)
+                    {
+                        FILE* f = nullptr;
+                        if (fopen_s(&f, "force_flush_diag.txt", "a") == 0 && f)
+                        {
+                            fprintf(f, "ok attempt=%u midCount=%u ok=%u skipGate=%u\n",
+                                attempt, m_midFrameFlushCount.load(), s_ok.load(), s_skipGate.load());
+                            fclose(f);
+                        }
+                    }
+                }
 
     // Called on the render thread from FinishRenderingCurrentFrame while holding
     // m_frameSyncMutex, with the requesting JS thread parked in FlushViewsIfNeeded

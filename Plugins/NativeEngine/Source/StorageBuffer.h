@@ -23,8 +23,10 @@ namespace Babylon
         // vertex/instance buffer. For pure compute RAW buffers leave it at the default 16.
         // Instance-data destinations must pass (numSlots * 16) so setInstanceDataBuffer advances
         // a full multi-slot instance per step.
-        StorageBuffer(Graphics::DeviceContext& deviceContext, uint32_t byteLength, bool asVertexBuffer, uint32_t byteStride = 16);
-        ~StorageBuffer();
+                // computeWrite: when false, omit BGFX_BUFFER_COMPUTE_WRITE so the buffer stays CPU-updatable
+                // (required for sim-params SSBOs that the CPU refreshes every dispatch).
+                StorageBuffer(Graphics::DeviceContext& deviceContext, uint32_t byteLength, bool asVertexBuffer, uint32_t byteStride = 16, bool computeWrite = true);
+                ~StorageBuffer();
 
         // No copy or move semantics.
         StorageBuffer(const StorageBuffer&) = delete;
@@ -35,6 +37,11 @@ namespace Babylon
         // Writes bytes into the buffer at byteOffset. Before the bgfx buffer is created this
         // updates the CPU shadow (used to seed creation); afterwards it updates the GPU buffer.
         void Update(gsl::span<const uint8_t> bytes, uint32_t byteOffset);
+
+                // Re-uploads the entire CPU shadow to the GPU (no-op if not yet created). Used to ensure
+                // deferred param SSBO uploads are visible to a subsequent compute dispatch on backends
+                // where create-then-update seeding can silently leave UAV memory cleared.
+                void FlushShadowToGpu();
 
         // Binds the buffer as a compute resource on the given stage (u#/t# register).
         void SetCompute(bgfx::Encoder* encoder, uint8_t stage, bgfx::Access::Enum access);
@@ -55,7 +62,8 @@ namespace Babylon
 
         const uint32_t m_byteLength{};
         const bool m_asVertexBuffer{};
-        const uint32_t m_byteStride{};
+                const bool m_computeWrite{true};
+                const uint32_t m_byteStride{};
 
         std::vector<uint8_t> m_shadow{};
         bgfx::DynamicVertexBufferHandle m_handle{bgfx::kInvalidHandle};

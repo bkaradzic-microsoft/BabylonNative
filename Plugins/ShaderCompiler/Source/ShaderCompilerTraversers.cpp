@@ -707,7 +707,6 @@ namespace Babylon::ShaderCompilerTraversers
                 return index;
             }
 
-            unsigned int m_genericAttributesRunningCount{0};
             const std::map<std::string, uint32_t>* m_instancedAttributes{nullptr};
             // Must stay sorted: GetStableLocation derives an attribute's location from its ordinal
             // position here, and that location must match across the base compile and every variant.
@@ -901,20 +900,10 @@ namespace Babylon::ShaderCompilerTraversers
                 auto intermediate{program.getIntermediate(EShLangVertex)};
                 VertexVaryingInTraverserD3D traverser{};
                 traverser.m_instancedAttributes = &instancedAttributes;
-                intermediate->getTreeRoot()->traverse(&traverser);
-                traverser.AssignBuiltInInstanceSlots();
-                // UVs are effectively a special kind of generic attribute since they both use
-                // are implemented using texture coordinates, so we preprocess to pre-count the
-                // number of UV coordinate variables to prevent collisions.
-                for (const auto& [name, symbol] : traverser.m_varyingNameToSymbol)
-                {
-                    if (name.size() >= 2 && name[0] == 'u' && name[1] == 'v')
-                    {
-                        traverser.m_genericAttributesRunningCount++;
-                    }
-                }
-                VertexVaryingInTraverser::Traverse(intermediate, ids, replacementToOriginalName, traverser);
-                return traverser.m_builtInInstanceSlots;
+                                intermediate->getTreeRoot()->traverse(&traverser);
+                                traverser.AssignBuiltInInstanceSlots();
+                                VertexVaryingInTraverser::Traverse(intermediate, ids, replacementToOriginalName, traverser);
+                                return traverser.m_builtInInstanceSlots;
             }
 
         private:
@@ -955,13 +944,63 @@ namespace Babylon::ShaderCompilerTraversers
                 IF_NAME_RETURN_ATTRIB("matricesIndices", bgfx::Attrib::Indices, "a_indices")
                 IF_NAME_RETURN_ATTRIB("matricesWeights", bgfx::Attrib::Weight, "a_weight")
 #undef IF_NAME_RETURN_ATTRIB
-                const unsigned int attributeLocation = FIRST_GENERIC_ATTRIBUTE_LOCATION + m_genericAttributesRunningCount++;
-                if (attributeLocation >= static_cast<unsigned int>(bgfx::Attrib::Count))
-                    throw std::runtime_error("Cannot support more than " + std::to_string(static_cast<int>(bgfx::Attrib::Count)) + " vertex attributes.");
-                return {attributeLocation, name};
-            }
-            const unsigned int FIRST_GENERIC_ATTRIBUTE_LOCATION{10};
-        };
+                                // Generic locations must be stable between the base program and any instanced
+                                // variant. Vertex buffers for non-instanced attrs (e.g. particle `offset`)
+                                // are recorded against the base program's locations; if a variant renumbers
+                                // generics because other attrs moved to i_data, those streams bind to the wrong
+                                // inputs and billboards collapse (GPU particles drew as thin slivers/dual orbs).
+                                //
+                                // bgfx packs TEXCOORDn starting at location 10. `uv`/`uv2`/… claim those slots via
+                                // the special-name path above, so generics must start after the UV reservation —
+                                // same as the historical running-count pre-pass. The ordinal itself is taken over
+                                // ALL non-special varyings (including ones instanced in this variant) so it does
+                                // not shrink when attrs move to i_data.
+                                const unsigned int attributeLocation = StableGenericLocation(name);
+                                if (attributeLocation >= static_cast<unsigned int>(bgfx::Attrib::Count))
+                                    throw std::runtime_error("Cannot support more than " + std::to_string(static_cast<int>(bgfx::Attrib::Count)) + " vertex attributes.");
+                                return {attributeLocation, name};
+                            }
+
+                            static bool IsBgfxSpecialAttribName(const char* name)
+                            {
+                                return std::strcmp(name, "position") == 0 || std::strcmp(name, "normal") == 0 || std::strcmp(name, "tangent") == 0 || std::strcmp(name, "uv") == 0 || std::strcmp(name, "uv2") == 0 || std::strcmp(name, "uv3") == 0 || std::strcmp(name, "uv4") == 0 || std::strcmp(name, "color") == 0 || std::strcmp(name, "matricesIndices") == 0 || std::strcmp(name, "matricesWeights") == 0;
+                            }
+
+                            static bool IsUvAttribName(const std::string& name)
+                            {
+                                return name.size() >= 2 && name[0] == 'u' && name[1] == 'v';
+                            }
+
+                            unsigned int StableGenericLocation(const char* name) const
+                            {
+                                unsigned int uvSlots = 0;
+                                for (const auto& entry : m_varyingNameToSymbol)
+                                {
+                                    if (IsUvAttribName(entry.first))
+                                    {
+                                        ++uvSlots;
+                                    }
+                                }
+
+                                unsigned int index = 0;
+                                for (const auto& entry : m_varyingNameToSymbol)
+                                {
+                                    if (IsBgfxSpecialAttribName(entry.first.c_str()))
+                                    {
+                                        continue;
+                                    }
+                                    if (entry.first == name)
+                                    {
+                                        return FIRST_GENERIC_ATTRIBUTE_LOCATION + uvSlots + index;
+                                    }
+                                    ++index;
+                                }
+                                return FIRST_GENERIC_ATTRIBUTE_LOCATION + uvSlots + index;
+                            }
+
+                            // First generic shares the TEXCOORD0 enum value; UV specials reserve that range first.
+                            const unsigned int FIRST_GENERIC_ATTRIBUTE_LOCATION{10};
+                        };
 
         /// <summary>
         /// Split sampler symbols into separate sampler and texture symbols and assign bindings.

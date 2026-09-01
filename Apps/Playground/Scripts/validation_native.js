@@ -403,7 +403,9 @@
 
         if (!test.onlyVisual) {
 
-            const defaultErrorRatio = 2.5;
+            // Tight default so missing GPU clusters / outlines cannot false-pass under 2.5%.
+            // Per-test errorRatio in config.json still overrides when intentionally looser.
+            const defaultErrorRatio = 0.5;
 
             if (compareFunction(test, screenshot, referenceImage, test.threshold || 25, test.errorRatio || defaultErrorRatio)) {
                 testRes = false;

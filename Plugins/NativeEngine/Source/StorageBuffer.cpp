@@ -14,15 +14,16 @@ namespace Babylon
         }
     }
 
-    StorageBuffer::StorageBuffer(Graphics::DeviceContext& deviceContext, uint32_t byteLength, bool asVertexBuffer, uint32_t byteStride)
+    StorageBuffer::StorageBuffer(Graphics::DeviceContext& deviceContext, uint32_t byteLength, bool asVertexBuffer, uint32_t byteStride, bool computeWrite)
         : m_deviceContext{deviceContext}
         , m_deviceId{m_deviceContext.GetDeviceId()}
         , m_byteLength{byteLength}
         , m_asVertexBuffer{asVertexBuffer}
-        , m_byteStride{byteStride == 0 ? 16u : byteStride}
-        , m_shadow(RoundUp(byteLength, m_byteStride), 0)
-    {
-    }
+            , m_computeWrite{computeWrite}
+            , m_byteStride{byteStride == 0 ? 16u : byteStride}
+            , m_shadow(RoundUp(byteLength, m_byteStride), 0)
+        {
+        }
 
     StorageBuffer::~StorageBuffer()
     {
@@ -47,32 +48,31 @@ namespace Babylon
     }
 
     void StorageBuffer::Update(gsl::span<const uint8_t> bytes, uint32_t byteOffset)
-    {
-        if (byteOffset + bytes.size() > m_byteLength)
         {
-            throw std::runtime_error{"StorageBuffer update out of range"};
+            if (byteOffset + bytes.size() > m_byteLength)
+            {
+                throw std::runtime_error{"StorageBuffer update out of range"};
+            }
+
+            // Always keep the CPU shadow in sync so CPU-side consumers (debug/readback/repack
+            // fallbacks) see the latest data even after the GPU buffer exists.
+            std::memcpy(m_shadow.data() + byteOffset, bytes.data(), bytes.size());
+
+            // Create on first write so deferred SSBO uploads (particle sim params) are not stuck
+            // in the shadow until a later SetCompute. Without this, the first N dispatches can run
+            // against a freshly created zeroed UAV if EnsureCreated's seed update is lost.
+            EnsureCreated();
+
+            // Compute (UAV) buffers are USAGE_DEFAULT; route through bgfx::update (staging copy).
+            // bgfx addresses dynamic vertex buffers by element, so the offset must be stride-aligned.
+            if (byteOffset % m_byteStride != 0)
+            {
+                throw std::runtime_error{"StorageBuffer update byteOffset must be a multiple of the buffer stride"};
+            }
+
+            const uint32_t startVertex = byteOffset / m_byteStride;
+            bgfx::update(m_handle, startVertex, bgfx::copy(bytes.data(), static_cast<uint32_t>(bytes.size())));
         }
-
-        // Always keep the CPU shadow in sync so CPU-side consumers (debug/readback/repack
-        // fallbacks) see the latest data even after the GPU buffer exists.
-        std::memcpy(m_shadow.data() + byteOffset, bytes.data(), bytes.size());
-
-        if (!bgfx::isValid(m_handle))
-        {
-            return;
-        }
-
-        // Already created: a compute (UAV) buffer is USAGE_DEFAULT, so route through
-        // bgfx::update, which copies via a staging buffer. bgfx addresses dynamic vertex
-        // buffers by element, so the offset must be stride-aligned.
-        if (byteOffset % m_byteStride != 0)
-        {
-            throw std::runtime_error{"StorageBuffer update byteOffset must be a multiple of the buffer stride"};
-        }
-
-        const uint32_t startVertex = byteOffset / m_byteStride;
-        bgfx::update(m_handle, startVertex, bgfx::copy(bytes.data(), static_cast<uint32_t>(bytes.size())));
-    }
 
     void StorageBuffer::EnsureCreated()
     {
@@ -86,12 +86,16 @@ namespace Babylon
         layout.m_stride = static_cast<uint16_t>(m_byteStride);
         layout.end();
 
-        const uint16_t flags = BGFX_BUFFER_COMPUTE_READ_WRITE | BGFX_BUFFER_COMPUTE_RAW;
+        // Readonly compute buffers (params, particlesIn) omit COMPUTE_WRITE so bgfx keeps
+                // them dynamic and CPU updates via bgfx::update actually stick on D3D11.
+                // Read-write particle outputs keep COMPUTE_WRITE for UAV stores.
+                const uint16_t flags = static_cast<uint16_t>(
+                    (m_computeWrite ? BGFX_BUFFER_COMPUTE_READ_WRITE : BGFX_BUFFER_COMPUTE_READ) | BGFX_BUFFER_COMPUTE_RAW);
 
-        // COMPUTE_WRITE buffers cannot be initialized from CPU memory via createDynamicVertexBuffer(mem).
-        // Create empty, then seed with Update (staging copy) so initial particle data is present.
-        const uint32_t numVertices = static_cast<uint32_t>(m_shadow.size()) / m_byteStride;
-        m_handle = bgfx::createDynamicVertexBuffer(numVertices, layout, flags);
+                // COMPUTE_WRITE buffers cannot be initialized from CPU memory via createDynamicVertexBuffer(mem).
+                // Create empty, then seed with Update (staging copy) so initial particle data is present.
+                const uint32_t numVertices = static_cast<uint32_t>(m_shadow.size()) / m_byteStride;
+                m_handle = bgfx::createDynamicVertexBuffer(numVertices, layout, flags);
 
         if (!bgfx::isValid(m_handle))
         {
@@ -107,11 +111,21 @@ namespace Babylon
         }
     }
 
-    void StorageBuffer::SetCompute(bgfx::Encoder* encoder, uint8_t stage, bgfx::Access::Enum access)
+    void StorageBuffer::FlushShadowToGpu()
     {
         EnsureCreated();
-        encoder->setBuffer(stage, m_handle, access);
-    }
+            if (!bgfx::isValid(m_handle) || m_shadow.empty())
+            {
+                return;
+            }
+            bgfx::update(m_handle, 0, bgfx::copy(m_shadow.data(), static_cast<uint32_t>(m_shadow.size())));
+        }
+
+        void StorageBuffer::SetCompute(bgfx::Encoder* encoder, uint8_t stage, bgfx::Access::Enum access)
+        {
+            EnsureCreated();
+            encoder->setBuffer(stage, m_handle, access);
+        }
 
     void StorageBuffer::SetVertex(bgfx::Encoder* encoder, uint8_t stream, uint32_t startVertex, uint32_t numVertices, bgfx::VertexLayoutHandle layout)
     {
