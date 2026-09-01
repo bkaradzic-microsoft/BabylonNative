@@ -527,6 +527,10 @@
         let pendingScreenshot = null;
         let evaluated = false;
         let warmupFrames = 0;
+        // Classic EffectLayer RTTs (e.g. SelectionOutline mask) need one submitted
+        // frame before the compose pass can sample non-black content on Native/bgfx.
+        // Prime once after readiness so renderCount=1 still captures outlines.
+        let effectLayerPrimed = false;
 
         const runEvaluation = function (screenshot) {
             if (evaluated) {
@@ -574,6 +578,12 @@
                     if (!stopped && warmupFrames < MAX_WARMUP_FRAMES && !isSceneConverged(currentScene)) {
                         warmupFrames++;
                         currentScene.incrementRenderId();
+                        return;
+                    }
+
+                    if (!effectLayerPrimed && currentScene.effectLayers && currentScene.effectLayers.length > 0) {
+                        effectLayerPrimed = true;
+                        currentScene.render();
                         return;
                     }
 
