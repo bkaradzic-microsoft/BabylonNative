@@ -1980,7 +1980,11 @@ namespace Babylon
         {
             blitView = m_deviceContext.PeekNextViewId();
         }
-        encoder->blit(blitView, textureDestination->Handle(), 0, 0, textureSource->Handle());
+        bgfx::TextureRegion dstRegion{};
+        dstRegion.init(textureDestination->Handle());
+        bgfx::TextureRegion srcRegion{};
+        srcRegion.init(textureSource->Handle());
+        encoder->blit(blitView, dstRegion, srcRegion);
     }
 
     void NativeEngine::LoadRawTexture(const Napi::CallbackInfo& info)
@@ -2708,7 +2712,7 @@ namespace Babylon
         {
             // Acquire a FrameCompletionScope for the duration of the read operation.
             // This ensures the encoder is available for the blit (if needed) and that
-            // bgfx::readTexture lands in the same frame as the blit.
+            // bgfx::read lands in the same frame as the blit.
             Graphics::FrameCompletionScope scope{m_deviceContext.AcquireFrameCompletionScope()};
 
             bgfx::TextureHandle sourceTextureHandle{texture->Handle()};
@@ -2719,32 +2723,39 @@ namespace Babylon
             const uint32_t mipWidth{std::max(1u, static_cast<uint32_t>(texture->Width()) >> mipLevel)};
             const uint32_t mipHeight{std::max(1u, static_cast<uint32_t>(texture->Height()) >> mipLevel)};
 
-                        // Babylon callers (GPUPicker, screenshots, depth readback) pass gl.readPixels coordinates:
-                        // y is measured from the BOTTOM of the image. bgfx blit srcY is top-origin on D3D/Metal
-                        // (!originBottomLeft). Convert before the crop blit so a 1x1 pick lands on the scissored
-                        // fragment. OpenGL already matches web bottom-origin, so leave y alone there.
-                        // Full-image reads (y == 0, height == mipHeight) are unchanged either way.
-                        uint16_t blitX{x};
-                        uint16_t blitY{y};
-                        if (!bgfx::getCaps()->originBottomLeft && static_cast<uint32_t>(blitY) + height <= mipHeight)
-                        {
-                            blitY = static_cast<uint16_t>(mipHeight - static_cast<uint32_t>(blitY) - height);
-                        }
+// Babylon callers (GPUPicker, screenshots, depth readback) pass gl.readPixels coordinates:
+            // y is measured from the BOTTOM of the image. bgfx blit srcY is top-origin on D3D/Metal
+            // (!originBottomLeft). Convert before the crop blit so a 1x1 pick lands on the scissored
+            // fragment. OpenGL already matches web bottom-origin, so leave y alone there.
+            // Full-image reads (y == 0, height == mipHeight) are unchanged either way.
+            uint16_t blitX{x};
+            uint16_t blitY{y};
+            if (!bgfx::getCaps()->originBottomLeft && static_cast<uint32_t>(blitY) + height <= mipHeight)
+            {
+                blitY = static_cast<uint16_t>(mipHeight - static_cast<uint32_t>(blitY) - height);
+            }
 
-                        // If the image needs to be cropped, the texture lacks the READ_BACK flag, or we are reading a
-                        // specific cube-map face, blit to a temp 2D texture. bgfx::readTexture cannot address an
-                        // individual cube face, so a cube-face read always goes through the blit (srcZ = face index).
-                        if (isCubeFace || blitX != 0 || blitY != 0 || width != mipWidth || height != mipHeight || (texture->Flags() & BGFX_TEXTURE_READ_BACK) == 0)
-                        {
-                            const bgfx::TextureHandle blitTextureHandle{bgfx::createTexture2D(width, height, /*hasMips*/ false, /*numLayers*/ 1, sourceTextureFormat, BGFX_TEXTURE_BLIT_DST | BGFX_TEXTURE_READ_BACK)};
+            // If the image needs to be cropped, the texture lacks the READ_BACK flag, or we are reading a
+            // specific cube-map face, blit to a temp 2D texture. bgfx::read addresses a whole mip of one
+            // slice via TextureRegion::z, but a cropped sub-rect still needs the blit path. Cube-face
+            // reads use srcZ = face index on the source region of that blit.
+            if (isCubeFace || blitX != 0 || blitY != 0 || width != mipWidth || height != mipHeight || (texture->Flags() & BGFX_TEXTURE_READ_BACK) == 0)
+            {
+                const bgfx::TextureHandle blitTextureHandle{bgfx::createTexture2D(width, height, /*hasMips*/ false, /*numLayers*/ 1, sourceTextureFormat, BGFX_TEXTURE_BLIT_DST | BGFX_TEXTURE_READ_BACK)};
 
-                            bgfx::Encoder* encoder = GetEncoder();
-                            encoder->blit(static_cast<uint16_t>(bgfx::getCaps()->limits.maxViews - 1), blitTextureHandle, /*dstMip*/ 0, /*dstX*/ 0, /*dstY*/ 0, /*dstZ*/ 0, sourceTextureHandle, mipLevel, blitX, blitY, srcZ, width, height, /*depth*/ 0);
+                bgfx::Encoder* encoder = GetEncoder();
+                bgfx::TextureRegion dstRegion{};
+                dstRegion.init(blitTextureHandle, /*x*/ 0, /*y*/ 0, width, height);
+                bgfx::TextureRegion srcRegion{};
+                srcRegion.init(sourceTextureHandle, blitX, blitY, width, height);
+                srcRegion.mip = mipLevel;
+                srcRegion.z = srcZ;
+                encoder->blit(static_cast<uint16_t>(bgfx::getCaps()->limits.maxViews - 1), dstRegion, srcRegion);
 
-                            sourceTextureHandle = blitTextureHandle;
-                            *tempTexture = true;
-                            mipLevel = 0;
-                        }
+                sourceTextureHandle = blitTextureHandle;
+                *tempTexture = true;
+                mipLevel = 0;
+            }
 
             // Allocate a buffer to store the source pixel data.
             std::vector<uint8_t> textureBuffer(sourceTextureInfo.storageSize);
@@ -2970,7 +2981,7 @@ namespace Babylon
                     }
                 }
 
-                const bool requestDepthStencilTexture = (depthStencilTextureRequest != nullptr);
+const bool requestDepthStencilTexture = (depthStencilTextureRequest != nullptr);
 
                 bgfx::TextureHandle depthStencilTextureHandle = BGFX_INVALID_HANDLE;
                 int8_t depthStencilAttachmentIndex = -1;
@@ -3016,16 +3027,31 @@ namespace Babylon
                             }
                         }
                     }
-        #ifdef ANDROID
-                    // On Android with Mali GPU (Oppo Find x5 lite, Google Pixel 8, Samsung Galaxy Tab Active 3, ...)
-                    // D32 depth buffer gives glitches. Everything is fine with D24S8.
-                    // see https://forum.babylonjs.com/t/post-processing-graphics-glitch/49523
-                    // As 24bits should be enough for 99.99% cases, defaulting to that format on Android.
-                    const auto depthStencilFormat{bgfx::TextureFormat::D24S8};
-        #else
-                    const auto depthStencilFormat{generateStencilBuffer ? bgfx::TextureFormat::D24S8 : bgfx::TextureFormat::D32};
-        #endif
-                    assert(bgfx::isTextureValid(0, false, depthStencilNumLayers, depthStencilFormat, flags));
+
+                    // Pick a depth(/stencil) format the active renderer actually supports as an RT.
+                    // Plain D32 is not a valid D3D11 depth RT (bgfx maps it to R24G8 with no DSV), and
+                    // newer bgfx asserts in createTexture2D when isTextureValid fails. Prefer D32F for
+                    // depth-only when available; otherwise fall back to D24/D24S8. Android always uses
+                    // D24S8 — D32/D32F has produced glitches on several Mali devices
+                    // (https://forum.babylonjs.com/t/post-processing-graphics-glitch/49523).
+                    bgfx::TextureFormat::Enum depthStencilFormat{bgfx::TextureFormat::D24S8};
+#ifndef ANDROID
+                    if (!generateStencilBuffer)
+                    {
+                        if (bgfx::isTextureValid(0, false, depthStencilNumLayers, bgfx::TextureFormat::D32F, flags))
+                        {
+                            depthStencilFormat = bgfx::TextureFormat::D32F;
+                        }
+                        else if (bgfx::isTextureValid(0, false, depthStencilNumLayers, bgfx::TextureFormat::D24, flags))
+                        {
+                            depthStencilFormat = bgfx::TextureFormat::D24;
+                        }
+                    }
+#endif
+                    if (!bgfx::isTextureValid(0, false, depthStencilNumLayers, depthStencilFormat, flags))
+                    {
+                        throw Napi::Error::New(env, "No supported depth/stencil texture format for frame buffer");
+                    }
                     depthStencilTextureHandle = bgfx::createTexture2D(width, height, false, depthStencilNumLayers, depthStencilFormat, flags);
                     depthStencilTextureFormat = depthStencilFormat;
                     depthStencilTextureFlags = flags;
