@@ -36,7 +36,9 @@ namespace Babylon::Graphics
         void Bind();
         void Unbind();
 
-        void Clear(bgfx::Encoder& encoder, uint16_t flags, uint32_t rgba, float depth, uint8_t stencil, uint8_t colorAttachmentMask = UINT8_MAX);
+        // Color is floating-point so float/half MRT clears (e.g. OIT depth peel -99999) are not
+        // quantized through an 8-bit packed rgba. Backends honour these via bgfx's clear palette.
+        void Clear(bgfx::Encoder& encoder, uint16_t flags, float r, float g, float b, float a, float depth, uint8_t stencil, uint8_t colorAttachmentMask = UINT8_MAX);
         void SetViewPort(float x, float y, float width, float height);
         void SetScissor(float x, float y, float width, float height);
         void Submit(bgfx::Encoder& encoder, bgfx::ProgramHandle programHandle, uint8_t flags);

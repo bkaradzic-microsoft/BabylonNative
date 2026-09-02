@@ -179,4 +179,12 @@ namespace Babylon::ShaderCompilerTraversers
     /// Must only be used on the backends that apply ProcessSamplerFlip (D3D, Metal, Vulkan); the
     /// OpenGL backend shares bgfx's V-orientation and must not flip.
     void FlipSamplerCoordinates(glslang::TProgram& program);
+
+    /// Present gl_FragCoord in OpenGL's bottom-left-origin space on D3D/Metal/Vulkan.
+    /// Rewrites every gl_FragCoord read in the fragment stage to
+    /// vec4(fc.x, targetHeight - fc.y, fc.z, fc.w), where targetHeight comes from the
+    /// bnFragCoordTargetSize uniform filled by NativeEngine. Must run before
+    /// ChangeUniformTypes / MoveNonSamplerUniformsIntoStruct so the uniform is collected.
+    /// No-op for shaders that never read gl_FragCoord. Not used on the OpenGL backend.
+    void FlipFragCoordY(glslang::TProgram& program, IdGenerator& ids);
 }

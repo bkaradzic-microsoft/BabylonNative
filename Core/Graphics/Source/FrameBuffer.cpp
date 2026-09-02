@@ -3,6 +3,7 @@
 #include <arcana/macros.h>
 #include <atomic>
 #include <cmath>
+#include <cstdio>
 
 namespace
 {
@@ -16,13 +17,16 @@ namespace
     // masked clears within one frame therefore have to be distinct, so hand out slots round-robin instead
     // of reusing a fixed one. This only wraps after 16 masked clears in a single frame, which no current
     // Babylon render pipeline comes close to.
-    uint8_t AcquireClearPaletteIndex(uint32_t rgba)
-    {
-        static std::atomic<uint32_t> nextIndex{0};
-        const uint8_t index{static_cast<uint8_t>(nextIndex++ % MaxColorPaletteEntries)};
-        bgfx::setPaletteColor(index, rgba);
-        return index;
-    }
+        //
+        // Float overload is required: packing clear colors to uint8 destroys out-of-range values used by
+        // dual depth peeling (OIT clears the RG depth attachment to -99999) and quantizes half-float peels.
+        uint8_t AcquireClearPaletteIndex(float r, float g, float b, float a)
+        {
+            static std::atomic<uint32_t> nextIndex{0};
+            const uint8_t index{static_cast<uint8_t>(nextIndex++ % MaxColorPaletteEntries)};
+            bgfx::setPaletteColor(index, r, g, b, a);
+            return index;
+        }
 
     // Whether the active bgfx backend honours UINT8_MAX ("leave this attachment alone") in the
     // setViewClear palette overload. The D3D11 and D3D12 frame buffer clear paths test for it explicitly;
@@ -117,7 +121,7 @@ namespace Babylon::Graphics
     {
     }
 
-    void FrameBuffer::Clear(bgfx::Encoder& encoder, uint16_t flags, uint32_t rgba, float depth, uint8_t stencil, uint8_t colorAttachmentMask)
+    void FrameBuffer::Clear(bgfx::Encoder& encoder, uint16_t flags, float r, float g, float b, float a, float depth, uint8_t stencil, uint8_t colorAttachmentMask)
     {
         // BGFX requires us to create a new viewID, this will ensure that the view gets cleared.
         m_viewId = m_deviceContext.AcquireNewViewId();
@@ -125,30 +129,38 @@ namespace Babylon::Graphics
 
         bgfx::setViewMode(m_viewId.value(), bgfx::ViewMode::Sequential);
 
-        // A clear that only targets a subset of the color attachments (gl.drawBuffers on WebGL, used by
-        // e.g. PrePassRenderer to zero the auxiliary attachments without touching the scene color one) has
-        // to go through bgfx's clear color palette: setViewClear's palette overload takes one palette index
-        // per attachment, and UINT8_MAX means "leave this attachment alone".
-        const bool maskColorAttachments{(flags & BGFX_CLEAR_COLOR) != 0 && colorAttachmentMask != UINT8_MAX && bgfx::isValid(m_handle) && SupportsClearAttachmentMasking()};
-        if (maskColorAttachments)
-        {
-            const uint8_t paletteIndex{AcquireClearPaletteIndex(rgba)};
+                // Always route color clears through the float palette. The packed-rgba setViewClear path only
+                // carries 8-bit UNORM values, which cannot express OIT's -99999 depth-texture clear (or any
+                // out-of-[0,1] / high-precision float MRT clear). Palette indices also support per-attachment
+                // masking (gl.drawBuffers equivalent) on D3D11/12.
+                if ((flags & BGFX_CLEAR_COLOR) != 0)
+                {
+                    const uint8_t paletteIndex{AcquireClearPaletteIndex(r, g, b, a)};
+                    uint8_t indices[MaxColorAttachments];
 
-            uint8_t indices[MaxColorAttachments];
-            for (uint8_t attachment = 0; attachment < MaxColorAttachments; ++attachment)
-            {
-                indices[attachment] = (colorAttachmentMask & (1 << attachment)) != 0 ? paletteIndex : UINT8_MAX;
-            }
+                    const bool maskColorAttachments{colorAttachmentMask != UINT8_MAX && bgfx::isValid(m_handle) && SupportsClearAttachmentMasking()};
+                    for (uint8_t attachment = 0; attachment < MaxColorAttachments; ++attachment)
+                    {
+                        if (maskColorAttachments)
+                        {
+                            indices[attachment] = (colorAttachmentMask & (1 << attachment)) != 0 ? paletteIndex : UINT8_MAX;
+                        }
+                        else
+                        {
+                            // Full clear (or backends that ignore UINT8_MAX): every attachment gets the color.
+                            indices[attachment] = paletteIndex;
+                        }
+                    }
 
-            // Note: this setViewClear overload derives BGFX_CLEAR_COLOR itself from the indices (it is set
-            // only when at least one attachment is not UINT8_MAX), so `flags` is passed through unchanged.
-            bgfx::setViewClear(m_viewId.value(), flags, depth, stencil,
-                indices[0], indices[1], indices[2], indices[3], indices[4], indices[5], indices[6], indices[7]);
-        }
-        else
-        {
-            bgfx::setViewClear(m_viewId.value(), flags, rgba, depth, stencil);
-        }
+                    // Palette overload of setViewClear; flags keep depth/stencil bits. BGFX_CLEAR_COLOR is
+                    // derived from the indices when at least one is not UINT8_MAX.
+                    bgfx::setViewClear(m_viewId.value(), flags, depth, stencil,
+                        indices[0], indices[1], indices[2], indices[3], indices[4], indices[5], indices[6], indices[7]);
+                }
+                else
+                {
+                    bgfx::setViewClear(m_viewId.value(), flags, 0u, depth, stencil);
+                }
 
         bgfx::setViewFrameBuffer(m_viewId.value(), m_handle);
 

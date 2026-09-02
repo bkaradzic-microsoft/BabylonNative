@@ -1512,107 +1512,34 @@ namespace Babylon
                 const uint32_t access = data.ReadUint32();
                 bgfx::Access::Enum bgfxAccess = access == 0 ? bgfx::Access::Read : (access == 1 ? bgfx::Access::Write : bgfx::Access::ReadWrite);
                 // Params SSBO (stage 0): ensure deferred shadow uploads are visible this dispatch.
-                if (stage == 0)
-                {
-                    buffer->FlushShadowToGpu();
-                    // TEMP: log first few + every 50th params bind
-                    static int s_p = 0;
-                    auto sh = buffer->ShadowBytes();
-                    if (sh.size() >= 112 && (s_p < 3 || s_p == 50 || s_p == 100 || s_p == 119 || s_p % 30 == 0))
-                    {
-                        const float* f = reinterpret_cast<const float*>(sh.data());
-                        FILE* fp = nullptr;
-                        if (fopen_s(&fp, "params_bind.txt", s_p == 0 ? "wb" : "ab") == 0 && fp)
-                        {
-                            const int rtex = *reinterpret_cast<const int*>(&f[3]);
-                            fprintf(fp, "#%d cc=%.1f dt=%.4f stop=%.1f rtex=%d life=%.2f,%.2f power=%.2f,%.2f emitIdx=%.1f emitCnt=%.1f\n",
-                                s_p, f[0], f[1], f[2], rtex, f[4], f[5], f[6], f[7], f[8], f[9]);
-                            fprintf(fp, "  size=%.3f,%.3f scale=%.3f,%.3f,%.3f,%.3f angle=%.2f,%.2f,%.2f,%.2f grav=%.2f,%.2f,%.2f\n",
-                                f[20], f[21], f[24], f[25], f[26], f[27], f[28], f[29], f[30], f[31], f[32], f[33], f[34]);
-                            fprintf(fp, "  wmT=%.2f,%.2f,%.2f minBox=%.2f,%.2f,%.2f maxBox=%.2f,%.2f,%.2f dir1=%.2f,%.2f,%.2f\n",
-                                f[48], f[49], f[50],
-                                f[60], f[61], f[62],
-                                f[64], f[65], f[66],
-                                f[52], f[53], f[54]);
-                            fprintf(fp, "  f:");
-                            for (int fi = 0; fi < 40; ++fi)
-                            {
-                                fprintf(fp, " %d=%.4g", fi, f[fi]);
-                            }
-                            fprintf(fp, "\n");
-                            fclose(fp);
-                        }
-                    }
-                    ++s_p;
-                }
-                // TEMP: log particle buffer pointers for stages 1/2
-                                if (stage == 1 || stage == 2)
+                                if (stage == 0)
                                 {
-                                    static int s_b = 0;
-                                    if (s_b < 8)
-                                    {
-                                        FILE* fp = nullptr;
-                                        if (fopen_s(&fp, "buf_ptr.txt", s_b == 0 ? "wb" : "ab") == 0 && fp)
-                                        {
-                                            fprintf(fp, "CS stage=%u access=%u ptr=%p handle=%u bytes=%u\n",
-                                                stage, access, (void*)buffer,
-                                                buffer->Handle().idx, buffer->ByteLength());
-                                            fclose(fp);
-                                        }
-                                        ++s_b;
-                                    }
+                                    buffer->FlushShadowToGpu();
                                 }
                                 buffer->SetCompute(encoder, stage, bgfxAccess);
                             }
 
-            const uint32_t textureCount = data.ReadUint32();
-                        {
-                            static int s_texLog = 0;
-                            if (s_texLog < 6)
-                            {
-                                FILE* fp = nullptr;
-                                if (fopen_s(&fp, "cs_tex_bind.txt", s_texLog == 0 ? "wb" : "ab") == 0 && fp)
-                                {
-                                    fprintf(fp, "dispatch texCount=%u\n", textureCount);
-                                    fclose(fp);
-                                }
-                            }
+                            const uint32_t textureCount = data.ReadUint32();
                             for (uint32_t i = 0; i < textureCount; ++i)
                             {
                                 const uint8_t stage = static_cast<uint8_t>(data.ReadUint32());
                                 const Graphics::Texture* texture = data.ReadPointer<Graphics::Texture>();
                                 const UniformInfo* samplerInfo = program->GetSamplerInfoByStage(stage);
-                                if (s_texLog < 6)
-                                {
-                                    FILE* fp = nullptr;
-                                    if (fopen_s(&fp, "cs_tex_bind.txt", "ab") == 0 && fp)
-                                    {
-                                        fprintf(fp, "  stage=%u tex=%p sampler=%s handleValid=%d\n",
-                                            stage, (void*)texture, samplerInfo ? "yes" : "NO",
-                                            texture && bgfx::isValid(texture->Handle()) ? 1 : 0);
-                                        fclose(fp);
-                                    }
-                                }
                                 if (samplerInfo != nullptr)
                                 {
                                     encoder->setTexture(samplerInfo->Stage, samplerInfo->Handle, texture->Handle(), texture->SamplerFlags());
                                 }
                             }
-                            if (s_texLog < 6)
-                            {
-                                ++s_texLog;
-                            }
+
+                            GetBoundFrameBuffer().Compute(*encoder, program->Handle(), numX, numY, numZ);
+
+                            // Particle preWarm issues many ping-pong UAV dispatches in one logical frame.
+                            // Without a mid-frame submit, D3D11/bgfx can leave intermediate Out writes
+                            // invisible to the next In bind — only the last dispatch's particles survive.
+                            // RestoreBoundTextures first: ForceMidFrameFlush ends this encoder.
+                            RestoreBoundTextures(encoder);
+                            m_deviceContext.ForceMidFrameFlush();
                         }
-
-            GetBoundFrameBuffer().Compute(*encoder, program->Handle(), numX, numY, numZ);
-
-                        // Particle preWarm issues many ping-pong UAV dispatches in one logical frame.
-                        // Without a mid-frame submit, D3D11/bgfx can leave intermediate Out writes
-                        // invisible to the next In bind — only the last dispatch's particles survive.
-                        // RestoreBoundTextures first: ForceMidFrameFlush ends this encoder.
-                        RestoreBoundTextures(encoder);
-                        m_deviceContext.ForceMidFrameFlush();
-                    }
 
     Napi::Value NativeEngine::GetUniforms(const Napi::CallbackInfo& info)
     {
@@ -1735,38 +1662,38 @@ namespace Babylon
     }
 
         void NativeEngine::SetBlendEquation(NativeDataStream::Reader& data)
-        {
-            // Dual depth peeling (OIT) needs ALPHA_EQUATION_MAX so peel passes write the farthest /
-            // nearest depth via max blending. Without this, setAlphaEquation is a no-op on Native
-            // (only blend *factors* were wired) and transparent geometry never accumulates.
-            const auto equation = data.ReadUint32();
-
-            m_engineState &= ~BGFX_STATE_BLEND_EQUATION_MASK;
-            switch (equation)
             {
-                case AlphaEquation::ADD:
-                    // BGFX_STATE_BLEND_EQUATION_ADD is 0
-                    break;
-                case AlphaEquation::SUBTRACT:
-                    m_engineState |= BGFX_STATE_BLEND_EQUATION(BGFX_STATE_BLEND_EQUATION_SUB);
-                    break;
-                case AlphaEquation::REVERSE_SUBTRACT:
-                    m_engineState |= BGFX_STATE_BLEND_EQUATION(BGFX_STATE_BLEND_EQUATION_REVSUB);
-                    break;
-                case AlphaEquation::MAX:
-                    m_engineState |= BGFX_STATE_BLEND_EQUATION(BGFX_STATE_BLEND_EQUATION_MAX);
-                    break;
-                case AlphaEquation::MIN:
-                    m_engineState |= BGFX_STATE_BLEND_EQUATION(BGFX_STATE_BLEND_EQUATION_MIN);
-                    break;
-                case AlphaEquation::DARKEN:
-                    // MIN for RGB, ADD for alpha — matches Constants.ALPHA_EQUATION_DARKEN.
-                    m_engineState |= BGFX_STATE_BLEND_EQUATION_SEPARATE(BGFX_STATE_BLEND_EQUATION_MIN, BGFX_STATE_BLEND_EQUATION_ADD);
-                    break;
-                default:
-                    break;
+                // Dual depth peeling (OIT) needs ALPHA_EQUATION_MAX so peel passes write the farthest /
+                // nearest depth via max blending. Without this, setAlphaEquation is a no-op on Native
+                // (only blend *factors* were wired) and transparent geometry never accumulates.
+                const auto equation = data.ReadUint32();
+
+                m_engineState &= ~BGFX_STATE_BLEND_EQUATION_MASK;
+                switch (equation)
+                {
+                    case AlphaEquation::ADD:
+                        // BGFX_STATE_BLEND_EQUATION_ADD is 0
+                        break;
+                    case AlphaEquation::SUBTRACT:
+                        m_engineState |= BGFX_STATE_BLEND_EQUATION(BGFX_STATE_BLEND_EQUATION_SUB);
+                        break;
+                    case AlphaEquation::REVERSE_SUBTRACT:
+                        m_engineState |= BGFX_STATE_BLEND_EQUATION(BGFX_STATE_BLEND_EQUATION_REVSUB);
+                        break;
+                    case AlphaEquation::MAX:
+                        m_engineState |= BGFX_STATE_BLEND_EQUATION(BGFX_STATE_BLEND_EQUATION_MAX);
+                        break;
+                    case AlphaEquation::MIN:
+                        m_engineState |= BGFX_STATE_BLEND_EQUATION(BGFX_STATE_BLEND_EQUATION_MIN);
+                        break;
+                    case AlphaEquation::DARKEN:
+                        // MIN for RGB, ADD for alpha — matches Constants.ALPHA_EQUATION_DARKEN.
+                        m_engineState |= BGFX_STATE_BLEND_EQUATION_SEPARATE(BGFX_STATE_BLEND_EQUATION_MIN, BGFX_STATE_BLEND_EQUATION_ADD);
+                        break;
+                    default:
+                        break;
+                }
             }
-        }
 
     void NativeEngine::SetInt(NativeDataStream::Reader& data)
     {
@@ -3312,84 +3239,67 @@ const bool requestDepthStencilTexture = (depthStencilTextureRequest != nullptr);
         bgfx::Encoder* encoder = GetEncoder();
         const auto instanceDataLayout = GetInstanceDataLayout();
         if (m_boundVertexArray != nullptr)
-        {
-            {
-                        static int s_di = 0;
-                        if (s_di < 8 && m_boundVertexArray && m_boundVertexArray->HasStorageInstances())
-                        {
-                            FILE* fp = nullptr;
-                            if (fopen_s(&fp, "draw_inst.txt", s_di == 0 ? "wb" : "ab") == 0 && fp)
-                            {
-                                fprintf(fp, "DrawInstanced count=%u verts=%u start=%u attrs=%zu\n",
-                                    instanceCount, verticesCount, verticesStart, m_boundVertexArray->GetInstances().size());
-                                fclose(fp);
-                            }
-                            ++s_di;
-                        }
-                    }
+                {
                     // GPU compute-written instance sources (e.g. GPU particles) are repacked into bgfx
-                    // i_data slots. Repack dispatch clears encoder texture binds; restore material samplers.
-                                        // Repack runs on the draw encoder; force a mid-frame flush so UAV→vertex
-                                        // sees completed writes, then re-acquire encoder for the draw.
-                                        const bgfx::DynamicVertexBufferHandle repacked = RepackStorageInstances(encoder, m_boundVertexArray, instanceCount);
+                    // i_data slots. Repack runs on the draw encoder; force a mid-frame flush so UAV→vertex
+                    // sees completed writes, then re-acquire encoder for the draw. Repack also clears
+                    // encoder texture binds — restore material samplers afterwards.
+                    const bgfx::DynamicVertexBufferHandle repacked = RepackStorageInstances(encoder, m_boundVertexArray, instanceCount);
                     if (bgfx::isValid(repacked))
                     {
-                                            m_deviceContext.ForceMidFrameFlush();
-                                            encoder = GetEncoder();
-                                        }
-                                        RestoreBoundTextures(encoder);
-                                        m_boundVertexArray->SetVertexBuffers(encoder, verticesStart, verticesCount, instanceCount, instanceDataLayout);
-                                        if (bgfx::isValid(repacked))
-                                        {
-                                            encoder->setInstanceDataBuffer(repacked, 0, instanceCount);
-                                        }
+                        m_deviceContext.ForceMidFrameFlush();
+                        encoder = GetEncoder();
+                    }
+                    RestoreBoundTextures(encoder);
+                    m_boundVertexArray->SetVertexBuffers(encoder, verticesStart, verticesCount, instanceCount, instanceDataLayout);
+                    if (bgfx::isValid(repacked))
+                    {
+                        encoder->setInstanceDataBuffer(repacked, 0, instanceCount);
+                    }
             }
             DrawInternal(encoder, fillMode, instanceDataLayout);
         }
 
     void NativeEngine::Clear(NativeDataStream::Reader& data)
-    {
-        uint16_t flags{0};
-        uint32_t rgba{0x000000ff};
-
-        const bool shouldClearColor{static_cast<bool>(data.ReadUint32())};
-        const float r{data.ReadFloat32()};
-        const float g{data.ReadFloat32()};
-        const float b{data.ReadFloat32()};
-        const float a{data.ReadFloat32()};
-        const bool shouldClearDepth{static_cast<bool>(data.ReadUint32())};
-        const float depth{data.ReadFloat32()};
-        const bool shouldClearStencil{static_cast<bool>(data.ReadUint32())};
-        const uint8_t stencil{static_cast<uint8_t>(data.ReadUint32())};
-        // Bit i selects color attachment i (see ThinNativeEngine.bindAttachments). 0xff means "all
-        // attachments", which takes the regular (non-palette) bgfx clear path.
-        const uint8_t colorAttachmentMask{static_cast<uint8_t>(data.ReadUint32())};
-
-        bgfx::Encoder* encoder = GetEncoder();
-
-        if (shouldClearColor)
         {
-            rgba =
-                (static_cast<uint8_t>(r * std::numeric_limits<uint8_t>::max()) << 24) +
-                (static_cast<uint8_t>(g * std::numeric_limits<uint8_t>::max()) << 16) +
-                (static_cast<uint8_t>(b * std::numeric_limits<uint8_t>::max()) << 8) +
-                static_cast<uint8_t>(a * std::numeric_limits<uint8_t>::max());
+            uint16_t flags{0};
 
-            flags |= BGFX_CLEAR_COLOR;
+            const bool shouldClearColor{static_cast<bool>(data.ReadUint32())};
+            const float r{data.ReadFloat32()};
+            const float g{data.ReadFloat32()};
+            const float b{data.ReadFloat32()};
+            const float a{data.ReadFloat32()};
+            const bool shouldClearDepth{static_cast<bool>(data.ReadUint32())};
+            const float depth{data.ReadFloat32()};
+            const bool shouldClearStencil{static_cast<bool>(data.ReadUint32())};
+            const uint8_t stencil{static_cast<uint8_t>(data.ReadUint32())};
+            // Bit i selects color attachment i (see ThinNativeEngine.bindAttachments). 0xff means "all
+            // attachments". Partial masks are required for OIT depth-peel clears that only reset the
+            // depth attachment while leaving shared front/back color attachments untouched.
+            const uint8_t colorAttachmentMask{static_cast<uint8_t>(data.ReadUint32())};
+
+            bgfx::Encoder* encoder = GetEncoder();
+
+            // Pass float clear colors through unchanged. Quantizing to 8-bit rgba destroyed OIT's
+            // -99999 depth-texture clear (and any out-of-range float MRT clear). FrameBuffer routes
+            // color clears through bgfx's float clear palette.
+            if (shouldClearColor)
+            {
+                flags |= BGFX_CLEAR_COLOR;
+            }
+
+            if (shouldClearDepth && (!m_boundFrameBuffer || m_boundFrameBuffer->HasDepth()))
+            {
+                flags |= BGFX_CLEAR_DEPTH;
+            }
+
+            if (shouldClearStencil && (!m_boundFrameBuffer || m_boundFrameBuffer->HasStencil()))
+            {
+                flags |= BGFX_CLEAR_STENCIL;
+            }
+
+            GetBoundFrameBuffer().Clear(*encoder, flags, r, g, b, a, depth, stencil, colorAttachmentMask);
         }
-
-        if (shouldClearDepth && (!m_boundFrameBuffer || m_boundFrameBuffer->HasDepth()))
-        {
-            flags |= BGFX_CLEAR_DEPTH;
-        }
-
-        if (shouldClearStencil && (!m_boundFrameBuffer || m_boundFrameBuffer->HasStencil()))
-        {
-            flags |= BGFX_CLEAR_STENCIL;
-        }
-
-        GetBoundFrameBuffer().Clear(*encoder, flags, rgba, depth, stencil, colorAttachmentMask);
-    }
 
     Napi::Value NativeEngine::GetRenderWidth(const Napi::CallbackInfo& info)
     {
@@ -3753,29 +3663,16 @@ bgfx::DynamicVertexBufferHandle NativeEngine::RepackStorageInstances(bgfx::Encod
             }
         }
 
-        {
-            static int s_fm = 0;
-            if (s_fm < 12) {
-                FILE* fp = nullptr;
-                if (fopen_s(&fp, "fillmode_dump.txt", s_fm == 0 ? "wb" : "ab") == 0 && fp) {
-                    fprintf(fp, "fillMode=%u engState=0x%llx strip=%d cullMask=0x%llx\n",
-                        fillMode, (unsigned long long)m_engineState,
-                        (int)(fillMode==7), (unsigned long long)(m_engineState & BGFX_STATE_CULL_MASK));
-                    fclose(fp);
-                }
-                ++s_fm;
-            }
-        }
         for (const auto& it : m_currentProgram->Uniforms())
-        {
-            const UniformValue& value = it.second;
-            encoder->setUniform({it.first}, value.Data.data(), value.ElementLength);
-        }
+                {
+                    const UniformValue& value = it.second;
+                    encoder->setUniform({it.first}, value.Data.data(), value.ElementLength);
+                }
 
-// Resolve the gl_FragCoord Y flip the shader compiler injected (see
-        // ShaderCompilerTraversers::FlipFragCoordY). The height must be the bound framebuffer's,
-        // not the bgfx view rect's: FrameBuffer::SetBgfxViewPortAndScissor narrows the view rect to
-        // the viewport whenever one is set, while gl_FragCoord is relative to the whole target.
+                // Resolve the gl_FragCoord Y flip the shader compiler injected (see
+                // ShaderCompilerTraversers::FlipFragCoordY). The height must be the bound framebuffer's,
+                // not the bgfx view rect's: FrameBuffer::SetBgfxViewPortAndScissor narrows the view rect to
+                // the viewport whenever one is set, while gl_FragCoord is relative to the whole target.
         if (const UniformInfo* fragCoordTargetSize = m_currentProgram->FragCoordTargetSizeUniform())
         {
             const Graphics::FrameBuffer& frameBuffer = GetBoundFrameBuffer();

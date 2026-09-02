@@ -104,7 +104,13 @@ namespace Babylon::Plugins
         ShaderCompilerTraversers::IdGenerator ids{};
         // Flip 2D texture sample coordinates (replaces the former ProcessSamplerFlip texture() macro).
         ShaderCompilerTraversers::FlipSamplerCoordinates(program);
-        auto cutScope = ShaderCompilerTraversers::ChangeUniformTypes(program, ids);
+                // Present gl_FragCoord in OpenGL's bottom-left-origin space. Must precede the uniform
+                // struct move so the target-size uniform it declares is collected with the others.
+                // DXIL/Metal/Vulkan already do this; without it D3D11 texelFetch(gl_FragCoord.xy) (OIT peels,
+                // SSAO, etc.) samples the vertically mirrored row after FlipSamplerCoordinates assumes
+                // GL-logical coordinates.
+                ShaderCompilerTraversers::FlipFragCoordY(program, ids);
+                auto cutScope = ShaderCompilerTraversers::ChangeUniformTypes(program, ids);
         auto utstScope = ShaderCompilerTraversers::MoveNonSamplerUniformsIntoStruct(program, ids);
         std::map<std::string, std::string> vertexAttributeRenaming = {};
         auto builtInInstanceDataSlots = ShaderCompilerTraversers::AssignLocationsAndNamesToVertexVaryingsD3D(program, ids, vertexAttributeRenaming, instancedAttributes);
@@ -178,5 +184,60 @@ namespace Babylon::Plugins
             {}};
 
         return CreateBgfxShader(std::move(vertexShaderInfo), std::move(fragmentShaderInfo), std::move(builtInInstanceDataSlots));
-    }
-}
+            }
+
+            Graphics::BgfxShaderInfo ShaderCompiler::CompileCompute(std::string_view computeSource)
+            {
+                glslang::TProgram program;
+
+                glslang::TShader computeShader{EShLangCompute};
+                AddShader(program, computeShader, ProcessSamplerFlip(computeSource));
+
+                glslang::SpvVersion spv{};
+                spv.spv = 0x10000;
+                computeShader.getIntermediate()->setSpv(spv);
+
+                if (!program.link(EShMsgDefault))
+                {
+                    throw std::runtime_error{program.getInfoLog()};
+                }
+
+                // Compute skips the vertex/fragment traverser set; keep uniforms usable and sample
+                // coordinates consistent with the graphics path where applicable.
+                ShaderCompilerTraversers::IdGenerator ids{};
+                ShaderCompilerTraversers::FlipSamplerCoordinates(program);
+                auto cutScope = ShaderCompilerTraversers::ChangeUniformTypes(program, ids);
+                auto utstScope = ShaderCompilerTraversers::MoveNonSamplerUniformsIntoStruct(program, ids);
+                ShaderCompilerTraversers::ZeroInitializeStructLocals(program);
+
+                Microsoft::WRL::ComPtr<ID3DBlob> computeBlob;
+                // CompileShader hard-codes vs/ps; compile HLSL inline for compute (cs_5_0).
+                std::vector<uint32_t> spirv;
+                glslang::GlslangToSpv(*program.getIntermediate(EShLangCompute), spirv);
+
+                auto parser = std::make_unique<spirv_cross::Parser>(std::move(spirv));
+                parser->parse();
+                auto compiler = std::make_unique<spirv_cross::CompilerHLSL>(parser->get_parsed_ir());
+                compiler->set_hlsl_options({50, true});
+                Babylon::ShaderCompilerCommon::AssignUniformBufferBindings(*compiler);
+                std::string hlsl = compiler->compile();
+
+                Microsoft::WRL::ComPtr<ID3DBlob> errorMsgs;
+                UINT flags = 0;
+        #ifdef _DEBUG
+                flags |= D3DCOMPILE_DEBUG;
+        #endif
+                if (FAILED(D3DCompile(hlsl.data(), hlsl.size(), nullptr, nullptr, nullptr, "main", "cs_5_0", flags, 0, &computeBlob, &errorMsgs)))
+                {
+                    throw std::runtime_error{static_cast<const char*>(errorMsgs->GetBufferPointer())};
+                }
+
+                ShaderInfo computeShaderInfo{
+                    std::move(parser),
+                    std::move(compiler),
+                    gsl::make_span(static_cast<uint8_t*>(computeBlob->GetBufferPointer()), computeBlob->GetBufferSize()),
+                    {}};
+
+                return CreateBgfxComputeShader(std::move(computeShaderInfo));
+            }
+        }
