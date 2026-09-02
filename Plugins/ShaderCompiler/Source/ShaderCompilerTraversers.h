@@ -160,6 +160,21 @@ namespace Babylon::ShaderCompilerTraversers
     /// Only needed for the fxc (DXBC) backend; dxc accepts the indexable range.
     void FlattenNarrowVaryingArrays(glslang::TProgram& program, IdGenerator& ids);
 
+    /// Assign matching `layout(location=N)` to inter-stage varyings (vertex outs / fragment ins)
+    /// so SPIRV-Cross emits the same TEXCOORD semantic on both sides.
+    ///
+    /// Without this, glslang leaves varyings undecorated and SPIRV-Cross assigns TEXCOORDs
+    /// independently per stage by declaration order. When the vertex stage writes a varying the
+    /// fragment stage does not read (e.g. glowMapGeneration's `vPosition` is vertex-only unless
+    /// a clip plane is active), the remaining varyings shift — vertex `vUVEmissive : TEXCOORD1`
+    /// lands in fragment as `vUVEmissive : TEXCOORD0`, which silently samples garbage UVs
+    /// (clip-space xy). Even with matching TEXCOORD numbers, packing a vertex-only varying
+    /// into a leading slot can still break D3D/bgfx linkage, so fragment-read (shared)
+    /// varyings are assigned the leading locations first and vertex-only outputs follow.
+    /// Matrix columns consume consecutive locations. Call after FlattenNarrowVaryingArrays so
+    /// flattened elements receive distinct locations rather than sharing the cleared parent slot.
+    void AssignInterStageVaryingLocations(glslang::TProgram& program, IdGenerator& ids);
+
     /// Invert dFdy operands similar to bgfx_shader.sh
     /// https://github.com/bkaradzic/bgfx/blob/7be225bf490bb1cd231cfb4abf7e617bf35b59cb/src/bgfx_shader.sh#L44-L45
     /// https://github.com/bkaradzic/bgfx/blob/7be225bf490bb1cd231cfb4abf7e617bf35b59cb/src/bgfx_shader.sh#L62-L65

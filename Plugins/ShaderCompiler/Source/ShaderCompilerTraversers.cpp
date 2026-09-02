@@ -2514,6 +2514,138 @@ namespace Babylon::ShaderCompilerTraversers
             TIntermediate* m_intermediate{};
             std::vector<std::pair<TIntermSymbol*, TIntermNode*>> m_symbolsToParents{};
         };
+
+        /// Assigns matching layout locations to inter-stage varyings so vertex outputs and
+        /// fragment inputs share the same TEXCOORD semantic after SPIRV-Cross.
+        /// Mutates existing symbols in place (via getWritableType) to avoid multi-parent AST issues.
+        class InterStageVaryingLocationTraverser : private TIntermTraverser
+        {
+        public:
+            static void Traverse(TProgram& program, IdGenerator& /*ids*/)
+            {
+                auto* vs = program.getIntermediate(EShLangVertex);
+                auto* fs = program.getIntermediate(EShLangFragment);
+                if (vs == nullptr || fs == nullptr)
+                {
+                    return;
+                }
+
+                InterStageVaryingLocationTraverser vsCollector{EvqVaryingOut};
+                vs->getTreeRoot()->traverse(&vsCollector);
+                InterStageVaryingLocationTraverser fsCollector{EvqVaryingIn};
+                fs->getTreeRoot()->traverse(&fsCollector);
+
+                // Locations must match by name across stages. Prefer packing the fragment's
+                // inputs into the leading TEXCOORD slots: some D3D/bgfx paths effectively
+                // consume VS outputs in declaration order for the PS input signature, so a
+                // vertex-only leading varying (e.g. glowMapGeneration `vPosition` written as
+                // TEXCOORD0 while the PS reads `vUVEmissive` as TEXCOORD1) can leave the PS
+                // reading the wrong register even when the HLSL semantics look consistent.
+                // Assigning the shared (fragment-read) set first keeps those varyings at
+                // TEXCOORD0..N-1 on both sides; vertex-only outputs follow.
+                std::map<std::string, const TType*> sharedNameToType{};
+                std::map<std::string, const TType*> vsOnlyNameToType{};
+                for (const auto& [name, symbol] : fsCollector.m_linkerSymbols)
+                {
+                    sharedNameToType[name] = &symbol->getType();
+                }
+                for (const auto& [name, symbol] : vsCollector.m_linkerSymbols)
+                {
+                    if (sharedNameToType.find(name) == sharedNameToType.end())
+                    {
+                        vsOnlyNameToType[name] = &symbol->getType();
+                    }
+                }
+
+                if (sharedNameToType.empty() && vsOnlyNameToType.empty())
+                {
+                    return;
+                }
+
+                std::map<std::string, unsigned int> nameToLocation{};
+                unsigned int nextLocation = 0;
+                for (const auto& [name, type] : sharedNameToType)
+                {
+                    nameToLocation[name] = nextLocation;
+                    nextLocation += LocationSlotCount(*type);
+                }
+                for (const auto& [name, type] : vsOnlyNameToType)
+                {
+                    nameToLocation[name] = nextLocation;
+                    nextLocation += LocationSlotCount(*type);
+                }
+
+                ApplyLocations(nameToLocation, vsCollector.m_symbols);
+                ApplyLocations(nameToLocation, fsCollector.m_symbols);
+            }
+
+        private:
+            explicit InterStageVaryingLocationTraverser(TStorageQualifier storage)
+                : TIntermTraverser{}
+                , m_storage{storage}
+            {
+            }
+
+            void visitSymbol(TIntermSymbol* symbol) override
+            {
+                if (symbol->getType().getQualifier().storage != m_storage)
+                {
+                    return;
+                }
+
+                // Skip built-ins (gl_Position, gl_PointSize, etc.) — they use dedicated semantics.
+                if (symbol->getType().getQualifier().builtIn != EbvNone)
+                {
+                    return;
+                }
+
+                m_symbols.push_back(symbol);
+                if (IsLinkerObject(this->path))
+                {
+                    m_linkerSymbols[symbol->getName().c_str()] = symbol;
+                }
+            }
+
+            static unsigned int LocationSlotCount(const TType& type)
+            {
+                unsigned int elementSlots = 1;
+                if (type.isMatrix())
+                {
+                    elementSlots = static_cast<unsigned int>(type.getMatrixCols());
+                }
+
+                if (type.isArray())
+                {
+                    const int outer = type.getOuterArraySize();
+                    if (outer > 0)
+                    {
+                        return elementSlots * static_cast<unsigned int>(outer);
+                    }
+                }
+
+                return elementSlots;
+            }
+
+            static void ApplyLocations(
+                const std::map<std::string, unsigned int>& nameToLocation,
+                const std::vector<TIntermSymbol*>& symbols)
+            {
+                for (TIntermSymbol* symbol : symbols)
+                {
+                    const std::string name = symbol->getName().c_str();
+                    const auto it = nameToLocation.find(name);
+                    if (it == nameToLocation.end())
+                    {
+                        continue;
+                    }
+                    symbol->getWritableType().getQualifier().layoutLocation = it->second;
+                }
+            }
+
+            TStorageQualifier m_storage{};
+            std::map<std::string, TIntermSymbol*> m_linkerSymbols{};
+            std::vector<TIntermSymbol*> m_symbols{};
+        };
     }
 
     ScopeT MoveNonSamplerUniformsIntoStruct(TProgram& program, IdGenerator& ids)
@@ -2559,6 +2691,11 @@ namespace Babylon::ShaderCompilerTraversers
     void FlattenNarrowVaryingArrays(TProgram& program, IdGenerator& ids)
     {
         NarrowVaryingArrayFlattenerTraverser::Traverse(program, ids);
+    }
+
+    void AssignInterStageVaryingLocations(TProgram& program, IdGenerator& ids)
+    {
+        InterStageVaryingLocationTraverser::Traverse(program, ids);
     }
 
     void InvertYDerivativeOperands(TProgram& program)
