@@ -114,6 +114,8 @@ namespace Babylon::ShaderCompilerTraversers
                 auto* scope = new AllocationsScope();
                 Traverse(program.getIntermediate(EShLangVertex), ids, *scope);
                 Traverse(program.getIntermediate(EShLangFragment), ids, *scope);
+                // Compute-only programs (GPU particles, etc.) have neither VS nor FS.
+                Traverse(program.getIntermediate(EShLangCompute), ids, *scope);
                 return std::unique_ptr<AllocationsScopeBase>(scope);
             }
 
@@ -157,6 +159,11 @@ namespace Babylon::ShaderCompilerTraversers
 
             static void Traverse(TIntermediate* intermediate, IdGenerator& ids, AllocationsScope& scope)
             {
+                if (intermediate == nullptr)
+                {
+                    return;
+                }
+
                 NonSamplerUniformToStructTraverser traverser{};
                 intermediate->getTreeRoot()->traverse(&traverser);
 
@@ -288,6 +295,8 @@ namespace Babylon::ShaderCompilerTraversers
                 auto* scope = new AllocationsScope();
                 Traverse(program.getIntermediate(EShLangVertex), ids, *scope);
                 Traverse(program.getIntermediate(EShLangFragment), ids, *scope);
+                // Compute-only programs (GPU particles, etc.) have neither VS nor FS.
+                Traverse(program.getIntermediate(EShLangCompute), ids, *scope);
                 return std::unique_ptr<AllocationsScopeBase>(scope);
             }
 
@@ -494,6 +503,11 @@ namespace Babylon::ShaderCompilerTraversers
 
             static void Traverse(TIntermediate* intermediate, IdGenerator&, AllocationsScope& scope)
             {
+                if (intermediate == nullptr)
+                {
+                    return;
+                }
+
                 UniformTypeChangeTraverser traverser{intermediate, scope};
                 intermediate->getTreeRoot()->traverse(&traverser);
             }
@@ -1578,6 +1592,7 @@ namespace Babylon::ShaderCompilerTraversers
                 StructLocalZeroInitializerTraverser pass{};
                 pass.TraverseStage(program.getIntermediate(EShLangVertex));
                 pass.TraverseStage(program.getIntermediate(EShLangFragment));
+                pass.TraverseStage(program.getIntermediate(EShLangCompute));
             }
 
         private:
@@ -2125,7 +2140,7 @@ namespace Babylon::ShaderCompilerTraversers
         public:
             static void Traverse(TProgram& program)
             {
-                for (auto stage : {EShLangVertex, EShLangFragment})
+                for (auto stage : {EShLangVertex, EShLangFragment, EShLangCompute})
                 {
                     auto* intermediate{program.getIntermediate(stage)};
                     if (intermediate != nullptr)
