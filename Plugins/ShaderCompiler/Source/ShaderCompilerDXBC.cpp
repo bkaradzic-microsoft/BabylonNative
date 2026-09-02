@@ -10,7 +10,6 @@
 #include <spirv_hlsl.hpp>
 #include <d3dcompiler.h>
 #include <wrl/client.h>
-#include <cstring>
 
 namespace
 {
@@ -50,101 +49,23 @@ namespace
 
         std::string hlsl = compiler->compile();
 
-                // TEMP shotgun: dump particle instanced VS (has i_data + particle varyings)
-                if (stage == EShLangVertex && hlsl.find("i_data") != std::string::npos && hlsl.find("vColor") != std::string::npos)
-                {
-                    static int s_vsDump = 0;
-                    if (s_vsDump < 2)
-                    {
-                        char path[64];
-                        snprintf(path, sizeof(path), "particle_vs_%d.hlsl", s_vsDump++);
-                        FILE* f = nullptr;
-                        if (fopen_s(&f, path, "wb") == 0 && f)
-                        {
-                            fwrite(hlsl.data(), 1, hlsl.size(), f);
-                            fclose(f);
-                        }
-                    }
-                }
+        Microsoft::WRL::ComPtr<ID3DBlob> errorMsgs;
+        const char* target = stage == EShLangVertex ? "vs_5_0" : "ps_5_0";
 
-                Microsoft::WRL::ComPtr<ID3DBlob> errorMsgs;
-                const char* target = stage == EShLangVertex ? "vs_5_0" : "ps_5_0";
+        UINT flags = 0;
 
-                UINT flags = 0;
+#ifdef _DEBUG
+        flags |= D3DCOMPILE_DEBUG;
+#endif
 
-        #ifdef _DEBUG
-                flags |= D3DCOMPILE_DEBUG;
-        #endif
-
-                if (FAILED(D3DCompile(hlsl.data(), hlsl.size(), nullptr, nullptr, nullptr, "main", target, flags, 0, blob, &errorMsgs)))
-                {
-                    throw std::runtime_error{static_cast<const char*>(errorMsgs->GetBufferPointer())};
-                }
-
-                return {std::move(parser), std::move(compiler)};
-            }
-
-    std::pair<std::unique_ptr<spirv_cross::Parser>, std::unique_ptr<spirv_cross::Compiler>> CompileComputeShader(glslang::TProgram& program, ID3DBlob** blob)
-    {
-        std::vector<uint32_t> spirv;
-        glslang::GlslangToSpv(*program.getIntermediate(EShLangCompute), spirv);
-
-        auto parser = std::make_unique<spirv_cross::Parser>(std::move(spirv));
-        parser->parse();
-
-        auto compiler = std::make_unique<spirv_cross::CompilerHLSL>(parser->get_parsed_ir());
-
-        // Compute requires Shader Model 5.0 (cs_5_0). Do NOT force every SSBO to UAV:
-                // readonly buffers (params, particlesIn) must stay SRVs so they can be created
-                // without BGFX_BUFFER_COMPUTE_WRITE. bgfx marks COMPUTE_WRITE buffers as
-                // non-dynamic (m_dynamic=false); CPU updates then fail to stick on D3D11, which
-                // left GPU particle sim params at zero (no emit). Read-write SSBOs still become
-                // UAVs via normal SPIRV-Cross decoration.
-                spirv_cross::CompilerHLSL::Options hlslOptions{};
-                hlslOptions.shader_model = 50;
-                hlslOptions.force_storage_buffer_as_uav = false;
-                compiler->set_hlsl_options(hlslOptions);
-
-        Babylon::ShaderCompilerCommon::AssignUniformBufferBindings(*compiler);
-
-        std::string hlsl = compiler->compile();
-
-                                // TEMP: dump particle update + repack CS
-                                if (hlsl.find("particlesOut") != std::string::npos || hlsl.find("SimParams") != std::string::npos
-                                                                    || (hlsl.find("currentCount") != std::string::npos && hlsl.find("emitCount") != std::string::npos)
-                                                                    || (hlsl.find("srcData") != std::string::npos && hlsl.find("dstData") != std::string::npos)
-                                                                    || hlsl.find("dstStride") != std::string::npos)
-                                                                {
-                                                                    static int s_csN = 0;
-                                                                    if (s_csN < 6)
-                                                                    {
-                                                                        char path[64];
-                                                                        snprintf(path, sizeof(path), "compute_cs_%d.hlsl", s_csN++);
-                                                                        FILE* f = nullptr;
-                                                                        if (fopen_s(&f, path, "wb") == 0 && f)
-                                                                        {
-                                                                            fwrite(hlsl.data(), 1, hlsl.size(), f);
-                                                                            fclose(f);
-                                                                        }
-                                                                    }
-                                                                }
-
-                                Microsoft::WRL::ComPtr<ID3DBlob> errorMsgs;
-
-                        UINT flags = 0;
-
-                #ifdef _DEBUG
-                        flags |= D3DCOMPILE_DEBUG;
-                #endif
-
-                        if (FAILED(D3DCompile(hlsl.data(), hlsl.size(), nullptr, nullptr, nullptr, "main", "cs_5_0", flags, 0, blob, &errorMsgs)))
-                        {
-                            throw std::runtime_error{static_cast<const char*>(errorMsgs->GetBufferPointer())};
-                        }
-
-                return {std::move(parser), std::move(compiler)};
-            }
+        if (FAILED(D3DCompile(hlsl.data(), hlsl.size(), nullptr, nullptr, nullptr, "main", target, flags, 0, blob, &errorMsgs)))
+        {
+            throw std::runtime_error{static_cast<const char*>(errorMsgs->GetBufferPointer())};
         }
+
+        return {std::move(parser), std::move(compiler)};
+    }
+}
 
 namespace Babylon::Plugins
 {
@@ -183,15 +104,12 @@ namespace Babylon::Plugins
         ShaderCompilerTraversers::IdGenerator ids{};
         // Flip 2D texture sample coordinates (replaces the former ProcessSamplerFlip texture() macro).
         ShaderCompilerTraversers::FlipSamplerCoordinates(program);
-        // Present gl_FragCoord in OpenGL's bottom-left-origin space. Must precede the uniform
-        // struct move so the target-size uniform it declares is collected with the others.
-        ShaderCompilerTraversers::FlipFragCoordY(program, ids);
         auto cutScope = ShaderCompilerTraversers::ChangeUniformTypes(program, ids);
         auto utstScope = ShaderCompilerTraversers::MoveNonSamplerUniformsIntoStruct(program, ids);
         std::map<std::string, std::string> vertexAttributeRenaming = {};
-                auto builtInInstanceDataSlots = ShaderCompilerTraversers::AssignLocationsAndNamesToVertexVaryingsD3D(program, ids, vertexAttributeRenaming, instancedAttributes);
-                ShaderCompilerTraversers::FlattenNarrowVaryingArrays(program, ids);
-                ShaderCompilerTraversers::SplitSamplersIntoSamplersAndTextures(program, ids);
+        auto builtInInstanceDataSlots = ShaderCompilerTraversers::AssignLocationsAndNamesToVertexVaryingsD3D(program, ids, vertexAttributeRenaming, instancedAttributes);
+        ShaderCompilerTraversers::FlattenNarrowVaryingArrays(program, ids);
+        ShaderCompilerTraversers::SplitSamplersIntoSamplersAndTextures(program, ids);
         ShaderCompilerTraversers::SplitSamplerFunctionParameters(program, ids);
         ShaderCompilerTraversers::ZeroInitializeStructLocals(program);
         ShaderCompilerTraversers::InvertYDerivativeOperands(program);
@@ -260,42 +178,5 @@ namespace Babylon::Plugins
             {}};
 
         return CreateBgfxShader(std::move(vertexShaderInfo), std::move(fragmentShaderInfo), std::move(builtInInstanceDataSlots));
-    }
-
-    Graphics::BgfxShaderInfo ShaderCompiler::CompileCompute(std::string_view computeSource)
-    {
-        glslang::TProgram program;
-
-        glslang::TShader computeShader{EShLangCompute};
-
-        const std::array<const char*, 1> sources{computeSource.data()};
-        computeShader.setStrings(sources.data(), gsl::narrow_cast<int>(sources.size()));
-
-        auto defaultTBuiltInResource = GetDefaultResources();
-        if (!computeShader.parse(defaultTBuiltInResource, 310, EProfile::EEsProfile, true, true, EShMsgDefault))
-        {
-            throw std::runtime_error{std::string{"compute parse: "} + computeShader.getInfoLog() + " | debug: " + computeShader.getInfoDebugLog()};
-        }
-
-        glslang::SpvVersion spv{};
-        spv.spv = 0x10000;
-        computeShader.getIntermediate()->setSpv(spv);
-
-        program.addShader(&computeShader);
-
-        if (!program.link(EShMsgDefault))
-        {
-            throw std::runtime_error{std::string{"link: "} + program.getInfoLog() + " | debug: " + program.getInfoDebugLog()};
-        }
-
-        Microsoft::WRL::ComPtr<ID3DBlob> computeBlob;
-        auto [computeParser, computeCompiler] = CompileComputeShader(program, &computeBlob);
-        ShaderInfo computeShaderInfo{
-            std::move(computeParser),
-            std::move(computeCompiler),
-            gsl::make_span(static_cast<uint8_t*>(computeBlob->GetBufferPointer()), computeBlob->GetBufferSize()),
-            {}};
-
-        return CreateBgfxComputeShader(std::move(computeShaderInfo));
     }
 }

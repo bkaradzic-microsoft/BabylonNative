@@ -707,6 +707,7 @@ namespace Babylon::ShaderCompilerTraversers
                 return index;
             }
 
+            unsigned int m_genericAttributesRunningCount{0};
             const std::map<std::string, uint32_t>* m_instancedAttributes{nullptr};
             // Must stay sorted: GetStableLocation derives an attribute's location from its ordinal
             // position here, and that location must match across the base compile and every variant.
@@ -900,10 +901,20 @@ namespace Babylon::ShaderCompilerTraversers
                 auto intermediate{program.getIntermediate(EShLangVertex)};
                 VertexVaryingInTraverserD3D traverser{};
                 traverser.m_instancedAttributes = &instancedAttributes;
-                                intermediate->getTreeRoot()->traverse(&traverser);
-                                traverser.AssignBuiltInInstanceSlots();
-                                VertexVaryingInTraverser::Traverse(intermediate, ids, replacementToOriginalName, traverser);
-                                return traverser.m_builtInInstanceSlots;
+                intermediate->getTreeRoot()->traverse(&traverser);
+                traverser.AssignBuiltInInstanceSlots();
+                // UVs are effectively a special kind of generic attribute since they both use
+                // are implemented using texture coordinates, so we preprocess to pre-count the
+                // number of UV coordinate variables to prevent collisions.
+                for (const auto& [name, symbol] : traverser.m_varyingNameToSymbol)
+                {
+                    if (name.size() >= 2 && name[0] == 'u' && name[1] == 'v')
+                    {
+                        traverser.m_genericAttributesRunningCount++;
+                    }
+                }
+                VertexVaryingInTraverser::Traverse(intermediate, ids, replacementToOriginalName, traverser);
+                return traverser.m_builtInInstanceSlots;
             }
 
         private:
@@ -944,63 +955,13 @@ namespace Babylon::ShaderCompilerTraversers
                 IF_NAME_RETURN_ATTRIB("matricesIndices", bgfx::Attrib::Indices, "a_indices")
                 IF_NAME_RETURN_ATTRIB("matricesWeights", bgfx::Attrib::Weight, "a_weight")
 #undef IF_NAME_RETURN_ATTRIB
-                                // Generic locations must be stable between the base program and any instanced
-                                // variant. Vertex buffers for non-instanced attrs (e.g. particle `offset`)
-                                // are recorded against the base program's locations; if a variant renumbers
-                                // generics because other attrs moved to i_data, those streams bind to the wrong
-                                // inputs and billboards collapse (GPU particles drew as thin slivers/dual orbs).
-                                //
-                                // bgfx packs TEXCOORDn starting at location 10. `uv`/`uv2`/… claim those slots via
-                                // the special-name path above, so generics must start after the UV reservation —
-                                // same as the historical running-count pre-pass. The ordinal itself is taken over
-                                // ALL non-special varyings (including ones instanced in this variant) so it does
-                                // not shrink when attrs move to i_data.
-                                const unsigned int attributeLocation = StableGenericLocation(name);
-                                if (attributeLocation >= static_cast<unsigned int>(bgfx::Attrib::Count))
-                                    throw std::runtime_error("Cannot support more than " + std::to_string(static_cast<int>(bgfx::Attrib::Count)) + " vertex attributes.");
-                                return {attributeLocation, name};
-                            }
-
-                            static bool IsBgfxSpecialAttribName(const char* name)
-                            {
-                                return std::strcmp(name, "position") == 0 || std::strcmp(name, "normal") == 0 || std::strcmp(name, "tangent") == 0 || std::strcmp(name, "uv") == 0 || std::strcmp(name, "uv2") == 0 || std::strcmp(name, "uv3") == 0 || std::strcmp(name, "uv4") == 0 || std::strcmp(name, "color") == 0 || std::strcmp(name, "matricesIndices") == 0 || std::strcmp(name, "matricesWeights") == 0;
-                            }
-
-                            static bool IsUvAttribName(const std::string& name)
-                            {
-                                return name.size() >= 2 && name[0] == 'u' && name[1] == 'v';
-                            }
-
-                            unsigned int StableGenericLocation(const char* name) const
-                            {
-                                unsigned int uvSlots = 0;
-                                for (const auto& entry : m_varyingNameToSymbol)
-                                {
-                                    if (IsUvAttribName(entry.first))
-                                    {
-                                        ++uvSlots;
-                                    }
-                                }
-
-                                unsigned int index = 0;
-                                for (const auto& entry : m_varyingNameToSymbol)
-                                {
-                                    if (IsBgfxSpecialAttribName(entry.first.c_str()))
-                                    {
-                                        continue;
-                                    }
-                                    if (entry.first == name)
-                                    {
-                                        return FIRST_GENERIC_ATTRIBUTE_LOCATION + uvSlots + index;
-                                    }
-                                    ++index;
-                                }
-                                return FIRST_GENERIC_ATTRIBUTE_LOCATION + uvSlots + index;
-                            }
-
-                            // First generic shares the TEXCOORD0 enum value; UV specials reserve that range first.
-                            const unsigned int FIRST_GENERIC_ATTRIBUTE_LOCATION{10};
-                        };
+                const unsigned int attributeLocation = FIRST_GENERIC_ATTRIBUTE_LOCATION + m_genericAttributesRunningCount++;
+                if (attributeLocation >= static_cast<unsigned int>(bgfx::Attrib::Count))
+                    throw std::runtime_error("Cannot support more than " + std::to_string(static_cast<int>(bgfx::Attrib::Count)) + " vertex attributes.");
+                return {attributeLocation, name};
+            }
+            const unsigned int FIRST_GENERIC_ATTRIBUTE_LOCATION{10};
+        };
 
         /// <summary>
         /// Split sampler symbols into separate sampler and texture symbols and assign bindings.
@@ -1801,17 +1762,20 @@ namespace Babylon::ShaderCompilerTraversers
         ///
         /// SPIRV-Cross emits an array-typed member in the HLSL interface struct for an
         /// array-typed varying, e.g. `float vDepthMetric0[4] : TEXCOORD5;`. fxc turns that
-        /// into an indexable input register range, and rejects the range when the per-register
-        /// write masks differ -- which is always the case for a scalar element type, since each
-        /// register only uses `.x`:
+        /// into an indexable input register range and requires every register in the range
+        /// to use the same component mask (not necessarily all four slots -- matching `.x`
+        /// or matching `.xyz` is fine). Observed hang/reject shapes are float and vec2
+        /// arrays; `flat int[4]` and `vec3[4]` compile without this pass. Treating element
+        /// width `< 4` as flattenable is a conservative workaround covering the known bad
+        /// cases:
         ///
         ///     error X8000: masks on all input registers in an index range must be identical
         ///
-        /// In practice fxc does not merely fail here, it hangs, which is how this surfaced:
-        /// D3D11 shader compilation for Babylon.js cascaded shadow maps never returns.
-        /// `varying float vDepthMetric{X}[SHADOWCSMNUM_CASCADES{X}]` in lightFragmentDeclaration.fx
-        /// is the trigger. Its companion `varying vec4 vPositionFromLight{X}[...]` is fine,
-        /// because a 4-component element type gives every register the same full mask.
+        /// In practice fxc does not merely fail on the bad shapes, it hangs, which is how
+        /// this surfaced: D3D11 shader compilation for Babylon.js cascaded shadow maps never
+        /// returns. `varying float vDepthMetric{X}[SHADOWCSMNUM_CASCADES{X}]` in
+        /// lightFragmentDeclaration.fx is the trigger. Its companion
+        /// `varying vec4 vPositionFromLight{X}[...]` is fine.
         ///
         /// Each such array is replaced by:
         ///   - one scalar/narrow varying per element (`v_0`, `v_1`, ...), so the interface
@@ -1823,12 +1787,15 @@ namespace Babylon::ShaderCompilerTraversers
         /// `vDepthMetric{X}[index{X}]` is computed at runtime (lightFragment.fx picks the
         /// cascade per fragment), so the accesses cannot simply be rewritten to the per-element
         /// varyings. Copies between the two forms are inserted in `main`: element-wise reads at
-        /// the top of the fragment entry point, element-wise writes at the end of the vertex one.
-        /// Routing through a global also keeps writes performed by non-inlined helper functions
-        /// working, since they observe the global rather than a local copy.
+        /// the top of the fragment entry point, element-wise writes immediately before a trailing
+        /// top-level `return` (or at the end) of the vertex one. Routing through a global also
+        /// keeps writes performed by non-inlined helper functions working, since they observe
+        /// the global rather than a local copy.
         ///
         /// Only literally-sized, single-dimension, non-struct, non-matrix arrays with fewer than
         /// four components per element are flattened. Everything else keeps its existing form.
+        /// Explicit `layout(location=N)` on the array is cleared on generated elements so they
+        /// do not all pin the same TEXCOORD.
         class NarrowVaryingArrayFlattenerTraverser final : private TIntermTraverser
         {
         public:
@@ -1880,8 +1847,12 @@ namespace Babylon::ShaderCompilerTraversers
                     return false;
                 }
 
-                // Four-component elements already give every register an identical full mask,
-                // so they are legal as an indexable range and are left alone.
+                // Observed fxc hang/reject shapes are float and vec2 arrays (e.g. CSM
+                // vDepthMetric). flat int[4] and vec3[4] compile without this pass: the
+                // indexable-range rule requires matching component masks across registers,
+                // not a full .xyzw mask. Treating anything narrower than vec4 as flattenable
+                // is therefore a conservative workaround that covers the known bad cases
+                // without chasing every fxc edge case.
                 if (type.getVectorSize() >= 4)
                 {
                     return false;
@@ -1943,21 +1914,34 @@ namespace Babylon::ShaderCompilerTraversers
                 else
                 {
                     // Vertex: publish the global to the outgoing per-element varyings once the
-                    // shader body has finished writing it. An early return would jump over these
-                    // copies and silently emit stale varyings, so refuse to transform rather than
-                    // mis-render. Babylon.js vertex shaders do not return early today; this is
-                    // here so that if one ever does, it surfaces as a build failure.
+                    // shader body has finished writing it. Nested or mid-body returns would
+                    // jump over those copies and silently emit stale varyings, so refuse to
+                    // transform rather than mis-render. Babylon.js vertex shaders do not return
+                    // early today; this is here so that if one ever does, it surfaces as a
+                    // build failure.
                     if (HasEarlyReturn(mainBody))
                     {
                         throw std::runtime_error{"Cannot flatten varying arrays: vertex main() returns early"};
                     }
-                    bodySequence.insert(bodySequence.end(), copyStatements.begin(), copyStatements.end());
+
+                    // A trailing top-level `return;` is not "early", but copies appended after
+                    // it never run. Insert immediately before that return when present.
+                    auto insertAt = bodySequence.end();
+                    if (!bodySequence.empty())
+                    {
+                        auto* trailing = bodySequence.back() != nullptr ? bodySequence.back()->getAsBranchNode() : nullptr;
+                        if (trailing != nullptr && trailing->getFlowOp() == EOpReturn)
+                        {
+                            --insertAt;
+                        }
+                    }
+                    bodySequence.insert(insertAt, copyStatements.begin(), copyStatements.end());
                 }
             }
 
-            /// True when main() can return before reaching the end of its body. A return that is
-            /// the final top-level statement is equivalent to falling off the end, so it does not
-            /// count; anything nested or earlier does.
+            /// True when main() can return before the statements this pass inserts. A trailing
+            /// top-level return is handled by inserting copies immediately before it, so it is
+            /// not treated as early; nested or earlier returns still are.
             static bool HasEarlyReturn(TIntermAggregate* mainBody)
             {
                 class ReturnFinder final : public TIntermTraverser
@@ -2026,7 +2010,12 @@ namespace Babylon::ShaderCompilerTraversers
 
                 // Element type for the flattened varyings. The dereference constructor keeps the
                 // original storage and interpolation qualifiers, which is what these need.
-                const TType elementType{varyingType, 0};
+                // It also copies layout(location=N) onto every element; pinned SPIRV-Cross
+                // then maps each to the same TEXCOORDN and D3DCompile rejects the duplicates.
+                // Clear the location so SPIRV-Cross assigns vacant TEXCOORDs the same way it
+                // does for undecorated inter-stage varyings (BN never mapIO's them).
+                TType elementType{varyingType, 0};
+                elementType.getQualifier().layoutLocation = TQualifier::layoutLocationEnd;
 
                 for (int i = 0; i < arraySize; ++i)
                 {
@@ -2150,43 +2139,24 @@ namespace Babylon::ShaderCompilerTraversers
         protected:
             virtual bool visitAggregate(TVisit visit, TIntermAggregate* node) override
             {
-                if (visit == EvPreVisit && (node->getOp() == EOpTexture || node->getOp() == EOpTextureLod || node->getOp() == EOpTextureProj))
+                if (visit == EvPreVisit && (node->getOp() == EOpTexture || node->getOp() == EOpTextureLod))
                 {
                     auto& sequence = node->getSequence();
                     if (sequence.size() >= 2)
                     {
-                                        // The coordinate is the operand right after the sampler.
-                                        // - sampler2D (vec2): flip V
-                                        // - sampler2DShadow (vec3 = uv + depth) / sampler2DArrayShadow (vec4 = uv + layer + depth):
-                                        //   flip V only. Hardware PCF (SampleCmp) feeds these multi-component coords, so leaving
-                                        //   them unflipped produced Y-mirrored cascade "ghost" silhouettes while Poisson (vec2
-                                        //   depth texture samples) looked correct.
-                                        // - cube / plain 3D / plain 2DArray (non-shadow): left untouched, matching the original
-                                        //   flip(vec2)/identity-flip(vec3) convention for non-shadow samplers.
-                                        auto* coordinate = sequence[1]->getAsTyped();
-                                        if (coordinate != nullptr &&
-                                            coordinate->getType().getBasicType() == EbtFloat &&
-                                            !coordinate->getType().isArray())
-                                        {
-                                            const int vecSize = coordinate->getType().getVectorSize();
-                                            if (vecSize == 2)
-                                            {
-                                                sequence[1] = FlipVerticalCoordinate(coordinate);
-                                            }
-                                            else if (vecSize == 3 || vecSize == 4)
-                                            {
-                                                auto* sampler = sequence[0]->getAsTyped();
-                                                if (sampler != nullptr &&
-                                                    sampler->getType().getBasicType() == EbtSampler &&
-                                                    sampler->getType().getSampler().isShadow() &&
-                                                    sampler->getType().getSampler().dim == Esd2D)
-                                                {
-                                                    sequence[1] = FlipVerticalCoordinateKeepExtra(coordinate);
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
+                        // The coordinate is the operand right after the sampler. Only 2-component
+                        // float coordinates (sampler2D-style) are flipped; cube/array/3D coordinates
+                        // (vec3+) are left untouched, matching the original flip(vec2)/flip(vec3).
+                        auto* coordinate = sequence[1]->getAsTyped();
+                        if (coordinate != nullptr &&
+                            coordinate->getType().getBasicType() == EbtFloat &&
+                            !coordinate->getType().isArray() &&
+                            coordinate->getType().getVectorSize() == 2)
+                        {
+                            sequence[1] = FlipVerticalCoordinate(coordinate);
+                        }
+                    }
+                }
                 else if (visit == EvPostVisit && node->getOp() == EOpTextureFetch)
                 {
                     // texelFetch(sampler, ivec coord, lod). The vertical flip that used to be applied
@@ -2245,53 +2215,6 @@ namespace Babylon::ShaderCompilerTraversers
                 TIntermTyped* scaled{m_intermediate->addBinaryMath(EOpMul, coordinate, scale, loc)};
                 return m_intermediate->addBinaryMath(EOpAdd, scaled, offset, loc);
             }
-
-                        // Flips V of a shadow sampler coordinate while preserving depth (and layer for arrays):
-                        //   vec3(u, v, depth)        -> coordinate * vec3(1,-1,1) + vec3(0,1,0)
-                        //   vec4(u, v, layer, depth) -> coordinate * vec4(1,-1,1,1) + vec4(0,1,0,0)
-                        // Float vector mul/add is retained by SPIRV-Cross webmin (unlike integer OpIMul).
-                        TIntermTyped* FlipVerticalCoordinateKeepExtra(TIntermTyped* coordinate)
-                        {
-                            const TSourceLoc& loc{coordinate->getLoc()};
-                            // Shadow coords are only vec3 (2D) or vec4 (2DArray); branch avoids non-literal
-                            // TType/TConstUnionArray sizes that MSVC rejects as narrowing conversions.
-                            if (coordinate->getType().getVectorSize() == 3)
-                            {
-                                TType vec3Type{EbtFloat, EvqConst, 3};
-                                TConstUnionArray scaleValues{3};
-                                scaleValues[0].setDConst(1.0);
-                                scaleValues[1].setDConst(-1.0);
-                                scaleValues[2].setDConst(1.0);
-                                TIntermTyped* scale{m_intermediate->addConstantUnion(scaleValues, vec3Type, loc)};
-
-                                TConstUnionArray offsetValues{3};
-                                offsetValues[0].setDConst(0.0);
-                                offsetValues[1].setDConst(1.0);
-                                offsetValues[2].setDConst(0.0);
-                                TIntermTyped* offset{m_intermediate->addConstantUnion(offsetValues, vec3Type, loc)};
-
-                                TIntermTyped* scaled{m_intermediate->addBinaryMath(EOpMul, coordinate, scale, loc)};
-                                return m_intermediate->addBinaryMath(EOpAdd, scaled, offset, loc);
-                            }
-
-                            TType vec4Type{EbtFloat, EvqConst, 4};
-                            TConstUnionArray scaleValues{4};
-                            scaleValues[0].setDConst(1.0);
-                            scaleValues[1].setDConst(-1.0);
-                            scaleValues[2].setDConst(1.0);
-                            scaleValues[3].setDConst(1.0);
-                            TIntermTyped* scale{m_intermediate->addConstantUnion(scaleValues, vec4Type, loc)};
-
-                            TConstUnionArray offsetValues{4};
-                            offsetValues[0].setDConst(0.0);
-                            offsetValues[1].setDConst(1.0);
-                            offsetValues[2].setDConst(0.0);
-                            offsetValues[3].setDConst(0.0);
-                            TIntermTyped* offset{m_intermediate->addConstantUnion(offsetValues, vec4Type, loc)};
-
-                            TIntermTyped* scaled{m_intermediate->addBinaryMath(EOpMul, coordinate, scale, loc)};
-                            return m_intermediate->addBinaryMath(EOpAdd, scaled, offset, loc);
-                        }
 
             // Builds `ivec2(coordinate.x, textureSize(sampler, lod).y - 1 - coordinate.y)`, the
             // integer-texel-coordinate equivalent of FlipVerticalCoordinate. This is exactly the
@@ -2431,151 +2354,6 @@ namespace Babylon::ShaderCompilerTraversers
 
             TIntermediate* m_intermediate{};
         };
-
-        /// Presents gl_FragCoord to the shader in OpenGL's coordinate space on the backends that
-        /// render with a top-left origin (D3D, Metal, Vulkan).
-        ///
-        /// Babylon Native already normalizes the rest of that convention: FlipSamplerCoordinates
-        /// rewrites every texture()/texelFetch coordinate and InvertYDerivativeOperands negates
-        /// dFdy, so shader-visible coordinates are GL-space and the conversion to the physical
-        /// layout happens at each access. gl_FragCoord was the one input left in physical space,
-        /// which is why `texelFetch(tex, ivec2(gl_FragCoord.xy), 0)` read the vertically mirrored
-        /// row: the fetch coordinate was flipped by FlipSamplerCoordinates but the value feeding it
-        /// was not. Anything order-dependent on the row index -- a prefix sum, a neighbour offset,
-        /// a copy into a differently-oriented target -- came out inverted for the same reason.
-        ///
-        /// The flip is `targetHeight - gl_FragCoord.y`, with no -1 term: for physical row p the
-        /// hardware yields p + 0.5, and p == height - 1 - y for GL row y, so the incoming value is
-        /// height - y - 0.5 and the GL value y + 0.5 is exactly height minus that.
-        ///
-        /// The height cannot come from bgfx's predefined u_viewRect: that is the view *rect*, which
-        /// FrameBuffer::SetBgfxViewPortAndScissor narrows to the viewport whenever one is set, while
-        /// gl_FragCoord is relative to the whole render target. It is instead read from a uniform
-        /// that NativeEngine fills with the bound framebuffer's dimensions.
-        ///
-        /// The uniform is only declared in shaders that actually read gl_FragCoord, so shaders that
-        /// do not are left byte-for-byte unchanged.
-        class FragCoordYFlipTraverser final : private TIntermTraverser
-        {
-        public:
-            static void Traverse(TProgram& program, IdGenerator& ids)
-            {
-                auto* intermediate{program.getIntermediate(EShLangFragment)};
-                if (intermediate == nullptr)
-                {
-                    return;
-                }
-
-                FragCoordYFlipTraverser traverser{intermediate};
-                intermediate->getTreeRoot()->traverse(&traverser);
-
-                if (traverser.m_symbolsToParents.empty())
-                {
-                    return;
-                }
-
-                // Declared as a linker object before MoveNonSamplerUniformsIntoStruct runs, so the
-                // uniform is swept into the "Frame" struct with every other non-sampler uniform and
-                // is emitted under its own name in the bgfx uniform table like the rest.
-                TType targetSizeType{EbtFloat, EvqUniform, 4};
-                TIntermSymbol* targetSize{intermediate->addSymbol(TIntermSymbol{ids.Next(), Graphics::FRAGCOORD_TARGET_SIZE_UNIFORM_NAME, targetSizeType})};
-
-                auto* linkerObjects = FindLinkerObjects(intermediate->getTreeRoot()->getAsAggregate());
-                if (linkerObjects == nullptr)
-                {
-                    throw std::runtime_error{"FragCoordYFlip: fragment stage has no linker objects sequence."};
-                }
-                linkerObjects->getSequence().push_back(targetSize);
-
-                traverser.ApplyReplacements(targetSize);
-            }
-
-        protected:
-            void visitSymbol(TIntermSymbol* symbol) override
-            {
-                // Linker object references declare gl_FragCoord rather than read it, so rewriting
-                // them would replace the declaration itself with an expression.
-                if (symbol->getName() != "gl_FragCoord" || IsLinkerObject(path))
-                {
-                    return;
-                }
-
-                m_symbolsToParents.emplace_back(symbol, getParentNode());
-            }
-
-        private:
-            FragCoordYFlipTraverser(TIntermediate* intermediate)
-                : TIntermTraverser{true, false, false}
-                , m_intermediate{intermediate}
-            {
-            }
-
-            static TIntermAggregate* FindLinkerObjects(TIntermAggregate* root)
-            {
-                if (root == nullptr)
-                {
-                    return nullptr;
-                }
-
-                for (auto* node : root->getSequence())
-                {
-                    auto* aggregate = node != nullptr ? node->getAsAggregate() : nullptr;
-                    if (aggregate != nullptr && aggregate->getOp() == EOpLinkerObjects)
-                    {
-                        return aggregate;
-                    }
-                }
-
-                return nullptr;
-            }
-
-            void ApplyReplacements(TIntermSymbol* targetSize)
-            {
-                for (const auto& [symbol, parent] : m_symbolsToParents)
-                {
-                    // MakeReplacements is deliberately not reused here: it maps one replacement node
-                    // per symbol *name*, so every gl_FragCoord reference in the shader would share a
-                    // single subtree and that node would end up with as many parents as there are
-                    // references. A fresh subtree is built for each occurrence instead.
-                    MakeReplacements({{"gl_FragCoord", BuildFlippedFragCoord(symbol, targetSize)}}, {{symbol, parent}});
-                }
-            }
-
-            /// Builds `vec4(gl_FragCoord.x, u_targetSize.y - gl_FragCoord.y, gl_FragCoord.z, gl_FragCoord.w)`.
-            ///
-            /// The whole vector is reconstructed rather than just patching .y because a reference may
-            /// be swizzled (.xy), indexed, or passed along whole, and the parent node is not
-            /// inspected here; rebuilding a vec4 keeps every one of those forms valid.
-            TIntermTyped* BuildFlippedFragCoord(TIntermSymbol* fragCoord, TIntermSymbol* targetSize)
-            {
-                const TSourceLoc& loc{fragCoord->getLoc()};
-                TType floatType{EbtFloat, EvqTemporary, 1};
-                TType vec4Type{EbtFloat, EvqTemporary, 4};
-
-                // Each component reads through its own copy of the symbol so that no node in the
-                // finished tree has more than one parent.
-                auto component = [&](int index) {
-                    TIntermTyped* copy{m_intermediate->addSymbol(*fragCoord)};
-                    TIntermTyped* element{m_intermediate->addIndex(EOpIndexDirect, copy, m_intermediate->addConstantUnion(index, loc), loc)};
-                    element->setType(floatType);
-                    return element;
-                };
-
-                TIntermTyped* height{m_intermediate->addIndex(EOpIndexDirect, m_intermediate->addSymbol(*targetSize), m_intermediate->addConstantUnion(1, loc), loc)};
-                height->setType(floatType);
-
-                TIntermTyped* flippedY{m_intermediate->addBinaryMath(EOpSub, height, component(1), loc)};
-
-                TIntermAggregate* constructed{m_intermediate->makeAggregate(component(0), loc)};
-                constructed = m_intermediate->growAggregate(constructed, flippedY, loc);
-                constructed = m_intermediate->growAggregate(constructed, component(2), loc);
-                constructed = m_intermediate->growAggregate(constructed, component(3), loc);
-                return m_intermediate->setAggregateOperator(constructed, EOpConstructVec4, vec4Type, loc);
-            }
-
-            TIntermediate* m_intermediate{};
-            std::vector<std::pair<TIntermSymbol*, TIntermNode*>> m_symbolsToParents{};
-        };
     }
 
     ScopeT MoveNonSamplerUniformsIntoStruct(TProgram& program, IdGenerator& ids)
@@ -2631,10 +2409,5 @@ namespace Babylon::ShaderCompilerTraversers
     void FlipSamplerCoordinates(TProgram& program)
     {
         FlipSamplerCoordinatesTraverser::Traverse(program);
-    }
-
-    void FlipFragCoordY(TProgram& program, IdGenerator& ids)
-    {
-        FragCoordYFlipTraverser::Traverse(program, ids);
     }
 }

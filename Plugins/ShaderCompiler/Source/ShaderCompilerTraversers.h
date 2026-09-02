@@ -138,21 +138,24 @@ namespace Babylon::ShaderCompilerTraversers
     ///
     /// SPIRV-Cross emits an array-typed member in the HLSL interface struct for an array-typed
     /// varying (`float vDepthMetric0[4] : TEXCOORD5;`). fxc turns that into an indexable input
-    /// register range and rejects the range unless all its registers share a write mask, which
-    /// a narrow element type never satisfies -- each register uses only `.x`:
+    /// register range and requires every register in the range to use the same component mask
+    /// (not necessarily all four slots -- matching `.x` or matching `.xyz` is fine). Observed
+    /// hang/reject shapes are float and vec2 arrays; flat int[4] and vec3[4] compile without
+    /// this pass. Treating element width `< 4` as flattenable is a conservative workaround:
     ///
     ///     error X8000: masks on all input registers in an index range must be identical
     ///
-    /// fxc does not simply fail on this, it hangs, so D3D11 compilation of Babylon.js cascaded
-    /// shadow map shaders never completes. `varying float vDepthMetric{X}[SHADOWCSMNUM_CASCADES{X}]`
-    /// in lightFragmentDeclaration.fx is the trigger; the companion `vec4` array is unaffected
-    /// because 4-component elements do give every register an identical mask.
+    /// fxc does not simply fail on the bad shapes, it hangs, so D3D11 compilation of Babylon.js
+    /// cascaded shadow map shaders never completes. `varying float vDepthMetric{X}[SHADOWCSMNUM_CASCADES{X}]`
+    /// in lightFragmentDeclaration.fx is the trigger; the companion `vec4` array is unaffected.
     ///
     /// The global array is what preserves dynamic indexing -- the cascade index is computed per
     /// fragment at runtime, so accesses cannot just be rewritten to the per-element varyings.
-    /// Element-wise copies are inserted at the top of the fragment `main` and the end of the
-    /// vertex `main`. Only literally-sized, single-dimension, non-struct, non-matrix arrays with
-    /// fewer than four components per element are affected.
+    /// Element-wise copies are inserted at the top of the fragment `main` and immediately before
+    /// a trailing top-level `return` (or at the end) of the vertex `main`. Only literally-sized,
+    /// single-dimension, non-struct, non-matrix arrays with fewer than four components per
+    /// element are affected. Explicit `layout(location=N)` on the array is cleared on the
+    /// generated elements so they do not all pin the same TEXCOORD.
     ///
     /// Only needed for the fxc (DXBC) backend; dxc accepts the indexable range.
     void FlattenNarrowVaryingArrays(glslang::TProgram& program, IdGenerator& ids);
@@ -176,23 +179,4 @@ namespace Babylon::ShaderCompilerTraversers
     /// Must only be used on the backends that apply ProcessSamplerFlip (D3D, Metal, Vulkan); the
     /// OpenGL backend shares bgfx's V-orientation and must not flip.
     void FlipSamplerCoordinates(glslang::TProgram& program);
-
-    /// Rewrite every read of gl_FragCoord in the fragment shader to
-    /// `vec4(gl_FragCoord.x, targetHeight - gl_FragCoord.y, gl_FragCoord.z, gl_FragCoord.w)`,
-    /// presenting it in OpenGL's bottom-left-origin space.
-    ///
-    /// The backends that need FlipSamplerCoordinates also rasterize with a top-left origin, so
-    /// gl_FragCoord arrives mirrored relative to what a WebGL-authored shader expects. Because the
-    /// sampler coordinate flip is already applied on top of it, `texelFetch(tex,
-    /// ivec2(gl_FragCoord.xy), 0)` reads the mirrored row, and any use that depends on the row
-    /// index rather than merely sampling at it (prefix sums, neighbour offsets, copies into a
-    /// differently-oriented target) comes out inverted.
-    ///
-    /// The target height is read from the Graphics::FRAGCOORD_TARGET_SIZE_UNIFORM_NAME uniform,
-    /// which this traverser declares -- only in shaders that actually read gl_FragCoord -- and
-    /// NativeEngine fills with the bound framebuffer's dimensions. Must run before
-    /// MoveNonSamplerUniformsIntoStruct so the new uniform is collected with all the others, and
-    /// only on the backends that apply FlipSamplerCoordinates (D3D, Metal, Vulkan); the OpenGL
-    /// backend already matches WebGL's origin and must not flip.
-    void FlipFragCoordY(glslang::TProgram& program, IdGenerator& ids);
 }
