@@ -2159,16 +2159,32 @@ namespace Babylon::ShaderCompilerTraversers
                     auto& sequence = node->getSequence();
                     if (sequence.size() >= 2)
                     {
-                        // The coordinate is the operand right after the sampler. Only 2-component
-                        // float coordinates (sampler2D-style) are flipped; cube/array/3D coordinates
-                        // (vec3+) are left untouched, matching the original flip(vec2)/flip(vec3).
+                        // The coordinate is the operand right after the sampler. bgfx D3D/Metal/Vulkan
+                        // store 2D (and 2D-array) images with the opposite V origin from WebGL, so UV.y
+                        // must be flipped. Cube/3D directions are left alone.
+                        //
+                        // sampler2D uses vec2(u,v). sampler2DShadow uses vec3(u,v,depth), sampler2DArray
+                        // uses vec3(u,v,layer), and sampler2DArrayShadow uses vec4(u,v,layer,depth).
+                        // Historically only vec2 was flipped (matching the old flip(vec2) macro), which
+                        // left PCF/PCSS/CSM hardware-compare samples reading the vertically mirrored
+                        // texel — shadows appeared in the wrong place while FILTER_NONE (plain
+                        // sampler2D + packed depth) looked correct.
+                        auto* sampler = sequence[0]->getAsTyped();
                         auto* coordinate = sequence[1]->getAsTyped();
-                        if (coordinate != nullptr &&
+                        if (sampler != nullptr && coordinate != nullptr &&
+                            sampler->getType().getBasicType() == EbtSampler &&
                             coordinate->getType().getBasicType() == EbtFloat &&
-                            !coordinate->getType().isArray() &&
-                            coordinate->getType().getVectorSize() == 2)
+                            !coordinate->getType().isArray())
                         {
-                            sequence[1] = FlipVerticalCoordinate(coordinate);
+                            const TSampler& samp = sampler->getType().getSampler();
+                            const int vecSize = coordinate->getType().getVectorSize();
+                            // Esd2D covers both sampler2D and sampler2DArray (arrayed flag separate).
+                            if (samp.is2D() && vecSize >= 2 && vecSize <= 4)
+                            {
+                                sequence[1] = (vecSize == 2)
+                                    ? FlipVerticalCoordinate(coordinate)
+                                    : FlipVerticalCoordinateKeepTail(coordinate);
+                            }
                         }
                     }
                 }
@@ -2229,6 +2245,54 @@ namespace Babylon::ShaderCompilerTraversers
 
                 TIntermTyped* scaled{m_intermediate->addBinaryMath(EOpMul, coordinate, scale, loc)};
                 return m_intermediate->addBinaryMath(EOpAdd, scaled, offset, loc);
+            }
+
+            // Flips only .y of a vec3/vec4 sample coordinate, leaving the trailing components
+            // (shadow compare depth and/or array layer) unchanged:
+            //   vec3(u, v, z) -> vec3(u, 1.0 - v, z)
+            //   vec4(u, v, z, w) -> vec4(u, 1.0 - v, z, w)
+            // Built from scalar extracts + a constructor so SPIRV_CROSS_WEBMIN cannot drop an
+            // OpVectorTimesScalar the way a whole-vector multiply might.
+            TIntermTyped* FlipVerticalCoordinateKeepTail(TIntermTyped* coordinate)
+            {
+                const TSourceLoc& loc{coordinate->getLoc()};
+                const int vecSize = static_cast<int>(coordinate->getType().getVectorSize());
+                TType floatType{EbtFloat, EvqTemporary, 1};
+                TType resultType{EbtFloat, EvqTemporary, vecSize};
+
+                // coordinate is read once per component; clone so no node ends up with two parents.
+                TIntermTyped* coordXSrc = coordinate;
+                TIntermTyped* coordYSrc = CloneExpression(coordinate);
+                TIntermTyped* coordZSrc = (vecSize >= 3) ? CloneExpression(coordinate) : nullptr;
+                TIntermTyped* coordWSrc = (vecSize >= 4) ? CloneExpression(coordinate) : nullptr;
+
+                TIntermTyped* x{m_intermediate->addIndex(EOpIndexDirect, coordXSrc, m_intermediate->addConstantUnion(0, loc), loc)};
+                x->setType(floatType);
+                TIntermTyped* y{m_intermediate->addIndex(EOpIndexDirect, coordYSrc, m_intermediate->addConstantUnion(1, loc), loc)};
+                y->setType(floatType);
+
+                TConstUnionArray oneValues{1};
+                oneValues[0].setDConst(1.0);
+                TIntermTyped* one{m_intermediate->addConstantUnion(oneValues, TType{EbtFloat, EvqConst, 1}, loc)};
+                TIntermTyped* flippedY{m_intermediate->addBinaryMath(EOpSub, one, y, loc)};
+
+                TIntermAggregate* ctor{m_intermediate->makeAggregate(x, loc)};
+                ctor = m_intermediate->growAggregate(ctor, flippedY, loc);
+                if (vecSize >= 3)
+                {
+                    TIntermTyped* z{m_intermediate->addIndex(EOpIndexDirect, coordZSrc, m_intermediate->addConstantUnion(2, loc), loc)};
+                    z->setType(floatType);
+                    ctor = m_intermediate->growAggregate(ctor, z, loc);
+                }
+                if (vecSize >= 4)
+                {
+                    TIntermTyped* w{m_intermediate->addIndex(EOpIndexDirect, coordWSrc, m_intermediate->addConstantUnion(3, loc), loc)};
+                    w->setType(floatType);
+                    ctor = m_intermediate->growAggregate(ctor, w, loc);
+                }
+
+                const TOperator op = (vecSize == 3) ? EOpConstructVec3 : EOpConstructVec4;
+                return m_intermediate->setAggregateOperator(ctor, op, resultType, loc);
             }
 
             // Builds `ivec2(coordinate.x, textureSize(sampler, lod).y - 1 - coordinate.y)`, the

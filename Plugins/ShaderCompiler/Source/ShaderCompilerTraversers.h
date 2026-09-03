@@ -180,8 +180,8 @@ namespace Babylon::ShaderCompilerTraversers
     /// https://github.com/bkaradzic/bgfx/blob/7be225bf490bb1cd231cfb4abf7e617bf35b59cb/src/bgfx_shader.sh#L62-L65
     void InvertYDerivativeOperands(glslang::TProgram& program);
 
-    /// Flip the vertical (V) component of 2D texture sample coordinates, i.e. rewrite the
-    /// coordinate `uv` of every `texture()`/`textureLod()` call to `vec2(uv.x, 1.0 - uv.y)`.
+    /// Flip the vertical (V) component of 2D texture sample coordinates on every
+    /// `texture()`/`textureLod()` call.
     ///
     /// bgfx's D3D/Metal/Vulkan backends sample textures with the opposite V-orientation from
     /// WebGL/OpenGL. This was historically corrected by injecting a `#define texture(x,y)
@@ -189,8 +189,17 @@ namespace Babylon::ShaderCompilerTraversers
     /// function-like macro cannot match the 3-argument bias form `texture(sampler, uv, bias)`
     /// that some Babylon.js shaders emit (e.g. GreasedLine), and glslang's preprocessor has no
     /// variadic-macro support. Performing the flip on the AST handles every texture()/textureLod()
-    /// arity and sampler type. Only 2-component (sampler2D-style) coordinates are flipped, matching
-    /// the previous `flip(vec2)`/`flip(vec3)` overloads where vec3+ coordinates were left untouched.
+    /// arity and sampler type.
+    ///
+    /// Applies to every Esd2D sampler (plain, shadow, and arrayed):
+    ///   - sampler2D:              vec2(u, v)           -> (u, 1-v)
+    ///   - sampler2DShadow:        vec3(u, v, depth)    -> (u, 1-v, depth)
+    ///   - sampler2DArray:         vec3(u, v, layer)    -> (u, 1-v, layer)
+    ///   - sampler2DArrayShadow:   vec4(u, v, layer, d) -> (u, 1-v, layer, d)
+    /// Cube/3D coordinates are left untouched. Skipping the shadow/array forms used to leave
+    /// PCF/CSM hardware depth compares reading the mirrored row while FILTER_NONE (plain
+    /// sampler2D) looked correct.
+    ///
     /// Must only be used on the backends that apply ProcessSamplerFlip (D3D, Metal, Vulkan); the
     /// OpenGL backend shares bgfx's V-orientation and must not flip.
     void FlipSamplerCoordinates(glslang::TProgram& program);
