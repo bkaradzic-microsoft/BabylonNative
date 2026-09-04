@@ -3664,15 +3664,15 @@ bgfx::DynamicVertexBufferHandle NativeEngine::RepackStorageInstances(bgfx::Encod
         }
 
         for (const auto& it : m_currentProgram->Uniforms())
-                {
-                    const UniformValue& value = it.second;
-                    encoder->setUniform({it.first}, value.Data.data(), value.ElementLength);
-                }
+        {
+            const UniformValue& value = it.second;
+            encoder->setUniform({it.first}, value.Data.data(), value.ElementLength);
+        }
 
-                // Resolve the gl_FragCoord Y flip the shader compiler injected (see
-                // ShaderCompilerTraversers::FlipFragCoordY). The height must be the bound framebuffer's,
-                // not the bgfx view rect's: FrameBuffer::SetBgfxViewPortAndScissor narrows the view rect to
-                // the viewport whenever one is set, while gl_FragCoord is relative to the whole target.
+        // Resolve the gl_FragCoord Y flip the shader compiler injected (see
+        // ShaderCompilerTraversers::FlipFragCoordY). The height must be the bound framebuffer's,
+        // not the bgfx view rect's: FrameBuffer::SetBgfxViewPortAndScissor narrows the view rect to
+        // the viewport whenever one is set, while gl_FragCoord is relative to the whole target.
         if (const UniformInfo* fragCoordTargetSize = m_currentProgram->FragCoordTargetSizeUniform())
         {
             const Graphics::FrameBuffer& frameBuffer = GetBoundFrameBuffer();
