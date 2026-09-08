@@ -29094,6 +29094,11 @@ function hexToBytes(hex) {
     (0,chai__WEBPACK_IMPORTED_MODULE_3__.expect)(_native.DracoCodec.Version).to.match(/^\d+\.\d+\.\d+$/);
   });
 
+  it("publishes the Babylon.js codec entry points", function () {
+    (0,chai__WEBPACK_IMPORTED_MODULE_3__.expect)(_native.decodeDracoMesh).to.be.a("function");
+    (0,chai__WEBPACK_IMPORTED_MODULE_3__.expect)(_native.encodeDracoMesh).to.be.a("function");
+  });
+
   it("decodes a mesh produced by the reference glTF encoder", function () {
     var decoded = _native.DracoCodec.Decode(ENCODED, { position: POSITION_ATTRIBUTE_ID });
 

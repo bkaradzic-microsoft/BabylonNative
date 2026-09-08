@@ -520,5 +520,9 @@ namespace Babylon::Plugins::NativeDraco
         codec.Set("Encode", Napi::Function::New(env, EncodeDracoMesh, "Encode"));
         codec.Set("Version", Napi::String::New(env, draco::kDracoVersion));
         native.Set("DracoCodec", codec);
+
+        // Babylon.js currently feature-probes these entry points directly.
+        native.Set("decodeDracoMesh", Napi::Function::New(env, DecodeDracoMesh, "decodeDracoMesh"));
+        native.Set("encodeDracoMesh", Napi::Function::New(env, EncodeDracoMesh, "encodeDracoMesh"));
     }
 }

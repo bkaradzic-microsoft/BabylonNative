@@ -863,6 +863,11 @@ function hexToBytes(hex: string): Uint8Array {
     expect(_native.DracoCodec.Version).to.match(/^\d+\.\d+\.\d+$/);
   });
 
+  it("publishes the Babylon.js codec entry points", function () {
+    expect(_native.decodeDracoMesh).to.be.a("function");
+    expect(_native.encodeDracoMesh).to.be.a("function");
+  });
+
   it("decodes a mesh produced by the reference glTF encoder", function () {
     const decoded = _native.DracoCodec.Decode(ENCODED, { position: POSITION_ATTRIBUTE_ID });
 
