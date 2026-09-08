@@ -62,11 +62,6 @@ namespace Babylon::Graphics
         }
         return false;
     }
-    /// Uniform declared in fragment shaders that read gl_FragCoord, holding the bound
-    /// framebuffer's width/height in .x/.y. Deliberately outside the u_ namespace Babylon.js
-    /// uses so it cannot collide with a shader uniform.
-    inline constexpr const char* FRAGCOORD_TARGET_SIZE_UNIFORM_NAME{"bnFragCoordTargetSize"};
-
     /// Name of the uniform the shader compiler declares in any fragment shader that reads
     /// gl_FragCoord, so FragCoordYFlipTraverser can convert the hardware's top-left-origin value
     /// into the bottom-left-origin one Babylon.js shaders are written against. Its .x/.y hold the
