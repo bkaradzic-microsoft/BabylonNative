@@ -1875,7 +1875,7 @@ namespace Babylon
         const uint16_t width = static_cast<uint16_t>(info[1].As<Napi::Number>().Uint32Value());
         const uint16_t height = static_cast<uint16_t>(info[2].As<Napi::Number>().Uint32Value());
         const bool hasMips = info[3].As<Napi::Boolean>();
-        const bgfx::TextureFormat::Enum format = static_cast<bgfx::TextureFormat::Enum>(info[4].As<Napi::Number>().Uint32Value());
+        auto format = static_cast<bgfx::TextureFormat::Enum>(info[4].As<Napi::Number>().Uint32Value());
         const bool renderTarget = info[5].As<Napi::Boolean>();
         const bool srgb = info[6].As<Napi::Boolean>();
         const uint32_t samples = info[7].IsUndefined() ? 1 : info[7].As<Napi::Number>().Uint32Value();
@@ -1913,6 +1913,25 @@ namespace Babylon
         if (srgb)
         {
             flags |= BGFX_TEXTURE_SRGB;
+        }
+
+        if (static_cast<uint32_t>(format) >= bgfx::TextureFormat::Count)
+        {
+            throw Napi::Error::New(info.Env(), "Invalid texture format");
+        }
+
+        const uint16_t textureDepth = is3D ? (numLayers > 0 ? numLayers : 1) : 0;
+        const uint16_t textureLayers = (isCube || is3D) ? 1 : (numLayers > 0 ? numLayers : 1);
+        if (renderTarget && format == bgfx::TextureFormat::D24 &&
+            !bgfx::isTextureValid(textureDepth, isCube, textureLayers, format, flags))
+        {
+            // D3D11 has no depth-only D24 view. D24S8 retains the requested 24-bit depth precision;
+            // the framebuffer still exposes stencil only when the caller requests it.
+            format = bgfx::TextureFormat::D24S8;
+        }
+        if (!bgfx::isTextureValid(textureDepth, isCube, textureLayers, format, flags))
+        {
+            throw Napi::Error::New(info.Env(), "Unsupported texture format or creation flags");
         }
 
         if (isCube)

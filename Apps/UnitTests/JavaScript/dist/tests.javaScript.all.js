@@ -28842,6 +28842,32 @@ function createSceneAndWait(callback, done) {
   });
 }
 
+describe("NativeTextureFormats", function () {
+  it("creates a D24 render target with compatible backing storage", function () {
+    var engine = new _native.Engine();
+    var texture = engine.createTexture();
+    try {
+      engine.initializeTexture(texture, 16, 16, false, _native.Engine.TEXTURE_FORMAT_D24, true, false, 1);
+      (0,chai__WEBPACK_IMPORTED_MODULE_3__.expect)(engine.getTextureWidth(texture)).to.equal(16);
+      (0,chai__WEBPACK_IMPORTED_MODULE_3__.expect)(engine.getTextureHeight(texture)).to.equal(16);
+    } finally {
+      engine.deleteTexture(texture);
+      engine.dispose();
+    }
+  });
+
+  it("rejects an invalid format without entering bgfx texture creation", function () {
+    var engine = new _native.Engine();
+    var texture = engine.createTexture();
+    try {
+      (0,chai__WEBPACK_IMPORTED_MODULE_3__.expect)(function () {return engine.initializeTexture(texture, 16, 16, false, 0xffffffff, true, false, 1);}).to.throw("Invalid texture format");
+    } finally {
+      engine.deleteTexture(texture);
+      engine.dispose();
+    }
+  });
+});
+
 describe("Materials", function () {
   this.timeout(0);
   it("Empty ShaderMaterial should compile", function (done) {
