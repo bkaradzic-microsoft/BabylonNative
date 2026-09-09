@@ -446,11 +446,11 @@
     // backdrop, so every such test differed by its whole background. Replicate the browser's
     // compositing here: straight (non-premultiplied) source-over against greenyellow.
     //
-    // This is deliberately gated on the scene's clearColor alpha rather than applied to every
-    // frame. Several tests (additive/multiply particles, area lights, some prepass post-processes)
-    // leave alpha < 1 in the framebuffer even though they cleared opaque; the browser canvas is
-    // opaque in those cases so the backdrop is never visible, and compositing them unconditionally
-    // tinted ~19 passing tests green. Native writing an unexpected alpha there is a separate bug.
+    // FrameGraph owns its clears independently of scene.clearColor, and may copy transparent
+    // attachments to an otherwise opaque output. Always composite its final framebuffer.
+    // For legacy rendering, retain the clearColor-alpha gate: some Native particle and post-process
+    // paths write unexpected alpha after opaque clears. Compositing those exposed separate alpha
+    // defects and tinted previously matching images green.
     const CANVAS_BACKGROUND = [173, 255, 47];
 
     function compositeOverCanvasBackground(data) {
@@ -472,7 +472,7 @@
     function evaluateScreenshot(test, screenshot, referenceImage, done, compareFunction) {
         let testRes = true;
 
-        if (currentScene && currentScene.clearColor && currentScene.clearColor.a < 1) {
+        if (currentScene && (currentScene.frameGraph || (currentScene.clearColor && currentScene.clearColor.a < 1))) {
             compositeOverCanvasBackground(screenshot);
         }
 
