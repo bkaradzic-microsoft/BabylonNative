@@ -34,6 +34,7 @@ set(SOURCES
     "Source/Tests.ExternalTexture.Render.cpp"
     "Source/Tests.JavaScript.cpp"
     "Source/Tests.NativeEngine.InstanceData.cpp"
+    "Source/Tests.NativeEngine.Mipmaps.cpp"
     "Source/Tests.NativeEngine.Teardown.cpp"
     "Source/Tests.ShaderCache.cpp"
     "Source/Tests.ShaderCompilation.cpp"
@@ -88,6 +89,7 @@ target_link_libraries(UnitTests
     PRIVATE Window
     PRIVATE XMLHttpRequest
     PRIVATE gtest_main
+    PRIVATE bimg_encode
     ${ADDITIONAL_LIBRARIES})
 
 target_compile_definitions(UnitTests PRIVATE ${ADDITIONAL_COMPILE_DEFINITIONS})

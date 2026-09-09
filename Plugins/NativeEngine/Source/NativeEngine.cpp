@@ -386,7 +386,7 @@ namespace Babylon
                 }
 
                 bimg::ImageContainer* oldImage{image};
-                image = bimg::imageGenerateMips(&allocator, *image);
+                image = bimg::imageGenerateMips(&allocator, *image, srgb);
                 bimg::imageFree(oldImage);
 
                 if (image == nullptr)
