@@ -418,3 +418,88 @@ TEST(ShaderCompilation, FragCoordAndUVAddressATextureIdentically)
     }
 #endif
 }
+
+TEST(ShaderCompilation, PbrRoughnessSquareInNestedLoops)
+{
+#if defined(SKIP_EXTERNAL_TEXTURE_TESTS) || defined(SKIP_RENDER_TESTS)
+    GTEST_SKIP();
+#else
+    const std::string vertexShader =
+        "precision highp float;\n"
+        "attribute vec3 position;\n"
+        "void main(void) { gl_Position = vec4(position, 1.0); }\n";
+
+    // Use the production include: FXC can replace roughness squared with
+    // roughness when the saturated value is used inside nested dynamic loops.
+    const std::string fragmentShader =
+        "precision highp float;\n"
+        "uniform vec2 targetSize;\n"
+        "#include<helperFunctions>\n"
+        "#include<pbrHelperFunctions>\n"
+        "void main(void) {\n"
+        "    vec3 result = vec3(0.0);\n"
+        "    for (int i = 0; i < int(targetSize.x); ++i) {\n"
+        "        for (int j = 0; j < int(targetSize.y); ++j) {\n"
+        "            float roughness = clamp(1.0 / targetSize.x, 0.0, 1.0);\n"
+        "            result = vec3(roughness, convertRoughnessToAverageSlope(roughness), sqrt(roughness));\n"
+        "        }\n"
+        "    }\n"
+        "    gl_FragColor = vec4(result, 1.0);\n"
+        "}\n";
+
+    auto pixels = RenderFullScreenQuad(2, 1, vertexShader, fragmentShader, false);
+    ASSERT_EQ(pixels.size(), 8u);
+    for (size_t offset = 0; offset < pixels.size(); offset += 4)
+    {
+        EXPECT_NEAR(pixels[offset], 128, 1);
+        EXPECT_NEAR(pixels[offset + 1], 64, 1) << "roughness 0.5 must produce alphaG 0.2505, not 0.5005";
+        EXPECT_NEAR(pixels[offset + 2], 180, 1);
+        EXPECT_EQ(pixels[offset + 3], 255);
+    }
+#endif
+}
+
+TEST(ShaderCompilation, SaturatedArithmeticInNestedLoops)
+{
+#if defined(SKIP_EXTERNAL_TEXTURE_TESTS) || defined(SKIP_RENDER_TESTS)
+    GTEST_SKIP();
+#else
+    const std::string vertexShader =
+        "precision highp float;\n"
+        "attribute vec3 position;\n"
+        "void main(void) { gl_Position = vec4(position, 1.0); }\n";
+    const std::string arithmetic =
+        "float value = clamp(1.0 / targetSize.x, 0.0, 1.0);\n"
+        "float squared = value * value;\n"
+        "float fifth = squared * squared * value;\n"
+        "float attenuation = clamp(1.0 - value, 0.0, 1.0);\n"
+        "attenuation *= attenuation;\n"
+        "result = vec3(squared, fifth, attenuation);\n";
+    const std::vector<std::pair<std::string, std::string>> loops{
+        {"for (int i = 0; i < int(targetSize.x); ++i) { for (int j = 0; j < int(targetSize.y); ++j) {\n", "}}\n"},
+        {"int i = 0; while (i++ < int(targetSize.x)) { int j = 0; while (j++ < int(targetSize.y)) {\n", "}}\n"},
+        {"int i = 0; do { int j = 0; do {\n", "} while (++j < int(targetSize.y)); } while (++i < int(targetSize.x));\n"},
+    };
+    for (const auto& loop : loops)
+    {
+        SCOPED_TRACE(loop.first);
+        const std::string fragmentShader =
+            "precision highp float;\n"
+            "uniform vec2 targetSize;\n"
+            "void main(void) {\n"
+            "vec3 result = vec3(0.0);\n" +
+            loop.first + arithmetic + loop.second +
+            "gl_FragColor = vec4(result, 1.0);\n"
+            "}\n";
+        auto pixels = RenderFullScreenQuad(2, 1, vertexShader, fragmentShader, false);
+        ASSERT_EQ(pixels.size(), 8u);
+        for (size_t offset = 0; offset < pixels.size(); offset += 4)
+        {
+            EXPECT_NEAR(pixels[offset], 64, 1);
+            EXPECT_NEAR(pixels[offset + 1], 8, 1);
+            EXPECT_NEAR(pixels[offset + 2], 64, 1);
+            EXPECT_EQ(pixels[offset + 3], 255);
+        }
+    }
+#endif
+}
