@@ -283,6 +283,179 @@ namespace
     }
 }
 
+TEST(NativeEngineShadows, PointLightCubeOrientationMatchesAllShadowLookups)
+{
+#if defined(SKIP_EXTERNAL_TEXTURE_TESTS) || defined(SKIP_RENDER_TESTS)
+    GTEST_SKIP();
+#else
+    constexpr uint32_t CELL_SIZE = 8;
+    constexpr uint32_t FACE_COUNT = 6;
+    constexpr uint32_t WIDTH = FACE_COUNT * 2 * CELL_SIZE;
+    constexpr uint32_t HEIGHT = CELL_SIZE;
+
+    const std::string vertexShader =
+        "precision highp float;\n"
+        "attribute vec3 position;\n"
+        "attribute vec2 uv;\n"
+        "varying vec2 vUV;\n"
+        "void main(void) { vUV = uv; gl_Position = vec4(position, 1.0); }\n";
+
+    struct ShadowCase
+    {
+        int Filter;
+        const char* Name;
+        bool BackFaceCulling;
+        bool CullBackFaces;
+        bool ForceBackFacesOnly;
+        const char* Lookup;
+    };
+    const ShadowCase cases[] = {
+        {0, "none/back-cull", true, true, false, "computeShadowCube(worldPos, vec3(0.0), shadowSampler, 0.0, vec2(0.1, 10.1))"},
+        {0, "none/front-cull", true, false, false, "computeShadowCube(worldPos, vec3(0.0), shadowSampler, 0.0, vec2(0.1, 10.1))"},
+        {0, "none/force-back-faces", true, true, true, "computeShadowCube(worldPos, vec3(0.0), shadowSampler, 0.0, vec2(0.1, 10.1))"},
+        {1, "esm", true, true, false, "computeShadowWithESMCube(worldPos, vec3(0.0), shadowSampler, 0.0, 20.0, vec2(0.1, 10.1))"},
+        {2, "poisson", true, true, false, "computeShadowWithPoissonSamplingCube(worldPos, vec3(0.0), shadowSampler, 1.0 / 64.0, 0.0, vec2(0.1, 10.1))"},
+        {4, "close-esm", true, true, false, "computeShadowWithCloseESMCube(worldPos, vec3(0.0), shadowSampler, 0.0, 20.0, vec2(0.1, 10.1))"},
+    };
+
+    for (const auto& shadowCase : cases)
+    {
+        SCOPED_TRACE(shadowCase.Name);
+
+        // Each pair addresses one cube face in PointLight.getShadowDirection order:
+        // +X, -X, -Y, +Y, +Z, -Z. The first ray goes through an off-axis
+        // caster; the second reflects that ray across the face's projection-Y
+        // axis and must stay lit. The +/-Y faces use Z as their vertical axis.
+        const std::string fragmentShader =
+            "precision highp float;\n"
+            "varying vec2 vUV;\n"
+            "uniform samplerCube shadowSampler;\n"
+            "#define SHADOWS\n"
+            "#include<shadowsFragmentFunctions>\n"
+            "void main(void) {\n"
+            "    float cell = floor(min(vUV.x, 0.999999) * 12.0);\n"
+            "    vec3 direction;\n"
+            "    if (cell < 0.5) direction = vec3( 1.00,  0.31,  0.17);\n"
+            "    else if (cell < 1.5) direction = vec3( 1.00, -0.31,  0.17);\n"
+            "    else if (cell < 2.5) direction = vec3(-1.00, -0.27,  0.19);\n"
+            "    else if (cell < 3.5) direction = vec3(-1.00,  0.27,  0.19);\n"
+            "    else if (cell < 4.5) direction = vec3( 0.23, -1.00,  0.37);\n"
+            "    else if (cell < 5.5) direction = vec3( 0.23, -1.00, -0.37);\n"
+            "    else if (cell < 6.5) direction = vec3(-0.21,  1.00,  0.33);\n"
+            "    else if (cell < 7.5) direction = vec3(-0.21,  1.00, -0.33);\n"
+            "    else if (cell < 8.5) direction = vec3( 0.29,  0.35,  1.00);\n"
+            "    else if (cell < 9.5) direction = vec3( 0.29, -0.35,  1.00);\n"
+            "    else if (cell < 10.5) direction = vec3(-0.25, -0.33, -1.00);\n"
+            "    else direction = vec3(-0.25,  0.33, -1.00);\n"
+            "    vec3 worldPos = normalize(direction) * 6.0;\n"
+            "    float visibility = " +
+            std::string{shadowCase.Lookup} +
+            ";\n"
+            "    gl_FragColor = vec4(vec3(visibility), 1.0);\n"
+            "}\n";
+
+        const std::string setupScript =
+            R"(
+                var filter = )" +
+            std::to_string(shadowCase.Filter) +
+            R"(;
+                var backFaceCulling = )" +
+            std::string{shadowCase.BackFaceCulling ? "true" : "false"} +
+            R"(;
+                var cullBackFaces = )" +
+            std::string{shadowCase.CullBackFaces ? "true" : "false"} +
+            R"(;
+                var forceBackFacesOnly = )" +
+            std::string{shadowCase.ForceBackFacesOnly ? "true" : "false"} +
+            R"(;
+
+                camera.layerMask = 0x1;
+                quad.layerMask = 0x1;
+                quad.renderingGroupId = 1;
+
+                var light = new BABYLON.PointLight("shadowLight", BABYLON.Vector3.Zero(), scene);
+                light.shadowMinZ = 0.1;
+                light.shadowMaxZ = 10.0;
+
+                // Force the portable packed-RGBA shadow path so the lookup
+                // shader has one format on every Native backend.
+                var caps = engine.getCaps();
+                var capNames = [
+                    "textureHalfFloatRender",
+                    "textureHalfFloatLinearFiltering",
+                    "textureFloatRender",
+                    "textureFloatLinearFiltering"
+                ];
+                var savedCaps = capNames.map(function (name) { return caps[name]; });
+                var shadowGenerator;
+                try {
+                    capNames.forEach(function (name) { caps[name] = false; });
+                    shadowGenerator = new BABYLON.ShadowGenerator(64, light);
+                } finally {
+                    capNames.forEach(function (name, index) { caps[name] = savedCaps[index]; });
+                }
+                shadowGenerator.filter = filter;
+                shadowGenerator.bias = 0.0;
+                shadowGenerator.depthScale = 20.0;
+                shadowGenerator.forceBackFacesOnly = forceBackFacesOnly;
+
+                var casterMaterial = new BABYLON.StandardMaterial("casterMaterial", scene);
+                casterMaterial.disableLighting = true;
+                casterMaterial.backFaceCulling = backFaceCulling;
+                casterMaterial.cullBackFaces = cullBackFaces;
+
+                var casterDirections = [
+                    new BABYLON.Vector3( 1.00,  0.31,  0.17),
+                    new BABYLON.Vector3(-1.00, -0.27,  0.19),
+                    new BABYLON.Vector3( 0.23, -1.00,  0.37),
+                    new BABYLON.Vector3(-0.21,  1.00,  0.33),
+                    new BABYLON.Vector3( 0.29,  0.35,  1.00),
+                    new BABYLON.Vector3(-0.25, -0.33, -1.00)
+                ];
+                casterDirections.forEach(function (direction, face) {
+                    direction.normalize();
+                    var caster = BABYLON.MeshBuilder.CreateBox(
+                        "caster" + face,
+                        { width: 0.8, height: 0.8, depth: 0.8 },
+                        scene);
+                    caster.position.copyFrom(direction.scale(3.0));
+                    caster.material = casterMaterial;
+                    caster.layerMask = 0x2;
+                    shadowGenerator.addShadowCaster(caster, false);
+                });
+
+                material.options.samplers.push("shadowSampler");
+                material.setTexture("shadowSampler", shadowGenerator.getShadowMapForRendering());
+                globalThis.__prepare = function () {
+                    return Promise.all([
+                        shadowGenerator.forceCompilationAsync(),
+                        material.forceCompilationAsync(quad)
+                    ]);
+                };
+            )";
+
+        const auto pixels = RenderFullScreenQuad(WIDTH, HEIGHT, vertexShader, fragmentShader, false, setupScript);
+        ASSERT_EQ(pixels.size(), static_cast<size_t>(WIDTH) * HEIGHT * 4);
+
+        const auto redAtCell = [&pixels](uint32_t cell) {
+            const uint32_t x = cell * CELL_SIZE + CELL_SIZE / 2;
+            const uint32_t y = HEIGHT / 2;
+            return static_cast<int>(pixels[(static_cast<size_t>(y) * WIDTH + x) * 4]);
+        };
+        const char* faceNames[] = {"+X", "-X", "-Y", "+Y", "+Z", "-Z"};
+        for (uint32_t face = 0; face < FACE_COUNT; ++face)
+        {
+            const int shadowed = redAtCell(face * 2);
+            const int lit = redAtCell(face * 2 + 1);
+            EXPECT_LT(shadowed, 64)
+                << faceNames[face] << " off-axis caster ray was not shadowed (visibility=" << shadowed << ")";
+            EXPECT_GT(lit, 192)
+                << faceNames[face] << " projection-Y mirror ray was not lit (visibility=" << lit << ")";
+        }
+    }
+#endif
+}
+
 TEST(NativeEngineTextureSampling, NoMipSamplingPreservesFiltersAndModeChanges)
 {
 #if defined(SKIP_EXTERNAL_TEXTURE_TESTS) || defined(SKIP_RENDER_TESTS)
