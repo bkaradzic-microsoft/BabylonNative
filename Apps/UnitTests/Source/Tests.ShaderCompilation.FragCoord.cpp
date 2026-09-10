@@ -456,6 +456,90 @@ TEST(NativeEngineShadows, PointLightCubeOrientationMatchesAllShadowLookups)
 #endif
 }
 
+TEST(NativeEngineClear, PreservesTextureBindings)
+{
+#if defined(SKIP_EXTERNAL_TEXTURE_TESTS) || defined(SKIP_RENDER_TESTS)
+    GTEST_SKIP();
+#else
+    const std::string vertexShader =
+        "precision highp float;\n"
+        "attribute vec3 position;\n"
+        "attribute vec2 uv;\n"
+        "varying vec2 vUV;\n"
+        "void main(void) { vUV = uv; gl_Position = vec4(position, 1.0); }\n";
+    const std::string fragmentShader =
+        "precision highp float;\n"
+        "uniform sampler2D inputSampler;\n"
+        "uniform sampler2D otherSampler;\n"
+        "varying vec2 vUV;\n"
+        "void main(void) { gl_FragColor = mix(texture2D(inputSampler, vUV), texture2D(otherSampler, vUV), 0.5); }\n";
+    for (int clearMode = 0; clearMode < 4; ++clearMode)
+    {
+        SCOPED_TRACE(::testing::Message() << "clearMode=" << clearMode);
+        const std::string setupScript = R"(
+            var first = BABYLON.RawTexture.CreateRGBATexture(new Uint8Array([32, 64, 96, 255]), 1, 1, scene, false, false, 1);
+            var second = BABYLON.RawTexture.CreateRGBATexture(new Uint8Array([128, 160, 192, 255]), 1, 1, scene, false, false, 1);
+            material.setTexture("inputSampler", first);
+            material.setTexture("otherSampler", second);
+            material.onBindObservable.add(function () {
+                var clearMode = )" + std::to_string(clearMode) + R"(;
+                if (clearMode === 3) engine.enableScissor(0, 0, 1, height);
+                engine.clear(new BABYLON.Color4(0, 0, 0, 1), (clearMode & 1) !== 0, (clearMode & 2) !== 0, false);
+                if (clearMode === 3) engine.disableScissor();
+            });
+        )";
+        const auto pixels = RenderFullScreenQuad(2, 2, vertexShader, fragmentShader, false, setupScript);
+        ASSERT_EQ(pixels.size(), 16u);
+        for (size_t offset = 0; offset < pixels.size(); offset += 4)
+        {
+            EXPECT_NEAR(pixels[offset], 80, 1);
+            EXPECT_NEAR(pixels[offset + 1], 112, 1);
+            EXPECT_NEAR(pixels[offset + 2], 144, 1);
+            EXPECT_EQ(pixels[offset + 3], 255);
+        }
+    }
+#endif
+}
+
+TEST(NativeEngineClear, ProceduralTextureRetainsBothInputs)
+{
+#if defined(SKIP_EXTERNAL_TEXTURE_TESTS) || defined(SKIP_RENDER_TESTS)
+    GTEST_SKIP();
+#else
+    const std::string vertexShader =
+        "precision highp float;\n"
+        "attribute vec3 position;\n"
+        "attribute vec2 uv;\n"
+        "varying vec2 vUV;\n"
+        "void main(void) { vUV = uv; gl_Position = vec4(position, 1.0); }\n";
+    const std::string fragmentShader =
+        "precision highp float;\n"
+        "uniform sampler2D inputSampler;\n"
+        "varying vec2 vUV;\n"
+        "void main(void) { gl_FragColor = texture2D(inputSampler, vUV); }\n";
+    const std::string setupScript = R"(
+        var first = BABYLON.RawTexture.CreateRGBATexture(new Uint8Array([32, 64, 96, 255]), 1, 1, scene, false, false, 1);
+        var second = BABYLON.RawTexture.CreateRGBATexture(new Uint8Array([128, 160, 192, 255]), 1, 1, scene, false, false, 1);
+        var procedural = new BABYLON.ProceduralTexture("sampled", 2, {
+            fragmentSource: "precision highp float; varying vec2 vUV; uniform sampler2D first; uniform sampler2D second;" +
+                "void main(void) { gl_FragColor = mix(texture2D(first, vUV), texture2D(second, vUV), 0.5); }"
+        }, scene, null, false);
+        procedural.setTexture("first", first);
+        procedural.setTexture("second", second);
+        material.setTexture("inputSampler", procedural);
+    )";
+    const auto pixels = RenderFullScreenQuad(2, 2, vertexShader, fragmentShader, false, setupScript);
+    ASSERT_EQ(pixels.size(), 16u);
+    for (size_t offset = 0; offset < pixels.size(); offset += 4)
+    {
+        EXPECT_NEAR(pixels[offset], 80, 1);
+        EXPECT_NEAR(pixels[offset + 1], 112, 1);
+        EXPECT_NEAR(pixels[offset + 2], 144, 1);
+        EXPECT_EQ(pixels[offset + 3], 255);
+    }
+#endif
+}
+
 TEST(NativeEngineTextureSampling, NoMipSamplingPreservesFiltersAndModeChanges)
 {
 #if defined(SKIP_EXTERNAL_TEXTURE_TESTS) || defined(SKIP_RENDER_TESTS)

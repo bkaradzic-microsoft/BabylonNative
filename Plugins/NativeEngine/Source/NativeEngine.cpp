@@ -3325,6 +3325,8 @@ const bool requestDepthStencilTexture = (depthStencilTextureRequest != nullptr);
             }
 
             GetBoundFrameBuffer().Clear(*encoder, flags, r, g, b, a, depth, stencil, colorAttachmentMask);
+            // FrameBuffer::Clear touches its view, discarding bgfx bindings. WebGL clears retain them.
+            RestoreBoundTextures(encoder);
         }
 
     Napi::Value NativeEngine::GetRenderWidth(const Napi::CallbackInfo& info)
