@@ -283,6 +283,87 @@ namespace
     }
 }
 
+TEST(NativeEngineTextureSampling, NoMipSamplingPreservesFiltersAndModeChanges)
+{
+#if defined(SKIP_EXTERNAL_TEXTURE_TESTS) || defined(SKIP_RENDER_TESTS)
+    GTEST_SKIP();
+#else
+    const std::string vertexShader =
+        "precision highp float;\n"
+        "attribute vec3 position;\n"
+        "attribute vec2 uv;\n"
+        "varying vec2 vUV;\n"
+        "void main(void) { vUV = uv; gl_Position = vec4(position, 1.0); }\n";
+    struct SamplingCase
+    {
+        int Mode;
+        int Anisotropy;
+        int Red;
+        int Green;
+        int MagnifiedRed;
+    };
+    const SamplingCase cases[] = {
+        {1, 1, 0, 0, 255},   // Nearest, no mips.
+        {2, 1, 128, 0, 191}, // Linear, no mips.
+        {7, 1, 128, 0, 255}, // Nearest mag, linear min, no mips.
+        {12, 1, 0, 0, 191},  // Linear mag, nearest min, no mips.
+        {2, 4, 255, 0, 255}, // Anisotropic, constant-color base mip.
+        {3, 1, 0, 255, 191}, // Linear mip filtering restored.
+        {4, 1, 0, 255, 255}, // Point mip filtering restored.
+    };
+    for (const auto& sample : cases)
+    {
+        SCOPED_TRACE(::testing::Message() << "mode=" << sample.Mode << ", anisotropy=" << sample.Anisotropy);
+        const std::string setupScript = R"(
+            var requestedMode = )" + std::to_string(sample.Mode) + R"(;
+            var anisotropy = )" + std::to_string(sample.Anisotropy) + R"(;
+            // Distinct lower mips separate mip selection from spatial filtering.
+            var sampled;
+            for (var mip = 0, size = 8; size >= 1; mip++, size /= 2) {
+                var pixels = new Uint8Array(size * size * 4);
+                var offset = 0;
+                for (var y = 0; y < size; y++) {
+                    for (var x = 0; x < size; x++) {
+                        pixels[offset++] = mip === 0 && (anisotropy > 1 || x % 2 === 0) ? 255 : 0;
+                        pixels[offset++] = mip === 0 ? 0 : 255;
+                        pixels[offset++] = 0;
+                        pixels[offset++] = 255;
+                    }
+                }
+                if (mip === 0) {
+                    sampled = BABYLON.RawTexture.CreateRGBATexture(pixels, size, size, scene, true, false, 1);
+                } else {
+                    engine.updateTextureData(sampled.getInternalTexture(), pixels, 0, 0, size, size, 0, mip);
+                }
+            }
+            sampled.anisotropicFilteringLevel = anisotropy;
+            sampled.updateSamplingMode(4);
+            sampled.updateSamplingMode(requestedMode);
+            material.setTexture("inputSampler", sampled);
+        )";
+        for (const bool magnify : {false, true})
+        {
+            SCOPED_TRACE(::testing::Message() << "magnify=" << magnify);
+            const std::string fragmentShader =
+                "precision highp float;\n"
+                "uniform sampler2D inputSampler;\n"
+                "varying vec2 vUV;\n"
+                "void main(void) { gl_FragColor = texture2D(inputSampler, vUV * " +
+                std::string{magnify ? "0.125" : "0.5"} + " + 0.25); }\n";
+            const auto pixels = RenderFullScreenQuad(2, 2, vertexShader, fragmentShader, true, setupScript);
+            ASSERT_EQ(pixels.size(), 16u);
+            for (size_t offset = 0; offset < pixels.size(); offset += 4)
+            {
+                EXPECT_NEAR(pixels[offset], magnify ? sample.MagnifiedRed : sample.Red, 1);
+                EXPECT_NEAR(pixels[offset + 1], magnify ? 0 : sample.Green, 1);
+                EXPECT_EQ(pixels[offset + 2], 0);
+                EXPECT_EQ(pixels[offset + 3], 255);
+            }
+        }
+    }
+#endif
+}
+
 TEST(NativeEngineInstanceData, QueuedDrawRetainsDataBeforeUpdate)
 {
 #if defined(SKIP_EXTERNAL_TEXTURE_TESTS) || defined(SKIP_RENDER_TESTS)
