@@ -3160,7 +3160,8 @@ const bool requestDepthStencilTexture = (depthStencilTextureRequest != nullptr);
                     frameBufferDepthOwnerIndex = -1;
                 }
 
-                Graphics::FrameBuffer* frameBuffer = new Graphics::FrameBuffer(m_deviceContext, frameBufferHandle, width, height, false, hasDepthAttachment, generateStencilBuffer, frameBufferDepthOwnerIndex);
+                const bool isMultisampled = RenderTargetSamplesToBgfxMsaaFlag(samples) != BGFX_TEXTURE_NONE;
+                Graphics::FrameBuffer* frameBuffer = new Graphics::FrameBuffer(m_deviceContext, frameBufferHandle, width, height, false, hasDepthAttachment, generateStencilBuffer, frameBufferDepthOwnerIndex, isMultisampled);
 
                 return Napi::Pointer<Graphics::FrameBuffer>::Create(env, frameBuffer, Napi::NapiPointerDeleter(frameBuffer));
             }
@@ -3790,6 +3791,8 @@ bgfx::DynamicVertexBufferHandle NativeEngine::RepackStorageInstances(bgfx::Encod
                         }
 
                         auto& boundFrameBuffer = GetBoundFrameBuffer();
+                        // D3D11 also uses this flag to select its line coverage algorithm on single-sample targets.
+                        const uint64_t multisampleMask = boundFrameBuffer.IsMultisampled() ? UINT64_MAX : ~BGFX_STATE_MSAA;
                         if (boundFrameBuffer.HasDepth())
                         {
                             // Triangle strips alternate winding (e.g. GPU particle billboard quads).
@@ -3800,14 +3803,14 @@ bgfx::DynamicVertexBufferHandle NativeEngine::RepackStorageInstances(bgfx::Encod
                         const uint64_t drawState = (fillMode == 7)
                             ? ((m_engineState | fillModeState) & ~(BGFX_STATE_CULL_MASK | BGFX_STATE_WRITE_Z))
                             : (m_engineState | fillModeState);
-                        encoder->setState(drawState);
+                        encoder->setState(drawState & multisampleMask);
                         }
                         else
                         {
                             const uint64_t drawState = (fillMode == 7)
                                 ? (((m_engineState & ~BGFX_STATE_WRITE_Z) | fillModeState) & ~BGFX_STATE_CULL_MASK)
                                 : ((m_engineState & ~BGFX_STATE_WRITE_Z) | fillModeState);
-                            encoder->setState(drawState);
+                            encoder->setState(drawState & multisampleMask);
                         }
 
                         boundFrameBuffer.SetStencil(*encoder, m_stencilState);

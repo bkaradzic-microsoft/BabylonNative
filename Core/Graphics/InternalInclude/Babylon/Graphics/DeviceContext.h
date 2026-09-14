@@ -106,6 +106,8 @@ namespace Babylon::Graphics
 
         float GetHardwareScalingLevel();
         void SetHardwareScalingLevel(float level);
+        void UpdateMSAA(uint8_t samples);
+        uint8_t GetMSAASamples() const;
 
         size_t GetWidth() const;
         size_t GetHeight() const;

@@ -305,6 +305,65 @@ describe("Canvas2D", function () {
     }
   });
 
+  (skipCanvasGpuTests ? it.skip : it)("uses the strokeRect geometry after a preceding fillRect", async function () {
+    this.timeout(10000);
+    const engine = new NativeEngine();
+    const scene = new Scene(engine);
+    try {
+      const texture = new DynamicTexture("fill then inset stroke", 16, scene, false);
+      const ctx = texture.getContext();
+      ctx.fillStyle = "blue";
+      ctx.fillRect(2, 2, 12, 12);
+      ctx.strokeStyle = "white";
+      ctx.lineWidth = 1;
+      ctx.strokeRect(2.5, 2.5, 11, 11);
+      texture.update(false);
+
+      const pixels = await texture.readPixels();
+      if (!(pixels instanceof Uint8Array)) {
+        throw new Error("Expected RGBA8 GPU readback for the canvas texture");
+      }
+      const pixel = (x: number, y: number) => Array.from(pixels.subarray((y * 16 + x) * 4, (y * 16 + x + 1) * 4));
+      expect(pixel(8, 1), "outside inset border").to.deep.equal([0, 0, 0, 0]);
+      expect(pixel(8, 2), "pixel-aligned inset border").to.deep.equal([255, 255, 255, 255]);
+      expect(pixel(8, 3), "button fill inside border").to.deep.equal([0, 0, 255, 255]);
+    } finally {
+      scene.dispose();
+      engine.dispose();
+    }
+  });
+
+  it("matches browser text layout metrics", async function () {
+    this.timeout(10000);
+    const fontData = await new Promise<ArrayBuffer>((resolve, reject) => {
+      RequestFile(
+        "app:///Assets/Arimo-Regular.ttf",
+        (data) => {
+          if (typeof data === "string") {
+            reject(new Error("Expected binary font data"));
+          } else {
+            resolve(data);
+          }
+        },
+        undefined,
+        undefined,
+        true,
+        (error) => reject(error)
+      );
+    });
+    _native.Canvas.loadTTF("arimo-regular", fontData);
+
+    const ctx = createContext();
+    ctx.font = "18px arimo-regular";
+    expect(ctx.measureText("Home Impulse").width).to.be.closeTo(116.0419921875, 0.0001);
+    expect(ctx.measureText("Far Away Impulse").width).to.be.closeTo(143.71875, 0.0001);
+    expect(ctx.measureText("Move far away").width).to.be.closeTo(117.0439453125, 0.0001);
+    expect(ctx.measureText("Hg").fontBoundingBoxAscent).to.equal(16);
+    expect(ctx.measureText("Hg").fontBoundingBoxDescent).to.equal(5);
+    ctx.letterSpacing = "0.25px";
+    expect(ctx.measureText("Home Impulse").width).to.be.closeTo(118.7919921875, 0.0001);
+  });
+
   it("round-trips a string fillStyle and strokeStyle", function () {
     const ctx = createContext();
     ctx.fillStyle = "#ff0000";

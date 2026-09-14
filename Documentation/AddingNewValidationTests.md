@@ -34,6 +34,12 @@ In order to add a new test scene, first thing to do is to add a few lines in `Ap
 
 The runner restores its deterministic `Math.random` implementation and resets its seed before each test. A snippet may install its own random generator, but that generator must not leak into subsequent tests in a mixed run.
 
+Validation disables back-buffer MSAA with `TestUtils.setMSAASamples(0)`, matching the browser harness's `antialias: false`. This does not change the embedding runtime's default or a scene's explicitly multisampled render targets. Custom diagnostic scripts can select 0/1 (disabled), 2, 4, 8, or 16 samples with the same API.
+
+The runner loads bundled, licensed fonts from `Apps/Dependencies`, avoiding a network dependency during font initialization. Arimo supplies Arial-compatible metrics for the `Arial` family; Droid Sans remains the fallback and supplies the historical `droidsans`/`monospace` aliases. The latter preserves existing Native fixtures rather than providing a true monospaced face. Each font includes its license and immutable source provenance. Native's SDF glyph rasterization still differs from browser text rasterization even with matching layout metrics.
+
+When migrating an animated reference to a prewarmed fixture, include the captured frame in the simulation-step budget. The Havok multi-region reference represents 180 physics steps: 179 prewarm steps plus the first rendered frame, not 180 prewarm steps plus another step during rendering.
+
 For tests shared with Babylon.js, synchronize the canonical reference from `packages\tools\tests\test\visualization\ReferenceImages` and its configuration together, including the Playground revision, capture count, and canvas background. Do not regenerate a shared reference from Native to conceal a rendering difference.
 
 # Generate Reference Images

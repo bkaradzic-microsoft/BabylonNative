@@ -27,6 +27,16 @@ namespace Babylon::Plugins::Internal
         return Napi::Value::From(info.Env(), STRINGIZE(GRAPHICS_API));
     }
 
+    void TestUtils::SetMSAASamples(const Napi::CallbackInfo& info)
+    {
+        const auto samples = info[0].As<Napi::Number>().DoubleValue();
+        if (samples != 0 && samples != 1 && samples != 2 && samples != 4 && samples != 8 && samples != 16)
+        {
+            throw Napi::RangeError::New(info.Env(), "MSAA samples must be 0, 1, 2, 4, 8, or 16.");
+        }
+        m_deviceContext.UpdateMSAA(static_cast<uint8_t>(samples));
+    }
+
     void TestUtils::WritePNG(const Napi::CallbackInfo& info)
     {
 #ifndef BABYLON_NATIVE_PLUGIN_NATIVEENGINE_LOAD_IMAGES

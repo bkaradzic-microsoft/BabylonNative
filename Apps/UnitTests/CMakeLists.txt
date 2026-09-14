@@ -19,6 +19,11 @@ set(TEST_ASSETS
     "JavaScript/dist/tests.shaderCache.basicScene.js"
     "JavaScript/dist/tests.shaderCompilation.comprehensiveGLSL.js")
 
+set(TEST_FONT_ASSETS
+    "../Dependencies/Arimo-Regular.ttf"
+    "../Dependencies/Arimo-OFL.txt"
+    "../Dependencies/Arimo-PROVENANCE.txt")
+
 file(GLOB TEST_SCRIPTS "JavaScript/src/*.ts")
 set_source_files_properties(${TEST_SCRIPTS} PROPERTIES HEADER_FILE_ONLY TRUE)
 
@@ -73,7 +78,7 @@ elseif(WIN32)
     set(ADDITIONAL_COMPILE_DEFINITIONS ${ADDITIONAL_COMPILE_DEFINITIONS} PRIVATE HAS_RENDERDOC)
 endif()
 
-add_executable(UnitTests ${BABYLONJS_ASSETS} ${BABYLONJS_MATERIALS_ASSETS} ${TEST_ASSETS} ${TEST_SCRIPTS} ${SOURCES})
+add_executable(UnitTests ${BABYLONJS_ASSETS} ${BABYLONJS_MATERIALS_ASSETS} ${TEST_ASSETS} ${TEST_FONT_ASSETS} ${TEST_SCRIPTS} ${SOURCES})
 target_include_directories(UnitTests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/../../Plugins/NativeEngine/Source")
 target_link_libraries(UnitTests
     PRIVATE AppRuntime
@@ -110,6 +115,11 @@ endif()
 if(BABYLON_NATIVE_PLUGIN_NATIVEOPTIMIZATIONS)
     target_link_libraries(UnitTests PRIVATE NativeOptimizations)
     target_compile_definitions(UnitTests PRIVATE HAS_NATIVE_OPTIMIZATIONS)
+endif()
+
+if(BABYLON_NATIVE_PLUGIN_TESTUTILS)
+    target_link_libraries(UnitTests PRIVATE TestUtils)
+    target_compile_definitions(UnitTests PRIVATE HAS_TEST_UTILS)
 endif()
 
 if(GRAPHICS_API STREQUAL "D3D12")
@@ -151,7 +161,7 @@ if(ANGLE_LIBEGL)
     )
 endif()
 
-foreach(ASSET ${BABYLONJS_ASSETS} ${BABYLONJS_MATERIALS_ASSETS} ${TEST_ASSETS})
+foreach(ASSET ${BABYLONJS_ASSETS} ${BABYLONJS_MATERIALS_ASSETS} ${TEST_ASSETS} ${TEST_FONT_ASSETS})
     get_filename_component(ASSET_NAME "${ASSET}" NAME)
     add_custom_command(
         OUTPUT "${CMAKE_CFG_INTDIR}/Assets/${ASSET_NAME}"
@@ -165,4 +175,5 @@ source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${SOURCES})
 source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR}/../node_modules/babylonjs PREFIX Assets FILES ${BABYLONJS_ASSETS})
 source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR}/../node_modules/babylonjs-materials PREFIX Assets FILES ${BABYLONJS_MATERIALS_ASSETS})
 source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR}/JavaScript/dist PREFIX Assets FILES ${TEST_ASSETS})
+source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR}/../Dependencies PREFIX Assets FILES ${TEST_FONT_ASSETS})
 source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR}/JavaScript/src PREFIX TypeScript FILES ${TEST_SCRIPTS})

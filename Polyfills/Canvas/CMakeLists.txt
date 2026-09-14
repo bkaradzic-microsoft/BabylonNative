@@ -23,6 +23,7 @@ set(SOURCES
     "Source/MeasureText.cpp"
     "Source/MeasureText.h"
     "Source/NativeInstanceRegistry.h"
+    "Source/StbTrueType.cpp"
     "Source/Gradient.cpp"
     "Source/Gradient.h"
     "Source/Font.cpp"

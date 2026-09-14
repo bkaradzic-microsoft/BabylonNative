@@ -1,4 +1,5 @@
 #include <bgfx/bgfx.h>
+#include <cmath>
 #include <map>
 #include "Canvas.h"
 #include "Context.h"
@@ -33,6 +34,9 @@ namespace Babylon::Polyfills::Internal
         const float advance = nvgTextBounds(context->GetNVGContext(), 0, 0, text.c_str(), nullptr, bounds);
         float textMetrics[3] = {0, 0, 0};
         nvgTextMetrics(context->GetNVGContext(), &textMetrics[0], &textMetrics[1], &textMetrics[2]);
+        // Match the integral CSS line box used by browser text layout.
+        const float fontAscent = std::floor(textMetrics[0]);
+        const float fontDescent = std::ceil(textMetrics[2]) - fontAscent;
 
         auto obj{Napi::Object::New(env)};
         obj.Set("width", Napi::Value::From(env, advance));
@@ -42,8 +46,8 @@ namespace Babylon::Polyfills::Internal
         // is the negation of the left ink edge; actualBoundingBoxRight is positive to the right.
         obj.Set("actualBoundingBoxLeft", Napi::Value::From(env, -bounds[0]));
         obj.Set("actualBoundingBoxRight", Napi::Value::From(env, bounds[2]));
-        obj.Set("fontBoundingBoxAscent", Napi::Value::From(env, textMetrics[0]));
-        obj.Set("fontBoundingBoxDescent", Napi::Value::From(env, -textMetrics[1]));
+        obj.Set("fontBoundingBoxAscent", Napi::Value::From(env, fontAscent));
+        obj.Set("fontBoundingBoxDescent", Napi::Value::From(env, fontDescent));
 
         return obj.As<Napi::Value>();
     }

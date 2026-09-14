@@ -13,6 +13,12 @@ set(BABYLON_SCRIPTS
     "../node_modules/earcut/dist/earcut.min.js")
 
 set(DEPENDENCIES
+    "../Dependencies/Arimo-Regular.ttf"
+    "../Dependencies/Arimo-OFL.txt"
+    "../Dependencies/Arimo-PROVENANCE.txt"
+    "../Dependencies/DroidSans.ttf"
+    "../Dependencies/DroidSans-APACHE-2.0.txt"
+    "../Dependencies/DroidSans-PROVENANCE.txt"
     "../Dependencies/ammo.js"
     "../Dependencies/meshwriter.min.js"
     "../Dependencies/recast.js")

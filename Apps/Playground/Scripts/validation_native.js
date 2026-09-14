@@ -31,6 +31,8 @@
     const saveResult = (typeof opts.saveResults === "boolean") ? opts.saveResults : true;
     const testWidth = 600;
     const testHeight = 400;
+    // Browser visualization tests create their engine with antialias=false.
+    TestUtils.setMSAASamples(0);
     const generateReferences = !!opts.generateReferences;
     const breakOnFail = !!opts.breakOnFail;
     const stopOnFirstFailure = !!opts.stopOnFirstFailure;
@@ -1140,13 +1142,40 @@
     }, false);
 
 
-    BABYLON.Tools.LoadFile("https://raw.githubusercontent.com/CedricGuillemet/dump/master/droidsans.ttf", (data) => {
-        _native.Canvas.loadTTFAsync("droidsans", data).then(function () {
-            _native.RootUrl = "https://playground.babylonjs.com";
-            console.log("Starting");
-            TestUtils.setTitle("Starting Native Validation Tests");
-            TestUtils.updateSize(testWidth, testHeight);
-            xhr.send();
+    function loadFontAssetAsync(url) {
+        return new Promise(function (resolve, reject) {
+            const request = new XMLHttpRequest();
+            request.open("GET", url);
+            request.responseType = "arraybuffer";
+            request.addEventListener("load", function () {
+                if (request.status >= 200 && request.status < 300 && request.response && request.response.byteLength > 0) {
+                    resolve(request.response);
+                } else {
+                    reject(new Error("Invalid font response from " + url + " (status " + request.status + ")"));
+                }
+            });
+            request.addEventListener("error", function () {
+                reject(new Error("Unable to load " + url + ": " + request.errorDetail));
+            });
+            request.send();
         });
-    }, undefined, undefined, true);
+    }
+
+    Promise.all([
+        loadFontAssetAsync("app:///Scripts/DroidSans.ttf"),
+        loadFontAssetAsync("app:///Scripts/Arimo-Regular.ttf")
+    ]).then(function (fonts) {
+        _native.Canvas.loadTTF("droidsans", fonts[0]);
+        _native.Canvas.loadTTF("monospace", fonts[0]);
+        return _native.Canvas.loadTTFAsync("Arial", fonts[1]);
+    }).then(function () {
+        _native.RootUrl = "https://playground.babylonjs.com";
+        console.log("Starting");
+        TestUtils.setTitle("Starting Native Validation Tests");
+        TestUtils.updateSize(testWidth, testHeight);
+        xhr.send();
+    }).catch(function (error) {
+        console.error("Failed to initialize validation fonts: " + error);
+        TestUtils.exit(1);
+    });
 })();

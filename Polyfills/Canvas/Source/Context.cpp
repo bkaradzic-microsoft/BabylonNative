@@ -21,9 +21,7 @@
 #pragma GCC diagnostic pop
 #endif
 
-#define STB_TRUETYPE_IMPLEMENTATION
 #include "stb/stb_truetype.h"
-#undef STB_TRUETYPE_IMPLEMENTATION
 
 #include "Canvas.h"
 #include "Context.h"
@@ -569,6 +567,8 @@ namespace Babylon::Polyfills::Internal
         const auto width = info[2].As<Napi::Number>().FloatValue();
         const auto height = info[3].As<Napi::Number>().FloatValue();
 
+        // Start a fresh path so NanoVG cannot reuse cached geometry from an earlier draw.
+        nvgBeginPath(*m_nvg);
         nvgRect(*m_nvg, left, top, width, height);
         BindStrokeStyle(info);
         SetFilterStack();

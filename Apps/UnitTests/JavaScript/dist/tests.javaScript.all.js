@@ -28681,6 +28681,65 @@ describe("Canvas2D", function () {
 
   );
 
+  (skipCanvasGpuTests ? it.skip : it)("uses the strokeRect geometry after a preceding fillRect", /*#__PURE__*/(0,_babel_runtime_helpers_asyncToGenerator__WEBPACK_IMPORTED_MODULE_0__["default"])(/*#__PURE__*/_babel_runtime_regenerator__WEBPACK_IMPORTED_MODULE_2___default().mark(function _callee3() {var engine, scene, texture, ctx, _pixels2, pixel;return _babel_runtime_regenerator__WEBPACK_IMPORTED_MODULE_2___default().wrap(function (_context4) {while (1) switch (_context4.prev = _context4.next) {case 0:
+          this.timeout(10000);
+          engine = new _babylonjs_core__WEBPACK_IMPORTED_MODULE_5__.NativeEngine();
+          scene = new _babylonjs_core__WEBPACK_IMPORTED_MODULE_5__.Scene(engine);_context4.prev = 1;
+
+          texture = new _babylonjs_core__WEBPACK_IMPORTED_MODULE_5__.DynamicTexture("fill then inset stroke", 16, scene, false);
+          ctx = texture.getContext();
+          ctx.fillStyle = "blue";
+          ctx.fillRect(2, 2, 12, 12);
+          ctx.strokeStyle = "white";
+          ctx.lineWidth = 1;
+          ctx.strokeRect(2.5, 2.5, 11, 11);
+          texture.update(false);_context4.next = 2;return (
+
+            texture.readPixels());case 2:_pixels2 = _context4.sent;if (
+          _pixels2 instanceof Uint8Array) {_context4.next = 3;break;}throw (
+            new Error("Expected RGBA8 GPU readback for the canvas texture"));case 3:
+
+          pixel = function pixel(x, y) {return Array.from(_pixels2.subarray((y * 16 + x) * 4, (y * 16 + x + 1) * 4));};
+          (0,chai__WEBPACK_IMPORTED_MODULE_4__.expect)(pixel(8, 1), "outside inset border").to.deep.equal([0, 0, 0, 0]);
+          (0,chai__WEBPACK_IMPORTED_MODULE_4__.expect)(pixel(8, 2), "pixel-aligned inset border").to.deep.equal([255, 255, 255, 255]);
+          (0,chai__WEBPACK_IMPORTED_MODULE_4__.expect)(pixel(8, 3), "button fill inside border").to.deep.equal([0, 0, 255, 255]);case 4:_context4.prev = 4;
+
+          scene.dispose();
+          engine.dispose();return _context4.finish(4);case 5:case "end":return _context4.stop();}}, _callee3, this, [[1,, 4, 5]]);}))
+
+  );
+
+  it("matches browser text layout metrics", /*#__PURE__*/(0,_babel_runtime_helpers_asyncToGenerator__WEBPACK_IMPORTED_MODULE_0__["default"])(/*#__PURE__*/_babel_runtime_regenerator__WEBPACK_IMPORTED_MODULE_2___default().mark(function _callee4() {var fontData, ctx;return _babel_runtime_regenerator__WEBPACK_IMPORTED_MODULE_2___default().wrap(function (_context5) {while (1) switch (_context5.prev = _context5.next) {case 0:
+          this.timeout(10000);_context5.next = 1;return (
+            new Promise(function (resolve, reject) {
+              (0,_babylonjs_core__WEBPACK_IMPORTED_MODULE_5__.RequestFile)(
+                "app:///Assets/Arimo-Regular.ttf",
+                function (data) {
+                  if (typeof data === "string") {
+                    reject(new Error("Expected binary font data"));
+                  } else {
+                    resolve(data);
+                  }
+                },
+                undefined,
+                undefined,
+                true,
+                function (error) {return reject(error);}
+              );
+            }));case 1:fontData = _context5.sent;
+          _native.Canvas.loadTTF("arimo-regular", fontData);
+
+          ctx = createContext();
+          ctx.font = "18px arimo-regular";
+          (0,chai__WEBPACK_IMPORTED_MODULE_4__.expect)(ctx.measureText("Home Impulse").width).to.be.closeTo(116.0419921875, 0.0001);
+          (0,chai__WEBPACK_IMPORTED_MODULE_4__.expect)(ctx.measureText("Far Away Impulse").width).to.be.closeTo(143.71875, 0.0001);
+          (0,chai__WEBPACK_IMPORTED_MODULE_4__.expect)(ctx.measureText("Move far away").width).to.be.closeTo(117.0439453125, 0.0001);
+          (0,chai__WEBPACK_IMPORTED_MODULE_4__.expect)(ctx.measureText("Hg").fontBoundingBoxAscent).to.equal(16);
+          (0,chai__WEBPACK_IMPORTED_MODULE_4__.expect)(ctx.measureText("Hg").fontBoundingBoxDescent).to.equal(5);
+          ctx.letterSpacing = "0.25px";
+          (0,chai__WEBPACK_IMPORTED_MODULE_4__.expect)(ctx.measureText("Home Impulse").width).to.be.closeTo(118.7919921875, 0.0001);case 2:case "end":return _context5.stop();}}, _callee4, this);}))
+  );
+
   it("round-trips a string fillStyle and strokeStyle", function () {
     var ctx = createContext();
     ctx.fillStyle = "#ff0000";
@@ -29324,9 +29383,9 @@ describe("PostProcesses", function () {
 describe("NativeEncoding", function () {
   this.timeout(0);function
 
-  expectValidPNG(_x) {return _expectValidPNG.apply(this, arguments);}function _expectValidPNG() {_expectValidPNG = (0,_babel_runtime_helpers_asyncToGenerator__WEBPACK_IMPORTED_MODULE_0__["default"])(/*#__PURE__*/_babel_runtime_regenerator__WEBPACK_IMPORTED_MODULE_2___default().mark(function _callee5(blob) {var arrayBuffer, pngSignature;return _babel_runtime_regenerator__WEBPACK_IMPORTED_MODULE_2___default().wrap(function (_context6) {while (1) switch (_context6.prev = _context6.next) {case 0:
-            (0,chai__WEBPACK_IMPORTED_MODULE_4__.expect)(blob).to.be.instanceOf(Blob);_context6.next = 1;return (
-              blob.arrayBuffer());case 1:arrayBuffer = _context6.sent;
+  expectValidPNG(_x) {return _expectValidPNG.apply(this, arguments);}function _expectValidPNG() {_expectValidPNG = (0,_babel_runtime_helpers_asyncToGenerator__WEBPACK_IMPORTED_MODULE_0__["default"])(/*#__PURE__*/_babel_runtime_regenerator__WEBPACK_IMPORTED_MODULE_2___default().mark(function _callee7(blob) {var arrayBuffer, pngSignature;return _babel_runtime_regenerator__WEBPACK_IMPORTED_MODULE_2___default().wrap(function (_context8) {while (1) switch (_context8.prev = _context8.next) {case 0:
+            (0,chai__WEBPACK_IMPORTED_MODULE_4__.expect)(blob).to.be.instanceOf(Blob);_context8.next = 1;return (
+              blob.arrayBuffer());case 1:arrayBuffer = _context8.sent;
             (0,chai__WEBPACK_IMPORTED_MODULE_4__.expect)(arrayBuffer.byteLength).to.be.greaterThan(0);
 
             pngSignature = new Uint8Array(arrayBuffer.slice(0, 4));
@@ -29334,23 +29393,23 @@ describe("NativeEncoding", function () {
             (0,chai__WEBPACK_IMPORTED_MODULE_4__.expect)(pngSignature[1]).to.equal(80); // 'P'
             (0,chai__WEBPACK_IMPORTED_MODULE_4__.expect)(pngSignature[2]).to.equal(78); // 'N'
             (0,chai__WEBPACK_IMPORTED_MODULE_4__.expect)(pngSignature[3]).to.equal(71); // 'G'
-          case 2:case "end":return _context6.stop();}}, _callee5);}));return _expectValidPNG.apply(this, arguments);}
+          case 2:case "end":return _context8.stop();}}, _callee7);}));return _expectValidPNG.apply(this, arguments);}
 
-  it("should encode a PNG", /*#__PURE__*/(0,_babel_runtime_helpers_asyncToGenerator__WEBPACK_IMPORTED_MODULE_0__["default"])(/*#__PURE__*/_babel_runtime_regenerator__WEBPACK_IMPORTED_MODULE_2___default().mark(function _callee3() {var pixelData, result;return _babel_runtime_regenerator__WEBPACK_IMPORTED_MODULE_2___default().wrap(function (_context4) {while (1) switch (_context4.prev = _context4.next) {case 0:
-          pixelData = new Uint8Array(4).fill(255);_context4.next = 1;return (
-            _native.EncodeImageAsync(pixelData, 1, 1, "image/png", false));case 1:result = _context4.sent;_context4.next = 2;return (
-            expectValidPNG(result));case 2:case "end":return _context4.stop();}}, _callee3);}))
+  it("should encode a PNG", /*#__PURE__*/(0,_babel_runtime_helpers_asyncToGenerator__WEBPACK_IMPORTED_MODULE_0__["default"])(/*#__PURE__*/_babel_runtime_regenerator__WEBPACK_IMPORTED_MODULE_2___default().mark(function _callee5() {var pixelData, result;return _babel_runtime_regenerator__WEBPACK_IMPORTED_MODULE_2___default().wrap(function (_context6) {while (1) switch (_context6.prev = _context6.next) {case 0:
+          pixelData = new Uint8Array(4).fill(255);_context6.next = 1;return (
+            _native.EncodeImageAsync(pixelData, 1, 1, "image/png", false));case 1:result = _context6.sent;_context6.next = 2;return (
+            expectValidPNG(result));case 2:case "end":return _context6.stop();}}, _callee5);}))
   );
 
-  it("should handle multiple concurrent encoding tasks", /*#__PURE__*/(0,_babel_runtime_helpers_asyncToGenerator__WEBPACK_IMPORTED_MODULE_0__["default"])(/*#__PURE__*/_babel_runtime_regenerator__WEBPACK_IMPORTED_MODULE_2___default().mark(function _callee4() {var pixelDatas, i, results;return _babel_runtime_regenerator__WEBPACK_IMPORTED_MODULE_2___default().wrap(function (_context5) {while (1) switch (_context5.prev = _context5.next) {case 0:
+  it("should handle multiple concurrent encoding tasks", /*#__PURE__*/(0,_babel_runtime_helpers_asyncToGenerator__WEBPACK_IMPORTED_MODULE_0__["default"])(/*#__PURE__*/_babel_runtime_regenerator__WEBPACK_IMPORTED_MODULE_2___default().mark(function _callee6() {var pixelDatas, i, results;return _babel_runtime_regenerator__WEBPACK_IMPORTED_MODULE_2___default().wrap(function (_context7) {while (1) switch (_context7.prev = _context7.next) {case 0:
           pixelDatas = [];
           for (i = 0; i < 10; i++) {
             pixelDatas.push(new Uint8Array(4).fill(255));
-          }_context5.next = 1;return (
+          }_context7.next = 1;return (
             Promise.all(pixelDatas.map(function (pixelData) {return (
                 _native.EncodeImageAsync(pixelData, 1, 1, "image/png", false));}
-            )));case 1:results = _context5.sent;_context5.next = 2;return (
-            Promise.all(results.map(function (b) {return expectValidPNG(b);})));case 2:case "end":return _context5.stop();}}, _callee4);}))
+            )));case 1:results = _context7.sent;_context7.next = 2;return (
+            Promise.all(results.map(function (b) {return expectValidPNG(b);})));case 2:case "end":return _context7.stop();}}, _callee6);}))
   );
 });
 

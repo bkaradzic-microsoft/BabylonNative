@@ -258,9 +258,10 @@ void fons__tt_renderGlyphBitmap(FONSttFontImpl *font, unsigned char *output, int
 	}
 }
 
-int fons__tt_getGlyphKernAdvance(FONSttFontImpl *font, int glyph1, int glyph2)
+int fons__tt_getGlyphKernAdvance(FONSttFontImpl *font, int glyph1, int glyph2, unsigned int codepoint)
 {
 	FT_Vector ftKerning;
+	FONS_NOTUSED(codepoint);
 	FT_Get_Kerning(font->font, glyph1, glyph2, FT_KERNING_DEFAULT, &ftKerning);
 	return (int)((ftKerning.x + 32) >> 6);  // Round up and convert to integer
 }
@@ -280,6 +281,8 @@ static void fons__tmpfree(void* ptr, void* up);
 
 #define STBTT_DEF extern
 #include <stb/stb_truetype.h>
+
+int fons__stb_getGlyphKernAdvanceForCodepoint(const stbtt_fontinfo* font, int glyph1, int glyph2, unsigned int codepoint);
 
 struct FONSttFontImpl {
 	stbtt_fontinfo font;
@@ -365,9 +368,9 @@ void fons__tt_renderGlyphBitmap(FONSttFontImpl *font, unsigned char *output, int
 #endif
 }
 
-int fons__tt_getGlyphKernAdvance(FONSttFontImpl *font, int glyph1, int glyph2)
+int fons__tt_getGlyphKernAdvance(FONSttFontImpl *font, int glyph1, int glyph2, unsigned int codepoint)
 {
-	return stbtt_GetGlyphKernAdvance(&font->font, glyph1, glyph2);
+	return fons__stb_getGlyphKernAdvanceForCodepoint(&font->font, glyph1, glyph2, codepoint);
 }
 
 #endif
@@ -425,7 +428,8 @@ struct FONSglyph
 	int next;
 	short size, blur;
 	short x0,y0,x1,y1;
-	short xadv,xoff,yoff;
+	float xadv;
+	short xoff,yoff;
 };
 typedef struct FONSglyph FONSglyph;
 
@@ -1191,7 +1195,7 @@ static FONSglyph* fons__getGlyph(FONScontext* stash, FONSfont* font, unsigned in
 	glyph->y0 = (short)gy;
 	glyph->x1 = (short)(glyph->x0+gw);
 	glyph->y1 = (short)(glyph->y0+gh);
-	glyph->xadv = (short)(scale * advance * 10.0f);
+	glyph->xadv = scale * advance;
 	glyph->xoff = (short)(x0 - pad);
 	glyph->yoff = (short)(y0 - pad);
 
@@ -1246,8 +1250,10 @@ static void fons__getQuad(FONScontext* stash, FONSfont* font,
 	float rx,ry,xoff,yoff,x0,y0,x1,y1;
 
 	if (prevGlyphIndex != -1) {
-		float adv = fons__tt_getGlyphKernAdvance(&font->font, prevGlyphIndex, glyph->index) * scale;
-		*x += (int)(adv + spacing + 0.5f);
+		float adv = 0.0f;
+		if (glyph->codepoint != ' ' && prevGlyphIndex != fons__tt_getGlyphIndex(&font->font, ' '))
+			adv = fons__tt_getGlyphKernAdvance(&font->font, prevGlyphIndex, glyph->index, glyph->codepoint) * scale;
+		*x += adv + spacing;
 	}
 
 	// Each glyph has 2px border to allow good interpolation,
@@ -1261,8 +1267,8 @@ static void fons__getQuad(FONScontext* stash, FONSfont* font,
 	y1 = (float)(glyph->y1-1);
 
 	if (stash->params.flags & FONS_ZERO_TOPLEFT) {
-		rx = (float)(int)(*x + xoff);
-		ry = (float)(int)(*y + yoff);
+		rx = *x + xoff;
+		ry = *y + yoff;
 
 		q->x0 = rx;
 		q->y0 = ry;
@@ -1274,8 +1280,8 @@ static void fons__getQuad(FONScontext* stash, FONSfont* font,
 		q->s1 = x1 * stash->itw;
 		q->t1 = y1 * stash->ith;
 	} else {
-		rx = (float)(int)(*x + xoff);
-		ry = (float)(int)(*y - yoff);
+		rx = *x + xoff;
+		ry = *y - yoff;
 
 		q->x0 = rx;
 		q->y0 = ry;
@@ -1288,7 +1294,7 @@ static void fons__getQuad(FONScontext* stash, FONSfont* font,
 		q->t1 = y1 * stash->ith;
 	}
 
-	*x += (int)(glyph->xadv / 10.0f + 0.5f);
+	*x += glyph->xadv;
 }
 
 static void fons__flush(FONScontext* stash)
@@ -1534,11 +1540,9 @@ void fonsDrawDebug(FONScontext* stash, float x, float y)
 	fons__flush(stash);
 }
 
-// Amount fons__tt_buildGlyphBitmap pads each glyph by, in glyph-space pixels. fonsTextBounds
-// subtracts it so that reported bounds are the glyph ink extents rather than the rasterization
-// footprint the atlas needs.
+// Remove the SDF padding and the one-pixel atlas border that fons__getQuad retains.
 #ifdef FONS_SDF_PADDING
-#define FONS_TEXT_BOUNDS_PADDING ((float)FONS_SDF_PADDING)
+#define FONS_TEXT_BOUNDS_PADDING ((float)FONS_SDF_PADDING + 1.0f)
 #else
 #define FONS_TEXT_BOUNDS_PADDING 0.0f
 #endif
