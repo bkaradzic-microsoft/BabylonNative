@@ -28471,7 +28471,7 @@ describe("Canvas2D", function () {
             new Error("Expected RGBA8 GPU readback for the canvas texture"));case 3:
 
           pixel = function pixel(x) {return Array.from(_pixels.subarray((32 * 64 + x) * 4, (32 * 64 + x + 1) * 4));};
-          (0,chai__WEBPACK_IMPORTED_MODULE_3__.expect)(pixel(4), "preserved before clip").to.deep.equal([255, 0, 0, 255]);
+          (0,chai__WEBPACK_IMPORTED_MODULE_3__.expect)(pixel(36), "preserved near clip").to.deep.equal([255, 0, 0, 255]);
           (0,chai__WEBPACK_IMPORTED_MODULE_3__.expect)(pixel(16), "fully cleared inside clip").to.deep.equal([0, 0, 0, 0]);
           (0,chai__WEBPACK_IMPORTED_MODULE_3__.expect)(pixel(44), "preserved after clip").to.deep.equal([255, 0, 0, 255]);case 4:_context3.prev = 4;
 

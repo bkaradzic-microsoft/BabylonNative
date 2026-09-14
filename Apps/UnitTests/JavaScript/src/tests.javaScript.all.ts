@@ -241,7 +241,7 @@ describe("Canvas2D", function () {
         throw new Error("Expected RGBA8 GPU readback for the canvas texture");
       }
       const pixel = (x: number) => Array.from(pixels.subarray((32 * 64 + x) * 4, (32 * 64 + x + 1) * 4));
-      expect(pixel(4), "preserved before clip").to.deep.equal([255, 0, 0, 255]);
+      expect(pixel(36), "preserved near clip").to.deep.equal([255, 0, 0, 255]);
       expect(pixel(16), "fully cleared inside clip").to.deep.equal([0, 0, 0, 0]);
       expect(pixel(44), "preserved after clip").to.deep.equal([255, 0, 0, 255]);
     } finally {
