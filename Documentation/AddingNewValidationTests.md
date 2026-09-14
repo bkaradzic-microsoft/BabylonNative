@@ -9,7 +9,7 @@ Once it's done, you can save it, get a snippet Id and add it to the test lists.
 
 # Tests lists
 
-In order to add a new test scene, first thing to do is to add a few lines in `Apps\ValidationTests\Scripts\config.json`. 
+In order to add a new test scene, first thing to do is to add a few lines in `Apps\Playground\Scripts\config.json`.
 
 ```json
 {
@@ -27,6 +27,10 @@ In order to add a new test scene, first thing to do is to add a few lines in `Ap
 `title` : a string used for Window title and logging results in the console
 `playgroundId` : the snippet id of the playground you want to test
 `referenceImage` : the reference image name you want to compare to. You don't have a reference yet, so choose a self-explanatory name with .png extension.
+
+`canvasBackgroundColor` : optional CSS color used behind transparent screenshot pixels, matching the Babylon.js visualization harness. The default is `greenyellow`; for example, the FrameGraph OIT geometry-renderer fixture uses `"white"`. Native parses the color with `Canvas.parseColor` and composites translucent backgrounds over the browser's white page.
+
+For tests shared with Babylon.js, synchronize the canonical reference from `packages\tools\tests\test\visualization\ReferenceImages` and its configuration together, including the Playground revision, capture count, and canvas background. Do not regenerate a shared reference from Native to conceal a rendering difference.
 
 # Generate Reference Images
 

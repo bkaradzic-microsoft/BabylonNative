@@ -444,7 +444,8 @@
     // scene that clears to a translucent color is composited over greenyellow by the page before
     // the screenshot is taken. Native reads the framebuffer back directly and never sees that
     // backdrop, so every such test differed by its whole background. Replicate the browser's
-    // compositing here: straight (non-premultiplied) source-over against greenyellow.
+    // compositing here: straight (non-premultiplied) source-over against the configured canvas
+    // background, defaulting to greenyellow. Translucent CSS backgrounds sit over the white page.
     //
     // FrameGraph owns its clears independently of scene.clearColor, and may copy transparent
     // attachments to an otherwise opaque output. Always composite its final framebuffer.
@@ -453,7 +454,14 @@
     // defects and tinted previously matching images green.
     const CANVAS_BACKGROUND = [173, 255, 47];
 
-    function compositeOverCanvasBackground(data) {
+    function compositeOverCanvasBackground(data, canvasBackgroundColor) {
+        let background = CANVAS_BACKGROUND;
+        if (canvasBackgroundColor) {
+            const rgba = _native.Canvas.parseColor(canvasBackgroundColor);
+            const alpha = (rgba >>> 24) / 255;
+            background = [rgba & 255, (rgba >>> 8) & 255, (rgba >>> 16) & 255]
+                .map(channel => channel * alpha + 255 * (1 - alpha));
+        }
         for (let index = 0; index < data.length; index += 4) {
             const alpha = data[index + 3];
             if (alpha === 255) {
@@ -461,9 +469,9 @@
             }
             const src = alpha / 255;
             const dst = 1 - src;
-            data[index] = Math.round(data[index] * src + CANVAS_BACKGROUND[0] * dst);
-            data[index + 1] = Math.round(data[index + 1] * src + CANVAS_BACKGROUND[1] * dst);
-            data[index + 2] = Math.round(data[index + 2] * src + CANVAS_BACKGROUND[2] * dst);
+            data[index] = Math.round(data[index] * src + background[0] * dst);
+            data[index + 1] = Math.round(data[index + 1] * src + background[1] * dst);
+            data[index + 2] = Math.round(data[index + 2] * src + background[2] * dst);
             data[index + 3] = 255;
         }
         return data;
@@ -472,8 +480,8 @@
     function evaluateScreenshot(test, screenshot, referenceImage, done, compareFunction) {
         let testRes = true;
 
-        if (currentScene && (currentScene.frameGraph || (currentScene.clearColor && currentScene.clearColor.a < 1))) {
-            compositeOverCanvasBackground(screenshot);
+        if (test.canvasBackgroundColor || (currentScene && (currentScene.frameGraph || (currentScene.clearColor && currentScene.clearColor.a < 1)))) {
+            compositeOverCanvasBackground(screenshot, test.canvasBackgroundColor);
         }
 
         if (!test.onlyVisual) {
