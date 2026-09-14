@@ -101,11 +101,12 @@ TEST(NativeEngineTextureFormats, D24RenderTargetUsesSupportedBackingStorage)
 {
     RunTextureTest([](Napi::Object engine, Napi::Value value) {
         auto* texture = value.As<Napi::Pointer<Babylon::Graphics::Texture>>().Get();
-        for (const uint32_t samples : {1u, 4u})
+        for (const uint32_t samples : {1u, 2u, 4u})
         {
             SCOPED_TRACE(samples);
             texture->Dispose();
-            const auto flags = samples == 4 ? BGFX_TEXTURE_RT_MSAA_X4 | BGFX_TEXTURE_MSAA_SAMPLE : BGFX_TEXTURE_RT;
+            const auto flags = samples == 1 ? BGFX_TEXTURE_RT :
+                (samples == 2 ? BGFX_TEXTURE_RT_MSAA_X2 : BGFX_TEXTURE_RT_MSAA_X4) | BGFX_TEXTURE_MSAA_SAMPLE;
             const auto expectedFormat = IsSupported(bgfx::TextureFormat::D24, flags)
                 ? bgfx::TextureFormat::D24 : bgfx::TextureFormat::D24S8;
             if (!IsSupported(expectedFormat, flags))
