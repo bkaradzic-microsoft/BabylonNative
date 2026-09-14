@@ -9,11 +9,11 @@ The plugin is **off by default**. Enable it with `-D BABYLON_NATIVE_PLUGIN_NATIV
 ## Limitations
 
 - **Full bitstream, not the glTF subset.** Draco is built with `DRACO_GLTF_BITSTREAM=OFF`. The subset drops pre-glTF backwards compatibility, so it rejects streams from older or full encoders with "Unsupported major version", and it compiles out the attribute deduplication passes the encoder relies on. Building the full codec costs binary size, but it is what lets one Draco target serve both directions.
-- **No consumer yet.** Nothing in the pinned `babylonjs` package calls `_native.DracoCodec`. The grouping and the entry-point names have therefore not faced a real consumer and may still move.
+- **Pinned Babylon.js release.** The repository's stock `babylonjs` 9.21.2 bundle does not probe a native Draco API. The source-built shotgun Babylon.js uses the compatibility entry points; NativeDraco's unit tests also exercise both export forms directly.
 
 ## Design
 
-The API is exposed as a single `DracoCodec` object on the `_native` global rather than as free functions, so that:
+The versioned API is exposed as a `DracoCodec` object on the `_native` global. `Initialize` also publishes `decodeDracoMesh` and `encodeDracoMesh`, backed by the same implementations as `DracoCodec.Decode` and `DracoCodec.Encode`, for compatibility with Babylon.js native codec feature probes. The grouped API is retained so that:
 
 1. **One feature probe.** JavaScript checks for the object once instead of once per entry point.
 2. **The object can carry a version.** Draco's bitstream is versioned; a caller holding a stream this build is too old to read otherwise has no way to find out ahead of time. A bare function name cannot express that.
@@ -56,6 +56,8 @@ interface INative {
     };
     Version: string;
   };
+  decodeDracoMesh: INative["DracoCodec"]["Decode"];
+  encodeDracoMesh: INative["DracoCodec"]["Encode"];
 }
 ```
 
