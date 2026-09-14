@@ -180,7 +180,7 @@ namespace Babylon::ShaderCompilerTraversers
     /// https://github.com/bkaradzic/bgfx/blob/7be225bf490bb1cd231cfb4abf7e617bf35b59cb/src/bgfx_shader.sh#L62-L65
     void InvertYDerivativeOperands(glslang::TProgram& program);
 
-    /// Flip the vertical (V) component of 2D texture sample coordinates on every
+    /// Flip the vertical (V) component of 2D and 3D texture sample coordinates on every
     /// `texture()`/`textureLod()` call.
     ///
     /// bgfx's D3D/Metal/Vulkan backends sample textures with the opposite V-orientation from
@@ -196,7 +196,10 @@ namespace Babylon::ShaderCompilerTraversers
     ///   - sampler2DShadow:        vec3(u, v, depth)    -> (u, 1-v, depth)
     ///   - sampler2DArray:         vec3(u, v, layer)    -> (u, 1-v, layer)
     ///   - sampler2DArrayShadow:   vec4(u, v, layer, d) -> (u, 1-v, layer, d)
-    /// Cube/3D coordinates are left untouched. Skipping the shadow/array forms used to leave
+    ///   - sampler3D:              vec3(u, v, w)        -> (u, 1-v, w)
+    /// Integer texelFetch coordinates also flip Y for 2D and 3D textures, using the
+    /// selected mip's height and preserving the volume-depth coordinate.
+    /// Cube directions are left untouched. Skipping the shadow/array forms used to leave
     /// PCF/CSM hardware depth compares reading the mirrored row while FILTER_NONE (plain
     /// sampler2D) looked correct.
     ///

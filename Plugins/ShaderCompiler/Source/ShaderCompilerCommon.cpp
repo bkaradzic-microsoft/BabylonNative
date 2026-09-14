@@ -43,7 +43,7 @@ namespace Babylon::ShaderCompilerCommon
         //   #define texelFetch(tex, uv, lod) texelFetch((tex), ivec2(...), (lod))
         // forced every coordinate through ivec2(...), so it could not compile against sampler3D /
         // sampler2DArray ('no matching overloaded function'). The AST traverser knows the sampler
-        // dimensionality and only flips 2-component coordinates, leaving 3D/array fetches intact.
+        // dimensionality and preserves the depth coordinate when flipping a 3D texture fetch.
         // This function is retained as an identity passthrough so the backend call sites don't need
         // to change.
         return std::string{source};

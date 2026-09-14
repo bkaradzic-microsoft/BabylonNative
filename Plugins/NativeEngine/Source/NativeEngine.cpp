@@ -2352,6 +2352,16 @@ namespace Babylon
 
             // This is required since BGFX must manage the memory backing the update.
             const bgfx::Memory* dataCopy = bgfx::copy(dataPtr, static_cast<uint32_t>(dataSize));
+            if (!bgfx::getCaps()->originBottomLeft)
+            {
+                // Match render-to-volume storage and the shader compiler's 3D sampler Y flip.
+                // Flip each XY slice independently without modifying the caller's typed array.
+                const size_t sliceSize = dataSize / depth;
+                for (uint16_t slice = 0; slice < depth; ++slice)
+                {
+                    FlipImage({dataCopy->data + sliceSize * slice, sliceSize}, height);
+                }
+            }
             texture->Update3D(0, 0, 0, 0, width, height, depth, dataCopy);
         }
 #endif

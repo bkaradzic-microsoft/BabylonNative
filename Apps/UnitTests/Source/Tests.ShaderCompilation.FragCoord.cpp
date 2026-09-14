@@ -622,6 +622,95 @@ TEST(NativeEngineTextureSampling, NoMipSamplingPreservesFiltersAndModeChanges)
 #endif
 }
 
+TEST(NativeEngineTextureSampling, VolumeCoordinatesMatchRawAndRenderedTextures)
+{
+#if defined(SKIP_EXTERNAL_TEXTURE_TESTS) || defined(SKIP_RENDER_TESTS)
+    GTEST_SKIP();
+#else
+    constexpr uint32_t SIZE = 4;
+    constexpr uint32_t WIDTH = SIZE * SIZE;
+    const std::string vertexShader =
+        "precision highp float;\n"
+        "attribute vec3 position;\n"
+        "void main(void) { gl_Position = vec4(position, 1.0); }\n";
+    const std::string fragmentShader = R"(
+        precision highp float;
+        precision highp int;
+        precision highp sampler3D;
+        uniform sampler3D inputSampler;
+        void main(void) {
+            ivec3 coord = ivec3(int(gl_FragCoord.x) % 4, int(gl_FragCoord.y), int(gl_FragCoord.x) / 4);
+            vec3 uv = (vec3(coord) + 0.5) / vec3(textureSize(inputSampler, 0));
+            gl_FragColor = vec4(
+                texture(inputSampler, uv).r,
+                textureLod(inputSampler, uv, 0.0).g,
+                texelFetch(inputSampler, coord, 0).b,
+                1.0);
+        }
+    )";
+    for (int mode = 0; mode < 3; ++mode)
+    {
+        SCOPED_TRACE(::testing::Message() << "volume source: " << mode);
+        const std::string setupScript = R"(
+            var mode = )" + std::to_string(mode) + R"(;
+            var source;
+            if (mode === 2) {
+                source = new BABYLON.ProceduralTexture("volume", { width: 4, height: 4, depth: 4 }, {
+                    fragmentSource:
+                        "precision highp float; uniform int layerNum;" +
+                        "void main(void) {" +
+                        "float value = (16.0 + floor(gl_FragCoord.x) + 4.0 * floor(gl_FragCoord.y) + 16.0 * float(layerNum)) / 255.0;" +
+                        "gl_FragColor = vec4(vec3(value), 1.0); }"
+                }, scene, {
+                    generateMipMaps: false,
+                    generateDepthBuffer: false,
+                    samplingMode: BABYLON.Texture.NEAREST_SAMPLINGMODE
+                }, false);
+            } else {
+                var backing = new Uint8Array(4 * 4 * 4 * 4 + 16);
+                backing.fill(211);
+                var data = new Uint8Array(backing.buffer, 8, 4 * 4 * 4 * 4);
+                for (var z = 0; z < 4; ++z) {
+                    for (var y = 0; y < 4; ++y) {
+                        for (var x = 0; x < 4; ++x) {
+                            var offset = ((z * 4 + y) * 4 + x) * 4;
+                            data[offset] = data[offset + 1] = data[offset + 2] = 16 + x + 4 * y + 16 * z;
+                            data[offset + 3] = 255;
+                        }
+                    }
+                }
+                var expected = backing.slice();
+                source = new BABYLON.RawTexture3D(
+                    mode === 0 ? data : new Uint8Array(data.length),
+                    4, 4, 4, BABYLON.Constants.TEXTUREFORMAT_RGBA, scene, false, false,
+                    BABYLON.Texture.NEAREST_SAMPLINGMODE);
+                if (mode === 1) source.update(data);
+                for (var index = 0; index < backing.length; ++index) {
+                    if (backing[index] !== expected[index]) throw new Error("Volume upload modified caller data");
+                }
+            }
+            material.setTexture("inputSampler", source);
+        )";
+        const auto pixels = RenderFullScreenQuad(WIDTH, SIZE, vertexShader, fragmentShader, false, setupScript);
+        ASSERT_EQ(pixels.size(), WIDTH * SIZE * 4);
+        for (uint32_t row = 0; row < SIZE; ++row)
+        {
+            for (uint32_t column = 0; column < WIDTH; ++column)
+            {
+                const auto expected = 16 + column % SIZE + 4 * (SIZE - 1 - row) + 16 * (column / SIZE);
+                const size_t offset = (row * WIDTH + column) * 4;
+                for (size_t channel = 0; channel < 3; ++channel)
+                {
+                    EXPECT_NEAR(pixels[offset + channel], expected, 1)
+                        << "row " << row << ", column " << column << ", sampling method " << channel;
+                }
+                EXPECT_EQ(pixels[offset + 3], 255);
+            }
+        }
+    }
+#endif
+}
+
 TEST(NativeEngineInstanceData, QueuedDrawRetainsDataBeforeUpdate)
 {
 #if defined(SKIP_EXTERNAL_TEXTURE_TESTS) || defined(SKIP_RENDER_TESTS)
