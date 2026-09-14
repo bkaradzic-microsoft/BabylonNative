@@ -15,6 +15,9 @@
 #ifdef HAS_NATIVE_MESHOPT
 #include <Babylon/Plugins/NativeMeshopt.h>
 #endif
+#ifdef HAS_NATIVE_OPTIMIZATIONS
+#include <Babylon/Plugins/NativeOptimizations.h>
+#endif
 #include <Babylon/ScriptLoader.h>
 
 #include <cstdlib>
@@ -94,6 +97,9 @@ TEST(JavaScript, All)
 #endif
 #ifdef HAS_NATIVE_MESHOPT
         Babylon::Plugins::NativeMeshopt::Initialize(env);
+#endif
+#ifdef HAS_NATIVE_OPTIMIZATIONS
+        Babylon::Plugins::NativeOptimizations::Initialize(env);
 #endif
 
         auto setExitCodeCallback = Napi::Function::New(

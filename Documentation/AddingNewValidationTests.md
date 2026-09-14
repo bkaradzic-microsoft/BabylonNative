@@ -30,6 +30,10 @@ In order to add a new test scene, first thing to do is to add a few lines in `Ap
 
 `canvasBackgroundColor` : optional CSS color used behind transparent screenshot pixels, matching the Babylon.js visualization harness. The default is `greenyellow`; for example, the FrameGraph OIT geometry-renderer fixture uses `"white"`. Native parses the color with `Canvas.parseColor` and composites translucent backgrounds over the browser's white page.
 
+`useLargeWorldRendering` : optional engine-creation flag enabling floating origin for all scenes, including utility layers, and high-precision CPU matrices. `useHighPrecisionMatrix` enables only the matrix precision setting. The runner selects matrix precision before creating its first engine and recreates the engine when a test changes large-world mode. Because matrix precision is global, a mixed run containing either flag keeps high-precision matrices throughout that run; floating origin remains scoped to each test.
+
+The runner restores its deterministic `Math.random` implementation and resets its seed before each test. A snippet may install its own random generator, but that generator must not leak into subsequent tests in a mixed run.
+
 For tests shared with Babylon.js, synchronize the canonical reference from `packages\tools\tests\test\visualization\ReferenceImages` and its configuration together, including the Playground revision, capture count, and canvas background. Do not regenerate a shared reference from Native to conceal a rendering difference.
 
 # Generate Reference Images

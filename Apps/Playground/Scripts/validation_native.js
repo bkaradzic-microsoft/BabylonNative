@@ -167,7 +167,9 @@
             }
             finished = true;
             try {
-                engine.stopRenderLoop();
+                if (engine) {
+                    engine.stopRenderLoop();
+                }
             } catch (e) {
                 console.error(e);
             }
@@ -238,9 +240,30 @@
         }
     }
 
-    const engine = new BABYLON.NativeEngine();
-    globalThis.engine = engine;
-    engine.getCaps().parallelShaderCompile = undefined;
+    let engine;
+    let useHighPrecisionMatrices = false;
+
+    function createEngine(useLargeWorldRendering) {
+        const nativeEngine = new BABYLON.NativeEngine({
+            useLargeWorldRendering,
+            useHighPrecisionMatrix: useHighPrecisionMatrices
+        });
+        nativeEngine.getCaps().parallelShaderCompile = undefined;
+        nativeEngine.getRenderingCanvas = function () { return window; };
+        nativeEngine.getInputElement = function () { return 0; };
+        if (!window.screen) {
+            window.screen = {
+                width: nativeEngine.getRenderWidth(),
+                height: nativeEngine.getRenderHeight(),
+                availWidth: nativeEngine.getRenderWidth(),
+                availHeight: nativeEngine.getRenderHeight(),
+                colorDepth: 24,
+                pixelDepth: 24,
+                orientation: { angle: 0, type: "landscape-primary" }
+            };
+        }
+        return nativeEngine;
+    }
 
     // Broaden Babylon's default retry strategy for the test framework: in addition to
     // network drops (status 0, the default trigger), also retry transient HTTP errors
@@ -263,11 +286,7 @@
         return -1;
     };
 
-    engine.getRenderingCanvas = function () {
-        return window;
-    }
-
-    // getRenderingCanvas() above hands out the window object as the "canvas", so playgrounds that
+    // getRenderingCanvas() hands out the window object as the "canvas", so playgrounds that
     // reach for HTMLCanvasElement members find them missing and throw. Add the element-ish surface
     // they actually use (style for CSS tweaks, focus/blur for input tests) on window itself rather
     // than returning a wrapper, since input handling elsewhere compares against window by identity.
@@ -280,24 +299,6 @@
     if (typeof window.blur !== "function") {
         window.blur = function () { };
     }
-    if (!window.screen) {
-        // Desktop has no device-orientation sensor, so a fixed landscape screen at
-        // angle 0 is what freeCameraDeviceOrientationInput would compute anyway.
-        window.screen = {
-            width: engine.getRenderWidth(),
-            height: engine.getRenderHeight(),
-            availWidth: engine.getRenderWidth(),
-            availHeight: engine.getRenderHeight(),
-            colorDepth: 24,
-            pixelDepth: 24,
-            orientation: { angle: 0, type: "landscape-primary" }
-        };
-    }
-
-    engine.getInputElement = function () {
-        return 0;
-    }
-
     // Native drives input through NativeDeviceInputSystem, which polls _native rather than
     // subscribing to DOM events, so a dispatched pointer event would reach nothing. Playgrounds
     // that drive picking synthetically (canvas.dispatchEvent(new PointerEvent(...))) therefore
@@ -377,10 +378,11 @@
 
     // Random replacement
     let seed = 1;
-    Math.random = function () {
+    function deterministicRandom() {
         const x = Math.sin(seed++) * 10000;
         return x - Math.floor(x);
     }
+    Math.random = deterministicRandom;
 
     function compare(test, renderData, referenceImage, threshold, errorRatio) {
         const referenceData = TestUtils.getImageData(referenceImage);
@@ -897,7 +899,26 @@
         console.log(testInfo);
         TestUtils.setTitle(testInfo);
 
+        try {
+            const useLargeWorldRendering = !!test.useLargeWorldRendering;
+            if (!engine || !!engine.getCreationOptions().useLargeWorldRendering !== useLargeWorldRendering) {
+                if (engine) {
+                    engine.dispose();
+                    engine = undefined;
+                    globalThis.engine = undefined;
+                }
+                engine = createEngine(useLargeWorldRendering);
+                globalThis.engine = engine;
+            }
+        } catch (e) {
+            console.error(e);
+            failTest(done);
+            return;
+        }
+
         seed = 1;
+        // Snippets can replace Math.random; resetting our seed alone does not isolate the next test.
+        Math.random = deterministicRandom;
 
         if (generateReferences) {
             loadPlayground(test, done, undefined, saveRenderedResult);
@@ -1040,10 +1061,14 @@
                     const reason = getExclusionReason(t) || "";
                     console.log(i + "\t" + (t.title || "") + "\t" + (t.referenceImage || "") + "\t" + reason);
                 }
-                engine.dispose();
                 TestUtils.exit(0);
                 return;
             }
+
+            const runnableTests = config.tests.filter((test, index) => shouldRunTest(test, index) && getSkipReason(test) === null);
+            const selectedTests = justOnce ? runnableTests.slice(0, 1) : runnableTests;
+            // Precision is global, and cached matrices can only be promoted before the first engine.
+            useHighPrecisionMatrices = selectedTests.some(test => test.useLargeWorldRendering || test.useHighPrecisionMatrix);
 
             // Run tests
             const recursiveRunTest = function (i) {
@@ -1073,7 +1098,9 @@
                 }
                 if (i >= config.tests.length) {
                     logRunSummary();
-                    engine.dispose();
+                    if (engine) {
+                        engine.dispose();
+                    }
                     TestUtils.exit(failedCount > 0 ? -1 : 0);
                     return;
                 }
@@ -1096,7 +1123,9 @@
                     i++;
                     if (justOnce || i >= config.tests.length) {
                         logRunSummary();
-                        engine.dispose();
+                        if (engine) {
+                            engine.dispose();
+                        }
                         TestUtils.exit(failedCount > 0 ? -1 : 0);
                         return;
                     }

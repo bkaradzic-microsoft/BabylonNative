@@ -107,6 +107,11 @@ if(BABYLON_NATIVE_PLUGIN_NATIVEMESHOPT)
     target_compile_definitions(UnitTests PRIVATE HAS_NATIVE_MESHOPT)
 endif()
 
+if(BABYLON_NATIVE_PLUGIN_NATIVEOPTIMIZATIONS)
+    target_link_libraries(UnitTests PRIVATE NativeOptimizations)
+    target_compile_definitions(UnitTests PRIVATE HAS_NATIVE_OPTIMIZATIONS)
+endif()
+
 if(GRAPHICS_API STREQUAL "D3D12")
     target_compile_definitions(UnitTests PRIVATE SKIP_RENDER_TESTS)
 endif()
