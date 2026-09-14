@@ -14,6 +14,7 @@
 #include <cstdlib>
 #include <future>
 #include <iostream>
+#include <memory>
 #include <stdexcept>
 #include <string>
 #include <utility>
@@ -188,7 +189,7 @@ namespace
 
                 globalThis.render = function () {
                     var scene = globalThis.__scene;
-                    var preparation = globalThis.__prepare ? globalThis.__prepare() : Promise.resolve();
+                    var preparation = Promise.resolve(globalThis.__prepare ? globalThis.__prepare() : undefined);
                     return preparation.then(function () {
                         return scene.whenReadyAsync();
                     }).then(function () {
@@ -662,12 +663,101 @@ TEST(NativeEngineInstanceData, QueuedDrawRetainsDataBeforeUpdate)
 #endif
 }
 
-// gl_FragCoord.y must follow the GL convention of increasing towards +Y in clip
-// space. The quad maps uv.y = 0 to clip y = -1 and uv.y = 1 to clip y = +1, so
-// the interpolated vUV.y is a ground-truth ramp running in that same direction
-// and normalized gl_FragCoord.y has to agree with it everywhere. Without the
-// correction gl_FragCoord.y runs the other way on D3D/Metal/Vulkan and the two
-// ramps become mirror images.
+TEST(NativeEngineInstanceData, DynamicVertexBufferUpdateWithEmptyStreamDoesNotWaitForFrame)
+{
+    Babylon::Graphics::Device device{g_deviceConfig};
+    device.StartRenderingCurrentFrame();
+
+    Babylon::AppRuntime runtime{};
+    runtime.Dispatch([&device](Napi::Env env) {
+        env.Global().Set("globalThis", env.Global());
+        device.AddToJavaScript(env);
+        Babylon::Polyfills::Console::Initialize(env, [](const char* message, auto) {
+            std::cout << message << std::endl;
+        });
+        Babylon::Polyfills::Window::Initialize(env);
+        Babylon::Plugins::NativeEngine::Initialize(env);
+    });
+
+    Babylon::ScriptLoader loader{runtime};
+    loader.LoadScript("app:///Assets/babylon.max.js");
+
+    auto setupDone = std::make_shared<std::promise<void>>();
+    auto setupFuture = setupDone->get_future();
+    loader.Dispatch([setupDone](Napi::Env env) {
+        try
+        {
+            auto nativeEngine = env.Global().Get("BABYLON").As<Napi::Object>().Get("NativeEngine").As<Napi::Function>();
+            env.Global().Set("__engine", nativeEngine.New({}));
+            auto engine = env.Global().Get("__engine").As<Napi::Object>();
+            auto data = Napi::Float32Array::New(env, 3);
+            engine.Set("__buffer", engine.Get("createDynamicVertexBuffer").As<Napi::Function>().Call(engine, {data}));
+            setupDone->set_value();
+        }
+        catch (...)
+        {
+            setupDone->set_exception(std::current_exception());
+        }
+    });
+
+    if (setupFuture.wait_for(std::chrono::seconds{30}) != std::future_status::ready)
+    {
+        device.FinishRenderingCurrentFrame();
+        FAIL() << "dynamic vertex-buffer setup dispatch timed out";
+    }
+    try
+    {
+        setupFuture.get();
+    }
+    catch (const std::exception& exception)
+    {
+        device.FinishRenderingCurrentFrame();
+        FAIL() << "dynamic vertex-buffer setup failed: " << exception.what();
+    }
+    catch (...)
+    {
+        device.FinishRenderingCurrentFrame();
+        FAIL() << "dynamic vertex-buffer setup failed with a non-standard exception";
+    }
+
+    device.FinishRenderingCurrentFrame();
+
+    auto updateStarted = std::make_shared<std::promise<void>>();
+    auto updateDone = std::make_shared<std::promise<void>>();
+    auto updateStartedFuture = updateStarted->get_future();
+    auto updateFuture = updateDone->get_future();
+    loader.Dispatch([updateStarted, updateDone](Napi::Env env) {
+        updateStarted->set_value();
+        try
+        {
+            auto engine = env.Global().Get("__engine").As<Napi::Object>();
+            auto data = Napi::Float32Array::New(env, 3);
+            engine.Get("updateDynamicVertexBuffer").As<Napi::Function>().Call(engine, {engine.Get("__buffer"), data});
+            updateDone->set_value();
+        }
+        catch (...)
+        {
+            updateDone->set_exception(std::current_exception());
+        }
+    });
+
+    ASSERT_EQ(updateStartedFuture.wait_for(std::chrono::seconds{30}), std::future_status::ready);
+    const auto updateStatus = updateFuture.wait_for(std::chrono::milliseconds{250});
+
+    // Start another frame even on failure so the blocked runtime thread can unwind cleanly.
+    device.StartRenderingCurrentFrame();
+    const auto updateCompletionStatus = updateFuture.wait_for(std::chrono::seconds{30});
+    device.FinishRenderingCurrentFrame();
+
+    ASSERT_EQ(updateCompletionStatus, std::future_status::ready)
+        << "dynamic vertex-buffer update did not complete after the next frame started";
+    ASSERT_NO_THROW(updateFuture.get());
+    EXPECT_EQ(updateStatus, std::future_status::ready)
+        << "an update with no queued commands must not wait for the next frame";
+}
+
+// gl_FragCoord.y must increase towards +Y in clip space, like the interpolated vUV.y
+// the quad supplies. Without the correction the two ramps become mirror images.
 //
 // The comparison is made between two channels of a single render rather than
 // against absolute row indices on purpose: Helpers::ReadPixels is a plain
