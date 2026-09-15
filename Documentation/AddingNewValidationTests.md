@@ -36,11 +36,25 @@ The runner restores its deterministic `Math.random` implementation and resets it
 
 Validation disables back-buffer MSAA with `TestUtils.setMSAASamples(0)`, matching the browser harness's `antialias: false`. This does not change the embedding runtime's default or a scene's explicitly multisampled render targets. Custom diagnostic scripts can select 0/1 (disabled), 2, 4, 8, or 16 samples with the same API.
 
+FrameGraph retains requested MSAA for graphs that only use depth as an attachment. On Native, graphs with explicit depth-texture dependencies still use single-sample targets because multisampled depth cannot be resolved for ordinary shader sampling. Disabling MSAA for every graph unnecessarily changes bounding-box and post-process coverage.
+
+Native's 3D texture sampling uses the same shader-visible row convention as WebGL, for both raw uploads and rendered volumes. The compiler normalizes sample/fetch Y coordinates without changing the depth slice, and raw uploads normalize each XY slice without modifying caller data. Voxelization, grid combination, and mip generation must therefore use their ordinary shared shaders, not Native-specific axis offsets or reflections.
+
+`Scene.isReady()` does not include asynchronous `GUI.Image` loads. The Native runner also checks `AdvancedDynamicTexture.guiIsReady()` during its bounded convergence warmup, and fails explicitly if the scene never converges. Tests should still use image load observables when scene logic depends on decoded dimensions; do not add unconditional sleeps.
+
+Material convergence is checked in the active camera's render pass, restoring the previous pass afterward. Inspecting an unused pass's cached defines can falsely veto a ready scene indefinitely.
+
 The runner loads bundled, licensed fonts from `Apps/Dependencies`, avoiding a network dependency during font initialization. Arimo supplies Arial-compatible metrics for the `Arial` family; Droid Sans remains the fallback and supplies the historical `droidsans`/`monospace` aliases. The latter preserves existing Native fixtures rather than providing a true monospaced face. Each font includes its license and immutable source provenance. Native's SDF glyph rasterization still differs from browser text rasterization even with matching layout metrics.
 
 When migrating an animated reference to a prewarmed fixture, include the captured frame in the simulation-step budget. The Havok multi-region reference represents 180 physics steps: 179 prewarm steps plus the first rendered frame, not 180 prewarm steps plus another step during rendering.
 
 For tests shared with Babylon.js, synchronize the canonical reference from `packages\tools\tests\test\visualization\ReferenceImages` and its configuration together, including the Playground revision, capture count, and canvas background. Do not regenerate a shared reference from Native to conceal a rendering difference.
+
+Browser default loading screens are HTML/CSS overlays and are not part of Native's GPU framebuffer capture. Keep such browser-only visualization tests excluded from Native with an explicit reason. Native applications can still provide an `ILoadingScreen` implementation appropriate for their host UI.
+
+Native's GLSL compute support does not imply WGSL or storage-texture support. The excluded WGSL graphics/storage-texture fixtures exercise unsupported backend capabilities, not image-tolerance problems.
+
+`ComputeShader.dispatchWhenReady()` rejects compilation failures, dispatch exceptions, and readiness timeouts. A successfully dispatched previous pipeline still resolves after a failed recompile. Handle the returned promise; an explicit compilation failure is not a readiness hang.
 
 # Generate Reference Images
 

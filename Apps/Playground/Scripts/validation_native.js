@@ -523,28 +523,48 @@
     // effect still compiling, and Scene.render() silently *skips* the submesh.
     // The result is a frame with meshes missing.
     //
-    // Return true only when every submesh has settled: no dirty defines and a
-    // ready effect.
+    // Return true only when every submesh has settled and every GUI texture
+    // reports that its controls are ready. Scene.isReady() does not include
+    // asynchronous GUI Image loads, even though AdvancedDynamicTexture exposes
+    // their aggregate state through guiIsReady().
     function isSceneConverged(scene) {
         if (!scene.isReady()) {
             return false;
         }
-        for (let i = 0; i < scene.meshes.length; i++) {
-            const mesh = scene.meshes[i];
-            if (!mesh.isEnabled() || !mesh.subMeshes || mesh.subMeshes.length === 0) {
-                continue;
+        for (let i = 0; i < scene.textures.length; i++) {
+            const texture = scene.textures[i];
+            if (typeof texture.guiIsReady === "function" && !texture.guiIsReady()) {
+                return false;
             }
-            for (let j = 0; j < mesh.subMeshes.length; j++) {
-                const subMesh = mesh.subMeshes[j];
-                const defines = subMesh.materialDefines;
-                if (defines && defines.isDirty) {
-                    return false;
+        }
+
+        // SubMesh materialDefines/effect accessors select their draw wrapper using
+        // the engine's current render pass. Scene.isReady() restores the previous
+        // pass before returning, so inspect the active camera pass explicitly and
+        // do not let an unused pass's stale defines veto convergence.
+        const engine = scene.getEngine();
+        const previousRenderPassId = engine.currentRenderPassId;
+        engine.currentRenderPassId = scene.activeCamera ? scene.activeCamera.renderPassId : previousRenderPassId;
+        try {
+            for (let i = 0; i < scene.meshes.length; i++) {
+                const mesh = scene.meshes[i];
+                if (!mesh.isEnabled() || !mesh.subMeshes || mesh.subMeshes.length === 0) {
+                    continue;
                 }
-                const effect = subMesh.effect;
-                if (effect && !effect.isReady()) {
-                    return false;
+                for (let j = 0; j < mesh.subMeshes.length; j++) {
+                    const subMesh = mesh.subMeshes[j];
+                    const defines = subMesh.materialDefines;
+                    if (defines && defines.isDirty) {
+                        return false;
+                    }
+                    const effect = subMesh.effect;
+                    if (effect && !effect.isReady()) {
+                        return false;
+                    }
                 }
             }
+        } finally {
+            engine.currentRenderPassId = previousRenderPassId;
         }
         return true;
     }
@@ -608,6 +628,10 @@
             }
             engine.runRenderLoop(function () {
                 try {
+                    if (stopped) {
+                        return;
+                    }
+
                     // Wait for the scene to actually converge before starting the
                     // frame count (see isSceneConverged).
                     //
@@ -621,7 +645,14 @@
                     // per render id, so bump the render id to force a fresh
                     // evaluation on the next tick, exactly as Scene._checkIsReady
                     // does while polling.
-                    if (!stopped && warmupFrames < MAX_WARMUP_FRAMES && !isSceneConverged(currentScene)) {
+                    if (!isSceneConverged(currentScene)) {
+                        if (warmupFrames >= MAX_WARMUP_FRAMES) {
+                            stopped = true;
+                            console.error("Scene '" + (test.title || "?") + "' did not converge within " +
+                                MAX_WARMUP_FRAMES + " render-loop ticks (scene, material, or GUI readiness).");
+                            failTest(done);
+                            return;
+                        }
                         warmupFrames++;
                         currentScene.incrementRenderId();
                         return;
