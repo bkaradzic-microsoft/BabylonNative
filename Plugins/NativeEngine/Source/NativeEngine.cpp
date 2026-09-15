@@ -28,6 +28,7 @@ namespace bgfx
 }
 
 #ifdef BABYLON_NATIVE_PLUGIN_NATIVEENGINE_LOAD_IMAGES
+#include <Babylon/Graphics/ImageFormat.h>
 #include <bimg/bimg.h>
 #include <bimg/decode.h>
 #include <bimg/encode.h>
@@ -257,6 +258,12 @@ namespace Babylon
             if (image == nullptr)
             {
                 throw std::runtime_error{"Failed to parse image."};
+            }
+
+            image = Graphics::ConvertPng16ToRgba8(allocator, image);
+            if (image == nullptr)
+            {
+                throw std::runtime_error{"Failed to convert 16-bit PNG image to RGBA8."};
             }
 
             assert(image->m_offset == 0);

@@ -39,6 +39,7 @@ set(SOURCES
     "Source/Tests.ExternalTexture.Render.cpp"
     "Source/Tests.JavaScript.cpp"
     "Source/Tests.NativeEngine.InstanceData.cpp"
+    "Source/Tests.NativeEngine.ImageFormats.cpp"
     "Source/Tests.NativeEngine.Mipmaps.cpp"
     "Source/Tests.NativeEngine.PrimitiveModeExpansion.cpp"
     "Source/Tests.NativeEngine.Teardown.cpp"
