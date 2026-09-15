@@ -1,6 +1,96 @@
 /******/ (() => { // webpackBootstrap
 /******/ 	var __webpack_modules__ = ({
 
+/***/ "./src/tests.nativeEngine.iblCdf.ts"
+/*!******************************************!*\
+  !*** ./src/tests.nativeEngine.iblCdf.ts ***!
+  \******************************************/
+(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   registerIblCdfTests: () => (/* binding */ registerIblCdfTests)
+/* harmony export */ });
+/* harmony import */ var _babel_runtime_helpers_asyncToGenerator__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! @babel/runtime/helpers/asyncToGenerator */ "../../node_modules/@babel/runtime/helpers/esm/asyncToGenerator.js");
+/* harmony import */ var _babel_runtime_regenerator__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! @babel/runtime/regenerator */ "../../node_modules/@babel/runtime/regenerator/index.js");
+/* harmony import */ var _babel_runtime_regenerator__WEBPACK_IMPORTED_MODULE_1___default = /*#__PURE__*/__webpack_require__.n(_babel_runtime_regenerator__WEBPACK_IMPORTED_MODULE_1__);
+/* harmony import */ var chai__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! chai */ "../../node_modules/chai/index.js");
+/* harmony import */ var _babylonjs_core__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! @babylonjs/core */ "@babylonjs/core");
+/* harmony import */ var _babylonjs_core__WEBPACK_IMPORTED_MODULE_3___default = /*#__PURE__*/__webpack_require__.n(_babylonjs_core__WEBPACK_IMPORTED_MODULE_3__);
+
+
+
+
+function registerIblCdfTests(
+describe,
+it,
+skipCanvasGpuTests)
+{
+  describe("NativeEngine IBL CDF texel bins", function () {
+    this.timeout(10000);
+    (skipCanvasGpuTests ? it.skip : it)("preserves boundary ties, adjacent bins, and clamped endpoints", /*#__PURE__*/(0,_babel_runtime_helpers_asyncToGenerator__WEBPACK_IMPORTED_MODULE_0__["default"])(/*#__PURE__*/_babel_runtime_regenerator__WEBPACK_IMPORTED_MODULE_1___default().mark(function _callee() {var engine, scene, camera, data, y, x, texture, material, plane, target, pixels, expectedBins, i, value;return _babel_runtime_regenerator__WEBPACK_IMPORTED_MODULE_1___default().wrap(function (_context) {while (1) switch (_context.prev = _context.next) {case 0:
+            engine = new _babylonjs_core__WEBPACK_IMPORTED_MODULE_3__.NativeEngine();
+            scene = new _babylonjs_core__WEBPACK_IMPORTED_MODULE_3__.Scene(engine);_context.prev = 1;
+
+            camera = new _babylonjs_core__WEBPACK_IMPORTED_MODULE_3__.FreeCamera("camera", new _babylonjs_core__WEBPACK_IMPORTED_MODULE_3__.Vector3(0, 0, -3), scene);
+            camera.setTarget(_babylonjs_core__WEBPACK_IMPORTED_MODULE_3__.Vector3.Zero());
+            data = new Uint8Array(4 * 4 * 4);
+            for (y = 0; y < 4; y++) {
+              for (x = 0; x < 4; x++) {
+                data.set([x * 64, y * 64, 0, 255], (y * 4 + x) * 4);
+              }
+            }
+            texture = _babylonjs_core__WEBPACK_IMPORTED_MODULE_3__.RawTexture.CreateRGBATexture(data, 4, 4, scene, false, false, _babylonjs_core__WEBPACK_IMPORTED_MODULE_3__.Constants.TEXTURE_NEAREST_SAMPLINGMODE);
+            material = new _babylonjs_core__WEBPACK_IMPORTED_MODULE_3__.ShaderMaterial("cdfBins", scene, {
+              vertexSource: "\n                        precision highp float;\n                        attribute vec3 position;\n                        void main() { gl_Position = vec4(position.xy, 0.0, 1.0); }",
+
+
+
+              fragmentSource: "\n                        precision highp float;\n                        uniform sampler2D icdf;\n                        #include<iblCdfFunctions>\n                        void main() {\n                            float index = floor(gl_FragCoord.x);\n                            float coordinate = index / 4.0;\n                            if (index == 5.0) coordinate = -1.0;\n                            if (index == 6.0) coordinate = 1.5;\n                            if (index == 7.0) coordinate = 0.5 - 1.0 / 1024.0;\n                            if (index == 8.0) coordinate = 0.5 + 1.0 / 1024.0;\n                            gl_FragColor = sampleIcdf(icdf, vec2(coordinate));\n                        }"
+
+
+
+
+
+
+
+
+
+
+
+
+            }, { attributes: ["position"], uniforms: [], samplers: ["icdf"] });
+            material.backFaceCulling = false;
+            material.setTexture("icdf", texture);
+            plane = _babylonjs_core__WEBPACK_IMPORTED_MODULE_3__.MeshBuilder.CreatePlane("plane", { size: 2 }, scene);
+            plane.material = material;
+            target = new _babylonjs_core__WEBPACK_IMPORTED_MODULE_3__.RenderTargetTexture("cdfBins", { width: 9, height: 1 }, scene, {
+              generateDepthBuffer: false,
+              samples: 1
+            });
+            target.renderList = [plane];_context.next = 2;return (
+              scene.whenReadyAsync());case 2:
+            target.render();_context.next = 3;return (
+              target.readPixels());case 3:pixels = _context.sent;if (
+            pixels instanceof Uint8Array) {_context.next = 4;break;}throw (
+              new Error("Expected RGBA8 CDF bin readback"));case 4:
+
+            expectedBins = [0, 1, 2, 3, 3, 0, 3, 1, 2];
+            for (i = 0; i < expectedBins.length; i++) {
+              value = expectedBins[i] * 64;
+              (0,chai__WEBPACK_IMPORTED_MODULE_2__.expect)(Array.from(pixels.subarray(i * 4, i * 4 + 4)), "CDF query ".concat(i)).to.deep.equal([value, value, 0, 255]);
+            }case 5:_context.prev = 5;
+
+            scene.dispose();
+            engine.dispose();return _context.finish(5);case 6:case "end":return _context.stop();}}, _callee, null, [[1,, 5, 6]]);}))
+
+    );
+  });
+}
+
+/***/ },
+
 /***/ "./src/tests.nativeEngine.triangleStripDepth.ts"
 /*!******************************************************!*\
   !*** ./src/tests.nativeEngine.triangleStripDepth.ts ***!
@@ -28529,9 +28619,11 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony import */ var mocha__WEBPACK_IMPORTED_MODULE_3___default = /*#__PURE__*/__webpack_require__.n(mocha__WEBPACK_IMPORTED_MODULE_3__);
 /* harmony import */ var chai__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! chai */ "../../node_modules/chai/index.js");
 /* harmony import */ var _tests_nativeEngine_triangleStripDepth__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(/*! ./tests.nativeEngine.triangleStripDepth */ "./src/tests.nativeEngine.triangleStripDepth.ts");
-/* harmony import */ var _babylonjs_core__WEBPACK_IMPORTED_MODULE_6__ = __webpack_require__(/*! @babylonjs/materials */ "@babylonjs/core");
-/* harmony import */ var _babylonjs_core__WEBPACK_IMPORTED_MODULE_6___default = /*#__PURE__*/__webpack_require__.n(_babylonjs_core__WEBPACK_IMPORTED_MODULE_6__);
+/* harmony import */ var _tests_nativeEngine_iblCdf__WEBPACK_IMPORTED_MODULE_6__ = __webpack_require__(/*! ./tests.nativeEngine.iblCdf */ "./src/tests.nativeEngine.iblCdf.ts");
+/* harmony import */ var _babylonjs_core__WEBPACK_IMPORTED_MODULE_7__ = __webpack_require__(/*! @babylonjs/materials */ "@babylonjs/core");
+/* harmony import */ var _babylonjs_core__WEBPACK_IMPORTED_MODULE_7___default = /*#__PURE__*/__webpack_require__.n(_babylonjs_core__WEBPACK_IMPORTED_MODULE_7__);
 function _createForOfIteratorHelper(r, e) {var t = "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"];if (!t) {if (Array.isArray(r) || (t = _unsupportedIterableToArray(r)) || e && r && "number" == typeof r.length) {t && (r = t);var _n = 0,F = function F() {};return { s: F, n: function n() {return _n >= r.length ? { done: !0 } : { done: !1, value: r[_n++] };}, e: function e(r) {throw r;}, f: F };}throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method.");}var o,a = !0,u = !1;return { s: function s() {t = t.call(r);}, n: function n() {var r = t.next();return a = r.done, r;}, e: function e(r) {u = !0, o = r;}, f: function f() {try {a || null == t.return || t.return();} finally {if (u) throw o;}} };}function _unsupportedIterableToArray(r, a) {if (r) {if ("string" == typeof r) return _arrayLikeToArray(r, a);var t = {}.toString.call(r).slice(8, -1);return "Object" === t && r.constructor && (t = r.constructor.name), "Map" === t || "Set" === t ? Array.from(r) : "Arguments" === t || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(t) ? _arrayLikeToArray(r, a) : void 0;}}function _arrayLikeToArray(r, a) {(null == a || a > r.length) && (a = r.length);for (var e = 0, n = Array(a); e < a; e++) n[e] = r[e];return n;}
+
 
 
 
@@ -28550,12 +28642,13 @@ mocha__WEBPACK_IMPORTED_MODULE_3__.reporter("spec");
 
 
 (0,_tests_nativeEngine_triangleStripDepth__WEBPACK_IMPORTED_MODULE_5__.registerTriangleStripDepthTests)(describe, it, skipCanvasGpuTests);
+(0,_tests_nativeEngine_iblCdf__WEBPACK_IMPORTED_MODULE_6__.registerIblCdfTests)(describe, it, skipCanvasGpuTests);
 
 describe("RequestFile", function () {
   this.timeout(0);
   it("should throw when requesting a URL with no protocol", function () {
     function requestFile() {
-      (0,_babylonjs_core__WEBPACK_IMPORTED_MODULE_6__.RequestFile)("noprotocol.gltf", function () {});
+      (0,_babylonjs_core__WEBPACK_IMPORTED_MODULE_7__.RequestFile)("noprotocol.gltf", function () {});
     }
     (0,chai__WEBPACK_IMPORTED_MODULE_4__.expect)(requestFile).to.throw();
   });
@@ -28665,7 +28758,7 @@ describe("ColorParsing", function () {
 });
 
 describe("Native engine creation options", function () {var _iterator = _createForOfIteratorHelper(
-      [["NativeEngine", _babylonjs_core__WEBPACK_IMPORTED_MODULE_6__.NativeEngine], ["ThinNativeEngine", _babylonjs_core__WEBPACK_IMPORTED_MODULE_6__.ThinNativeEngine]]),_step;try {var _loop = function _loop() {var _step$value = (0,_babel_runtime_helpers_slicedToArray__WEBPACK_IMPORTED_MODULE_1__["default"])(_step.value, 2),name = _step$value[0],EngineType = _step$value[1];var _loop2 = function _loop2()
+      [["NativeEngine", _babylonjs_core__WEBPACK_IMPORTED_MODULE_7__.NativeEngine], ["ThinNativeEngine", _babylonjs_core__WEBPACK_IMPORTED_MODULE_7__.ThinNativeEngine]]),_step;try {var _loop = function _loop() {var _step$value = (0,_babel_runtime_helpers_slicedToArray__WEBPACK_IMPORTED_MODULE_1__["default"])(_step.value, 2),name = _step$value[0],EngineType = _step$value[1];var _loop2 = function _loop2()
       {var useLargeWorldRendering = _arr[_i];
         it("".concat(name, " preserves ").concat(useLargeWorldRendering ? "large-world" : "high-precision", " options"), function () {
           var options = {
@@ -28677,18 +28770,18 @@ describe("Native engine creation options", function () {var _iterator = _createF
           try {
             (0,chai__WEBPACK_IMPORTED_MODULE_4__.expect)(engine.getCreationOptions().useLargeWorldRendering).to.equal(useLargeWorldRendering);
             (0,chai__WEBPACK_IMPORTED_MODULE_4__.expect)(engine.getCreationOptions().useHighPrecisionMatrix).to.equal(!useLargeWorldRendering);
-            var matrix = _babylonjs_core__WEBPACK_IMPORTED_MODULE_6__.Matrix.Translation(1000000001, 0, 999999999);
+            var matrix = _babylonjs_core__WEBPACK_IMPORTED_MODULE_7__.Matrix.Translation(1000000001, 0, 999999999);
             (0,chai__WEBPACK_IMPORTED_MODULE_4__.expect)(matrix.m[12]).to.equal(1000000001);
             (0,chai__WEBPACK_IMPORTED_MODULE_4__.expect)(matrix.m[14]).to.equal(999999999);
-            var vertices = new _babylonjs_core__WEBPACK_IMPORTED_MODULE_6__.VertexData();
+            var vertices = new _babylonjs_core__WEBPACK_IMPORTED_MODULE_7__.VertexData();
             vertices.positions = new Float32Array([1, 2, 3]);
             vertices.normals = new Float32Array([1, 0, 0]);
             vertices.tangents = new Float32Array([1, 0, 0, 1]);
-            vertices.transform(_babylonjs_core__WEBPACK_IMPORTED_MODULE_6__.Matrix.Translation(5, 6, 7));
+            vertices.transform(_babylonjs_core__WEBPACK_IMPORTED_MODULE_7__.Matrix.Translation(5, 6, 7));
             (0,chai__WEBPACK_IMPORTED_MODULE_4__.expect)(Array.from(vertices.positions)).to.deep.equal([6, 8, 10]);
             (0,chai__WEBPACK_IMPORTED_MODULE_4__.expect)(Array.from(vertices.normals)).to.deep.equal([1, 0, 0]);
             (0,chai__WEBPACK_IMPORTED_MODULE_4__.expect)(Array.from(vertices.tangents)).to.deep.equal([1, 0, 0, 1]);
-            var scene = new _babylonjs_core__WEBPACK_IMPORTED_MODULE_6__.Scene(engine);
+            var scene = new _babylonjs_core__WEBPACK_IMPORTED_MODULE_7__.Scene(engine);
             (0,chai__WEBPACK_IMPORTED_MODULE_4__.expect)(scene.floatingOriginMode).to.equal(useLargeWorldRendering);
             scene.dispose();
           } finally {
@@ -28727,10 +28820,10 @@ describe("Canvas2D", function () {
   (skipCanvasGpuTests ? it.skip : it)("intersects nested clips and restores parent clips on the GPU", /*#__PURE__*/(0,_babel_runtime_helpers_asyncToGenerator__WEBPACK_IMPORTED_MODULE_0__["default"])(/*#__PURE__*/_babel_runtime_regenerator__WEBPACK_IMPORTED_MODULE_2___default().mark(function _callee() {var _loop4, _i4, _arr4;return _babel_runtime_regenerator__WEBPACK_IMPORTED_MODULE_2___default().wrap(function (_context2) {while (1) switch (_context2.prev = _context2.next) {case 0:
           this.timeout(10000);_loop4 = /*#__PURE__*/_babel_runtime_regenerator__WEBPACK_IMPORTED_MODULE_2___default().mark(function _loop4() {var translated, engine, scene, texture, ctx, pixels, pixel;return _babel_runtime_regenerator__WEBPACK_IMPORTED_MODULE_2___default().wrap(function (_context) {while (1) switch (_context.prev = _context.next) {case 0:
                   translated = _arr4[_i4];
-                  engine = new _babylonjs_core__WEBPACK_IMPORTED_MODULE_6__.NativeEngine();
-                  scene = new _babylonjs_core__WEBPACK_IMPORTED_MODULE_6__.Scene(engine);_context.prev = 1;
+                  engine = new _babylonjs_core__WEBPACK_IMPORTED_MODULE_7__.NativeEngine();
+                  scene = new _babylonjs_core__WEBPACK_IMPORTED_MODULE_7__.Scene(engine);_context.prev = 1;
 
-                  texture = new _babylonjs_core__WEBPACK_IMPORTED_MODULE_6__.DynamicTexture("nested clips", 64, scene, false);
+                  texture = new _babylonjs_core__WEBPACK_IMPORTED_MODULE_7__.DynamicTexture("nested clips", 64, scene, false);
                   ctx = texture.getContext();
                   ctx.fillStyle = "white";
                   ctx.fillRect(0, 0, 64, 64);
@@ -28786,10 +28879,10 @@ describe("Canvas2D", function () {
 
   (skipCanvasGpuTests ? it.skip : it)("clears only the clipped GPU region and ignores globalAlpha and filters", /*#__PURE__*/(0,_babel_runtime_helpers_asyncToGenerator__WEBPACK_IMPORTED_MODULE_0__["default"])(/*#__PURE__*/_babel_runtime_regenerator__WEBPACK_IMPORTED_MODULE_2___default().mark(function _callee2() {var engine, scene, texture, ctx, _pixels, pixel;return _babel_runtime_regenerator__WEBPACK_IMPORTED_MODULE_2___default().wrap(function (_context3) {while (1) switch (_context3.prev = _context3.next) {case 0:
           this.timeout(10000);
-          engine = new _babylonjs_core__WEBPACK_IMPORTED_MODULE_6__.NativeEngine();
-          scene = new _babylonjs_core__WEBPACK_IMPORTED_MODULE_6__.Scene(engine);_context3.prev = 1;
+          engine = new _babylonjs_core__WEBPACK_IMPORTED_MODULE_7__.NativeEngine();
+          scene = new _babylonjs_core__WEBPACK_IMPORTED_MODULE_7__.Scene(engine);_context3.prev = 1;
 
-          texture = new _babylonjs_core__WEBPACK_IMPORTED_MODULE_6__.DynamicTexture("clipped clear", 64, scene, false);
+          texture = new _babylonjs_core__WEBPACK_IMPORTED_MODULE_7__.DynamicTexture("clipped clear", 64, scene, false);
           ctx = texture.getContext();
           ctx.fillStyle = "red";
           ctx.fillRect(0, 0, 64, 64);
@@ -28821,10 +28914,10 @@ describe("Canvas2D", function () {
 
   (skipCanvasGpuTests ? it.skip : it)("uses the strokeRect geometry after a preceding fillRect", /*#__PURE__*/(0,_babel_runtime_helpers_asyncToGenerator__WEBPACK_IMPORTED_MODULE_0__["default"])(/*#__PURE__*/_babel_runtime_regenerator__WEBPACK_IMPORTED_MODULE_2___default().mark(function _callee3() {var engine, scene, texture, ctx, _pixels2, pixel;return _babel_runtime_regenerator__WEBPACK_IMPORTED_MODULE_2___default().wrap(function (_context4) {while (1) switch (_context4.prev = _context4.next) {case 0:
           this.timeout(10000);
-          engine = new _babylonjs_core__WEBPACK_IMPORTED_MODULE_6__.NativeEngine();
-          scene = new _babylonjs_core__WEBPACK_IMPORTED_MODULE_6__.Scene(engine);_context4.prev = 1;
+          engine = new _babylonjs_core__WEBPACK_IMPORTED_MODULE_7__.NativeEngine();
+          scene = new _babylonjs_core__WEBPACK_IMPORTED_MODULE_7__.Scene(engine);_context4.prev = 1;
 
-          texture = new _babylonjs_core__WEBPACK_IMPORTED_MODULE_6__.DynamicTexture("fill then inset stroke", 16, scene, false);
+          texture = new _babylonjs_core__WEBPACK_IMPORTED_MODULE_7__.DynamicTexture("fill then inset stroke", 16, scene, false);
           ctx = texture.getContext();
           ctx.fillStyle = "blue";
           ctx.fillRect(2, 2, 12, 12);
@@ -28850,7 +28943,7 @@ describe("Canvas2D", function () {
   it("matches browser text layout metrics", /*#__PURE__*/(0,_babel_runtime_helpers_asyncToGenerator__WEBPACK_IMPORTED_MODULE_0__["default"])(/*#__PURE__*/_babel_runtime_regenerator__WEBPACK_IMPORTED_MODULE_2___default().mark(function _callee4() {var fontData, ctx;return _babel_runtime_regenerator__WEBPACK_IMPORTED_MODULE_2___default().wrap(function (_context5) {while (1) switch (_context5.prev = _context5.next) {case 0:
           this.timeout(10000);_context5.next = 1;return (
             new Promise(function (resolve, reject) {
-              (0,_babylonjs_core__WEBPACK_IMPORTED_MODULE_6__.RequestFile)(
+              (0,_babylonjs_core__WEBPACK_IMPORTED_MODULE_7__.RequestFile)(
                 "app:///Assets/Arimo-Regular.ttf",
                 function (data) {
                   if (typeof data === "string") {
@@ -29327,8 +29420,8 @@ describe("Canvas2D", function () {
 });
 
 function createSceneAndWait(callback, done) {
-  var engine = new _babylonjs_core__WEBPACK_IMPORTED_MODULE_6__.NativeEngine();
-  var scene = new _babylonjs_core__WEBPACK_IMPORTED_MODULE_6__.Scene(engine);
+  var engine = new _babylonjs_core__WEBPACK_IMPORTED_MODULE_7__.NativeEngine();
+  var scene = new _babylonjs_core__WEBPACK_IMPORTED_MODULE_7__.Scene(engine);
   scene.createDefaultCamera();
   callback(engine, scene);
   scene.executeWhenReady(function () {
@@ -29367,7 +29460,7 @@ describe("Materials", function () {
   it("Empty ShaderMaterial should compile", function (done) {
     function createEmptyShaderMat() {
       createSceneAndWait(function (engine, scene) {
-        var sphere = _babylonjs_core__WEBPACK_IMPORTED_MODULE_6__.MeshBuilder.CreateSphere(
+        var sphere = _babylonjs_core__WEBPACK_IMPORTED_MODULE_7__.MeshBuilder.CreateSphere(
           "sphere",
           { diameter: 2, segments: 32 },
           scene
@@ -29376,7 +29469,7 @@ describe("Materials", function () {
           vertexSource: "void main() {}",
           fragmentSource: "void main() {}"
         };
-        var mat = new _babylonjs_core__WEBPACK_IMPORTED_MODULE_6__.ShaderMaterial("shader", scene, shaders, {});
+        var mat = new _babylonjs_core__WEBPACK_IMPORTED_MODULE_7__.ShaderMaterial("shader", scene, shaders, {});
         sphere.material = mat;
       }, done);
     }
@@ -29384,12 +29477,12 @@ describe("Materials", function () {
   });
   it("GradientMaterial should compile", function (done) {
     createSceneAndWait(function (engine, scene) {
-      var sphere = _babylonjs_core__WEBPACK_IMPORTED_MODULE_6__.MeshBuilder.CreateSphere(
+      var sphere = _babylonjs_core__WEBPACK_IMPORTED_MODULE_7__.MeshBuilder.CreateSphere(
         "sphere",
         { diameter: 2, segments: 32 },
         scene
       );
-      var gradientMaterial = new _babylonjs_core__WEBPACK_IMPORTED_MODULE_6__.GradientMaterial("grad", scene);
+      var gradientMaterial = new _babylonjs_core__WEBPACK_IMPORTED_MODULE_7__.GradientMaterial("grad", scene);
       sphere.material = gradientMaterial;
     }, done);
   });
@@ -29400,21 +29493,21 @@ describe("PostProcesses", function () {
   it("PassPostProcess", function (done) {
     createSceneAndWait(function (engine, scene) {
       var camera = scene._activeCamera;
-      new _babylonjs_core__WEBPACK_IMPORTED_MODULE_6__.PassPostProcess("Scene copy", 1.0, camera);
+      new _babylonjs_core__WEBPACK_IMPORTED_MODULE_7__.PassPostProcess("Scene copy", 1.0, camera);
     }, done);
   });
   it("BlackAndWhitePostProcess", function (done) {
     createSceneAndWait(function (engine, scene) {
       var camera = scene._activeCamera;
-      new _babylonjs_core__WEBPACK_IMPORTED_MODULE_6__.BlackAndWhitePostProcess("bandw", 1.0, camera);
+      new _babylonjs_core__WEBPACK_IMPORTED_MODULE_7__.BlackAndWhitePostProcess("bandw", 1.0, camera);
     }, done);
   });
   it("BlurPostProcess", function (done) {
     createSceneAndWait(function (engine, scene) {
       var camera = scene._activeCamera;
-      new _babylonjs_core__WEBPACK_IMPORTED_MODULE_6__.BlurPostProcess(
+      new _babylonjs_core__WEBPACK_IMPORTED_MODULE_7__.BlurPostProcess(
         "Horizontal blur",
-        new _babylonjs_core__WEBPACK_IMPORTED_MODULE_6__.Vector2(1.0, 0),
+        new _babylonjs_core__WEBPACK_IMPORTED_MODULE_7__.Vector2(1.0, 0),
         32,
         0.25,
         camera
@@ -29424,9 +29517,9 @@ describe("PostProcesses", function () {
   it("ConvolutionPostProcess", function (done) {
     createSceneAndWait(function (engine, scene) {
       var camera = scene._activeCamera;
-      new _babylonjs_core__WEBPACK_IMPORTED_MODULE_6__.ConvolutionPostProcess(
+      new _babylonjs_core__WEBPACK_IMPORTED_MODULE_7__.ConvolutionPostProcess(
         "Sepia",
-        _babylonjs_core__WEBPACK_IMPORTED_MODULE_6__.ConvolutionPostProcess.EmbossKernel,
+        _babylonjs_core__WEBPACK_IMPORTED_MODULE_7__.ConvolutionPostProcess.EmbossKernel,
         1.0,
         camera
       );
@@ -29435,28 +29528,28 @@ describe("PostProcesses", function () {
   it("HighlightsPostProcess", function (done) {
     createSceneAndWait(function (engine, scene) {
       var camera = scene._activeCamera;
-      new _babylonjs_core__WEBPACK_IMPORTED_MODULE_6__.HighlightsPostProcess("highlights", 1.0, camera);
+      new _babylonjs_core__WEBPACK_IMPORTED_MODULE_7__.HighlightsPostProcess("highlights", 1.0, camera);
     }, done);
   });
   it("TonemapPostProcess", function (done) {
     createSceneAndWait(function (engine, scene) {
       var camera = scene._activeCamera;
-      new _babylonjs_core__WEBPACK_IMPORTED_MODULE_6__.TonemapPostProcess("tonemap", _babylonjs_core__WEBPACK_IMPORTED_MODULE_6__.TonemappingOperator.Hable, 1.0, camera);
+      new _babylonjs_core__WEBPACK_IMPORTED_MODULE_7__.TonemapPostProcess("tonemap", _babylonjs_core__WEBPACK_IMPORTED_MODULE_7__.TonemappingOperator.Hable, 1.0, camera);
     }, done);
   });
   it("ImageProcessingPostProcess", function (done) {
     createSceneAndWait(function (engine, scene) {
       var camera = scene._activeCamera;
-      new _babylonjs_core__WEBPACK_IMPORTED_MODULE_6__.ImageProcessingPostProcess("processing", 1.0, camera);
+      new _babylonjs_core__WEBPACK_IMPORTED_MODULE_7__.ImageProcessingPostProcess("processing", 1.0, camera);
     }, done);
   });
   it("RefractionPostProcess", function (done) {
     createSceneAndWait(function (engine, scene) {
       var camera = scene._activeCamera;
-      new _babylonjs_core__WEBPACK_IMPORTED_MODULE_6__.RefractionPostProcess(
+      new _babylonjs_core__WEBPACK_IMPORTED_MODULE_7__.RefractionPostProcess(
         "Refraction",
         "https://playground.babylonjs.com/textures/grass.jpg",
-        new _babylonjs_core__WEBPACK_IMPORTED_MODULE_6__.Color3(1.0, 1.0, 1.0),
+        new _babylonjs_core__WEBPACK_IMPORTED_MODULE_7__.Color3(1.0, 1.0, 1.0),
         0.5,
         0.5,
         1.0,
@@ -29467,7 +29560,7 @@ describe("PostProcesses", function () {
   it("DefaultPipeline", function (done) {
     createSceneAndWait(function (engine, scene) {
       var camera = scene._activeCamera;
-      new _babylonjs_core__WEBPACK_IMPORTED_MODULE_6__.DefaultRenderingPipeline(
+      new _babylonjs_core__WEBPACK_IMPORTED_MODULE_7__.DefaultRenderingPipeline(
         "defaultPipeline", // The name of the pipeline
         true, // Do you want the pipeline to use HDR texture?
         scene, // The scene instance

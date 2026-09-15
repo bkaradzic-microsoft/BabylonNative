@@ -40,6 +40,8 @@ FrameGraph retains requested MSAA for graphs that only use depth as an attachmen
 
 Native's 3D texture sampling uses the same shader-visible row convention as WebGL, for both raw uploads and rendered volumes. The compiler normalizes sample/fetch Y coordinates without changing the depth slice, and raw uploads normalize each XY slice without modifying caller data. Voxelization, grid combination, and mip generation must therefore use their ordinary shared shaders, not Native-specific axis offsets or reflections.
 
+Native supports GPU irradiance prefiltering, including CDF importance sampling and the dominant-light direction used by OpenPBR. CDF lookups use explicit, clamped `floor(uv * textureSize)` texel bins: normalized nearest sampling can choose the adjacent logical row at exact boundaries after a backend's texture-origin reflection. Use the shared CDF lookup helper, not fractional offsets, material-color adjustments, or a CPU irradiance substitute.
+
 `Scene.isReady()` does not include asynchronous `GUI.Image` loads. The Native runner also checks `AdvancedDynamicTexture.guiIsReady()` during its bounded convergence warmup, and fails explicitly if the scene never converges. Tests should still use image load observables when scene logic depends on decoded dimensions; do not add unconditional sleeps.
 
 Material convergence is checked in the active camera's render pass, restoring the previous pass afterward. Inspecting an unused pass's cached defines can falsely veto a ready scene indefinitely.
