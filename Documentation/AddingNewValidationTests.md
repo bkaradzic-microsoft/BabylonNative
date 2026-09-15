@@ -28,6 +28,12 @@ In order to add a new test scene, first thing to do is to add a few lines in `Ap
 `playgroundId` : the snippet id of the playground you want to test
 `referenceImage` : the reference image name you want to compare to. You don't have a reference yet, so choose a self-explanatory name with .png extension.
 
+`threshold` : optional per-channel RGB difference cutoff (default `25`). A pixel differs if any RGB channel's absolute difference reaches this cutoff; alpha is ignored.
+
+`errorRatio` : optional allowed percentage of differing pixels (default `2.5`). The comparison fails only when the measured percentage exceeds this allowance. Use a positive value: `0` falls back to the default rather than requiring an exact match. Historical measurements in `note` annotations are not the current allowance.
+
+For suite-wide tolerance tightening, use the worst measurement from repeated complete sweeps of the same renderer, fixtures, and references. Start with 10% relative headroom plus 0.02 percentage points, round upward to 0.05-percentage-point increments, and use a 0.05% minimum for new budgets. Remove an above-default exception when every measured run meets 2.5%, even if that cap reduces the proposed headroom. Preserve any already-stricter allowance; this policy must never raise an existing gate. Run the complete suite again under the proposed gates before publishing. Investigate intermittent missing resources or geometry rather than absorbing them into a larger budget. Keep the RGB cutoff, references, and capability exclusions unchanged during a tolerance-only pass.
+
 `canvasBackgroundColor` : optional CSS color used behind transparent screenshot pixels, matching the Babylon.js visualization harness. The default is `greenyellow`; for example, the FrameGraph OIT geometry-renderer fixture uses `"white"`. Native parses the color with `Canvas.parseColor` and composites translucent backgrounds over the browser's white page.
 
 `useLargeWorldRendering` : optional engine-creation flag enabling floating origin for all scenes, including utility layers, and high-precision CPU matrices. `useHighPrecisionMatrix` enables only the matrix precision setting. The runner selects matrix precision before creating its first engine and recreates the engine when a test changes large-world mode. Because matrix precision is global, a mixed run containing either flag keeps high-precision matrices throughout that run; floating origin remains scoped to each test.
