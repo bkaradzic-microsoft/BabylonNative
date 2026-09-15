@@ -10,7 +10,7 @@ namespace Babylon
     class VertexArray final
     {
     public:
-        VertexArray() = default;
+        explicit VertexArray(Graphics::DeviceContext& deviceContext);
         ~VertexArray();
 
         VertexArray(const VertexArray&) = delete;
@@ -27,6 +27,8 @@ namespace Babylon
         void RecordStorageBuffer(StorageBuffer* storageBuffer, uint32_t location, uint32_t byteOffset, uint32_t byteStride, uint32_t numElements);
 
         void SetIndexBuffer(bgfx::Encoder* encoder, uint32_t firstIndex, uint32_t numIndices);
+        bool SetExpandedIndexBuffer(bgfx::Encoder* encoder, PrimitiveModeExpansion::Mode mode, uint32_t firstIndex, uint32_t numIndices);
+        bool SetExpandedUnindexedBuffer(bgfx::Encoder* encoder, PrimitiveModeExpansion::Mode mode, uint32_t numVertices);
         void SetVertexBuffers(bgfx::Encoder* encoder, uint32_t startVertex, uint32_t numVertices, uint32_t instanceCount, const VertexBuffer::InstanceDataLayout& instanceDataLayout);
 
         const std::map<uint32_t, VertexBuffer::InstanceInfo>& GetInstances() const { return m_vertexBufferInstances; }
@@ -36,7 +38,24 @@ namespace Babylon
         bool HasStorageInstances() const;
 
     private:
+        struct UnindexedExpansionKey final
+        {
+            PrimitiveModeExpansion::Mode Mode{};
+            uint32_t VertexCount{};
+
+            bool operator<(const UnindexedExpansionKey& other) const;
+        };
+
+        struct ExpandedBuffer final
+        {
+            bgfx::IndexBufferHandle Handle{bgfx::kInvalidHandle};
+            uint32_t IndexCount{};
+        };
+
+        Graphics::DeviceContext& m_deviceContext;
+        const uintptr_t m_deviceID{};
         IndexBuffer* m_indexBuffer{};
+        std::map<UnindexedExpansionKey, ExpandedBuffer> m_unindexedExpandedBuffers{};
 
         struct VertexBufferRecord
         {

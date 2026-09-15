@@ -1,11 +1,18 @@
 #include "VertexArray.h"
 #include <cassert>
 #include <string>
+#include <tuple>
 #include "Babylon/Graphics/BgfxShaderInfo.h"
 #include "Babylon/Graphics/DeviceContext.h"
 
 namespace Babylon
 {
+    VertexArray::VertexArray(Graphics::DeviceContext& deviceContext)
+        : m_deviceContext{deviceContext}
+        , m_deviceID{deviceContext.GetDeviceId()}
+    {
+    }
+
     VertexArray::~VertexArray()
     {
         Dispose();
@@ -21,6 +28,18 @@ namespace Babylon
         m_indexBuffer = nullptr;
         m_vertexBufferRecords.clear();
         m_vertexBufferInstances.clear();
+        if (m_deviceID == m_deviceContext.GetDeviceId())
+        {
+            for (const auto& [key, buffer] : m_unindexedExpandedBuffers)
+            {
+                static_cast<void>(key);
+                if (bgfx::isValid(buffer.Handle))
+                {
+                    bgfx::destroy(buffer.Handle);
+                }
+            }
+        }
+        m_unindexedExpandedBuffers.clear();
 
         m_disposed = true;
     }
@@ -128,6 +147,56 @@ namespace Babylon
         {
             m_indexBuffer->Set(encoder, firstIndex, numIndices);
         }
+    }
+
+    bool VertexArray::SetExpandedIndexBuffer(bgfx::Encoder* encoder, PrimitiveModeExpansion::Mode mode, uint32_t firstIndex, uint32_t numIndices)
+    {
+        if (m_indexBuffer == nullptr)
+        {
+            throw std::runtime_error{"Indexed primitive expansion requires an index buffer"};
+        }
+
+        return m_indexBuffer->SetExpanded(encoder, mode, firstIndex, numIndices);
+    }
+
+    bool VertexArray::SetExpandedUnindexedBuffer(bgfx::Encoder* encoder, PrimitiveModeExpansion::Mode mode, uint32_t numVertices)
+    {
+        const UnindexedExpansionKey key{mode, numVertices};
+        auto existing = m_unindexedExpandedBuffers.find(key);
+        if (existing == m_unindexedExpandedBuffers.end())
+        {
+            auto expanded = PrimitiveModeExpansion::ExpandUnindexed(numVertices, mode);
+            if (expanded.IndexCount == 0)
+            {
+                return false;
+            }
+
+            const uint16_t flags = expanded.Index32 ? BGFX_BUFFER_INDEX32 : 0;
+            const bgfx::Memory* memory = bgfx::copy(expanded.Bytes.data(), static_cast<uint32_t>(expanded.Bytes.size()));
+            const bgfx::IndexBufferHandle handle = bgfx::createIndexBuffer(memory, flags);
+            if (!bgfx::isValid(handle))
+            {
+                throw std::runtime_error{"Failed to create expanded primitive index buffer"};
+            }
+
+            try
+            {
+                existing = m_unindexedExpandedBuffers.emplace(key, ExpandedBuffer{handle, expanded.IndexCount}).first;
+            }
+            catch (...)
+            {
+                bgfx::destroy(handle);
+                throw;
+            }
+        }
+
+        encoder->setIndexBuffer(existing->second.Handle, 0, existing->second.IndexCount);
+        return true;
+    }
+
+    bool VertexArray::UnindexedExpansionKey::operator<(const UnindexedExpansionKey& other) const
+    {
+        return std::tie(Mode, VertexCount) < std::tie(other.Mode, other.VertexCount);
     }
 
     void VertexArray::SetVertexBuffers(bgfx::Encoder* encoder, uint32_t startVertex, uint32_t numVertices, uint32_t instanceCount, const VertexBuffer::InstanceDataLayout& instanceDataLayout)

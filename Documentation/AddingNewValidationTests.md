@@ -42,6 +42,8 @@ Native's 3D texture sampling uses the same shader-visible row convention as WebG
 
 Native supports GPU irradiance prefiltering, including CDF importance sampling and the dominant-light direction used by OpenPBR. CDF lookups use explicit, clamped `floor(uv * textureSize)` texel bins: normalized nearest sampling can choose the adjacent logical row at exact boundaries after a backend's texture-origin reflection. Use the shared CDF lookup helper, not fractional offsets, material-color adjustments, or a CPU irradiance substitute.
 
+Native expands line loops and triangle fans into equivalent indexed lists, including unindexed and instanced draws. Expansion honors draw ranges, fixed-index restart markers, and dynamic index updates. Babylon.js enables these draws only when the runtime advertises `supportsPrimitiveModeExpansion`; older runtimes retain the unsupported-mode warning. Primitive-mode scenes must include every shape: a generous whole-image tolerance must not substitute for topology support.
+
 `Scene.isReady()` does not include asynchronous `GUI.Image` loads. The Native runner also checks `AdvancedDynamicTexture.guiIsReady()` during its bounded convergence warmup, and fails explicitly if the scene never converges. Tests should still use image load observables when scene logic depends on decoded dimensions; do not add unconditional sleeps.
 
 Material convergence is checked in the active camera's render pass, restoring the previous pass afterward. Inspecting an unused pass's cached defines can falsely veto a ready scene indefinitely.

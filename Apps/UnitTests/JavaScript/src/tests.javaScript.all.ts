@@ -2,6 +2,7 @@ import * as Mocha from "mocha";
 import { expect } from "chai";
 import { registerTriangleStripDepthTests } from "./tests.nativeEngine.triangleStripDepth";
 import { registerIblCdfTests } from "./tests.nativeEngine.iblCdf";
+import { registerPrimitiveModeTests } from "./tests.nativeEngine.primitiveModes";
 import {
   RequestFile,
   NativeEngine,
@@ -41,6 +42,7 @@ declare const _native: any;
 
 registerTriangleStripDepthTests(describe, it, skipCanvasGpuTests);
 registerIblCdfTests(describe, it, skipCanvasGpuTests);
+registerPrimitiveModeTests(describe, it, skipCanvasGpuTests);
 
 describe("RequestFile", function () {
   this.timeout(0);

@@ -40,6 +40,7 @@ set(SOURCES
     "Source/Tests.JavaScript.cpp"
     "Source/Tests.NativeEngine.InstanceData.cpp"
     "Source/Tests.NativeEngine.Mipmaps.cpp"
+    "Source/Tests.NativeEngine.PrimitiveModeExpansion.cpp"
     "Source/Tests.NativeEngine.Teardown.cpp"
     "Source/Tests.NativeEngine.TextureFormats.cpp"
     "Source/Tests.ShaderCache.cpp"

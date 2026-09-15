@@ -1027,6 +1027,7 @@ namespace Babylon
                 StaticValue("COMMAND_SETSCISSOR", Napi::FunctionPointer::Create(env, &NativeEngine::SetScissor)),
                 StaticValue("COMMAND_COPYTEXTURE", Napi::FunctionPointer::Create(env, &NativeEngine::CopyTexture)),
 
+                InstanceValue("supportsPrimitiveModeExpansion", Napi::Boolean::From(env, true)),
                 InstanceMethod("dispose", &NativeEngine::Dispose),
 #ifdef BABYLON_NATIVE_NATIVEENGINE_TEST_HOOKS
                 InstanceMethod("_disposeDrainTestSchedule", &NativeEngine::DisposeDrainTestSchedule),
@@ -1178,7 +1179,7 @@ namespace Babylon
 
     Napi::Value NativeEngine::CreateVertexArray(const Napi::CallbackInfo& info)
     {
-        VertexArray* vertexArray = new VertexArray{};
+        VertexArray* vertexArray = new VertexArray{m_deviceContext};
         return Napi::Pointer<VertexArray>::Create(info.Env(), vertexArray, Napi::NapiPointerDeleter(vertexArray));
     }
 
@@ -3226,12 +3227,28 @@ const bool requestDepthStencilTexture = (depthStencilTextureRequest != nullptr);
 
         bgfx::Encoder* encoder = GetEncoder();
         const auto instanceDataLayout = GetInstanceDataLayout();
+        bool shouldDraw = true;
         if (m_boundVertexArray != nullptr)
         {
-            m_boundVertexArray->SetIndexBuffer(encoder, indexStart, indexCount);
+            if (fillMode == 5 || fillMode == 8)
+            {
+                shouldDraw = m_boundVertexArray->SetExpandedIndexBuffer(
+                    encoder, static_cast<PrimitiveModeExpansion::Mode>(fillMode), indexStart, indexCount);
+            }
+            else
+            {
+                m_boundVertexArray->SetIndexBuffer(encoder, indexStart, indexCount);
+            }
             m_boundVertexArray->SetVertexBuffers(encoder, 0, std::numeric_limits<uint32_t>::max(), 0, instanceDataLayout);
         }
-        DrawInternal(encoder, fillMode, instanceDataLayout);
+        else if (fillMode == 5 || fillMode == 8)
+        {
+            throw std::runtime_error{"Primitive expansion requires a bound vertex array"};
+        }
+        if (shouldDraw)
+        {
+            DrawInternal(encoder, fillMode, instanceDataLayout);
+        }
     }
 
     void NativeEngine::DrawIndexedInstanced(NativeDataStream::Reader& data)
@@ -3243,18 +3260,34 @@ const bool requestDepthStencilTexture = (depthStencilTextureRequest != nullptr);
 
         bgfx::Encoder* encoder = GetEncoder();
         const auto instanceDataLayout = GetInstanceDataLayout();
+        bool shouldDraw = true;
         if (m_boundVertexArray != nullptr)
         {
             const bgfx::DynamicVertexBufferHandle repacked = RepackStorageInstances(encoder, m_boundVertexArray, instanceCount);
             RestoreBoundTextures(encoder);
-            m_boundVertexArray->SetIndexBuffer(encoder, indexStart, indexCount);
+            if (fillMode == 5 || fillMode == 8)
+            {
+                shouldDraw = m_boundVertexArray->SetExpandedIndexBuffer(
+                    encoder, static_cast<PrimitiveModeExpansion::Mode>(fillMode), indexStart, indexCount);
+            }
+            else
+            {
+                m_boundVertexArray->SetIndexBuffer(encoder, indexStart, indexCount);
+            }
             m_boundVertexArray->SetVertexBuffers(encoder, 0, std::numeric_limits<uint32_t>::max(), instanceCount, instanceDataLayout);
             if (bgfx::isValid(repacked))
             {
                 encoder->setInstanceDataBuffer(repacked, 0, instanceCount);
             }
         }
-        DrawInternal(encoder, fillMode, instanceDataLayout);
+        else if (fillMode == 5 || fillMode == 8)
+        {
+            throw std::runtime_error{"Primitive expansion requires a bound vertex array"};
+        }
+        if (shouldDraw)
+        {
+            DrawInternal(encoder, fillMode, instanceDataLayout);
+        }
     }
 
     // Note: For legacy reasons JS might call this function for instance drawing.
@@ -3267,11 +3300,24 @@ const bool requestDepthStencilTexture = (depthStencilTextureRequest != nullptr);
 
         bgfx::Encoder* encoder = GetEncoder();
         const auto instanceDataLayout = GetInstanceDataLayout();
+        bool shouldDraw = true;
         if (m_boundVertexArray != nullptr)
         {
             m_boundVertexArray->SetVertexBuffers(encoder, verticesStart, verticesCount, 0, instanceDataLayout);
+            if (fillMode == 5 || fillMode == 8)
+            {
+                shouldDraw = m_boundVertexArray->SetExpandedUnindexedBuffer(
+                    encoder, static_cast<PrimitiveModeExpansion::Mode>(fillMode), verticesCount);
+            }
         }
-        DrawInternal(encoder, fillMode, instanceDataLayout);
+        else if (fillMode == 5 || fillMode == 8)
+        {
+            throw std::runtime_error{"Primitive expansion requires a bound vertex array"};
+        }
+        if (shouldDraw)
+        {
+            DrawInternal(encoder, fillMode, instanceDataLayout);
+        }
     }
 
     void NativeEngine::DrawInstanced(NativeDataStream::Reader& data)
@@ -3283,27 +3329,40 @@ const bool requestDepthStencilTexture = (depthStencilTextureRequest != nullptr);
 
         bgfx::Encoder* encoder = GetEncoder();
         const auto instanceDataLayout = GetInstanceDataLayout();
+        bool shouldDraw = true;
         if (m_boundVertexArray != nullptr)
-                {
-                    // GPU compute-written instance sources (e.g. GPU particles) are repacked into bgfx
-                    // i_data slots. Repack runs on the draw encoder; force a mid-frame flush so UAV→vertex
-                    // sees completed writes, then re-acquire encoder for the draw. Repack also clears
-                    // encoder texture binds — restore material samplers afterwards.
-                    const bgfx::DynamicVertexBufferHandle repacked = RepackStorageInstances(encoder, m_boundVertexArray, instanceCount);
-                    if (bgfx::isValid(repacked))
-                    {
-                        m_deviceContext.ForceMidFrameFlush();
-                        encoder = GetEncoder();
-                    }
-                    RestoreBoundTextures(encoder);
-                    m_boundVertexArray->SetVertexBuffers(encoder, verticesStart, verticesCount, instanceCount, instanceDataLayout);
-                    if (bgfx::isValid(repacked))
-                    {
-                        encoder->setInstanceDataBuffer(repacked, 0, instanceCount);
-                    }
+        {
+            // GPU compute-written instance sources (e.g. GPU particles) are repacked into bgfx
+            // i_data slots. Repack runs on the draw encoder; force a mid-frame flush so UAV→vertex
+            // sees completed writes, then re-acquire encoder for the draw. Repack also clears
+            // encoder texture binds — restore material samplers afterwards.
+            const bgfx::DynamicVertexBufferHandle repacked = RepackStorageInstances(encoder, m_boundVertexArray, instanceCount);
+            if (bgfx::isValid(repacked))
+            {
+                m_deviceContext.ForceMidFrameFlush();
+                encoder = GetEncoder();
             }
+            RestoreBoundTextures(encoder);
+            m_boundVertexArray->SetVertexBuffers(encoder, verticesStart, verticesCount, instanceCount, instanceDataLayout);
+            if (fillMode == 5 || fillMode == 8)
+            {
+                shouldDraw = m_boundVertexArray->SetExpandedUnindexedBuffer(
+                    encoder, static_cast<PrimitiveModeExpansion::Mode>(fillMode), verticesCount);
+            }
+            if (bgfx::isValid(repacked))
+            {
+                encoder->setInstanceDataBuffer(repacked, 0, instanceCount);
+            }
+        }
+        else if (fillMode == 5 || fillMode == 8)
+        {
+            throw std::runtime_error{"Primitive expansion requires a bound vertex array"};
+        }
+        if (shouldDraw)
+        {
             DrawInternal(encoder, fillMode, instanceDataLayout);
         }
+    }
 
     void NativeEngine::Clear(NativeDataStream::Reader& data)
         {
@@ -3697,7 +3756,7 @@ bgfx::DynamicVertexBufferHandle NativeEngine::RepackStorageInstances(bgfx::Encod
             }
             case 5: // MATERIAL_LineLoopDrawMode
             {
-                // TODO: unsupported mode
+                fillModeState = BGFX_STATE_PT_LINES;
                 break;
             }
             case 6: // MATERIAL_LineStripDrawMode
@@ -3712,7 +3771,7 @@ bgfx::DynamicVertexBufferHandle NativeEngine::RepackStorageInstances(bgfx::Encod
             }
             case 8: // MATERIAL_TriangleFanDrawMode
             {
-                // TODO: unsupported mode
+                fillModeState = 0;
                 break;
             }
         }
