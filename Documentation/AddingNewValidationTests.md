@@ -46,6 +46,8 @@ Native expands line loops and triangle fans into equivalent indexed lists, inclu
 
 `Scene.isReady()` does not include asynchronous `GUI.Image` loads. The Native runner also checks `AdvancedDynamicTexture.guiIsReady()` during its bounded convergence warmup, and fails explicitly if the scene never converges. Tests should still use image load observables when scene logic depends on decoded dimensions; do not add unconditional sleeps.
 
+Utility layers keep their textures and materials in virtual scenes, separate from the main scene's readiness. The runner includes virtual scenes whose active camera belongs to the scene being captured, checking their GUI controls and material convergence as well. It advances render IDs while waiting, not animation frames. The GUI Slate fixture uses the canonical prewarmed snippet; extra capture frames or a loose image tolerance must not conceal an unloaded title bar.
+
 Material convergence is checked in the active camera's render pass, restoring the previous pass afterward. Inspecting an unused pass's cached defines can falsely veto a ready scene indefinitely.
 
 The runner loads bundled, licensed fonts from `Apps/Dependencies`, avoiding a network dependency during font initialization. Arimo supplies Arial-compatible metrics for the `Arial` family; Droid Sans remains the fallback and supplies the historical `droidsans`/`monospace` aliases. The latter preserves existing Native fixtures rather than providing a true monospaced face. Each font includes its license and immutable source provenance. Native's SDF glyph rasterization still differs from browser text rasterization even with matching layout metrics.

@@ -569,6 +569,20 @@
         return true;
     }
 
+    function getConvergenceScenes(scene) {
+        const scenes = [scene];
+        const virtualScenes = scene.getEngine()._virtualScenes;
+        for (let i = 0; i < virtualScenes.length; i++) {
+            const virtualScene = virtualScenes[i];
+            // Utility layers render with a camera owned by the main scene, but keep
+            // their own pending textures, GUI controls, and material readiness.
+            if (virtualScene !== scene && virtualScene.activeCamera && virtualScene.activeCamera.getScene() === scene) {
+                scenes.push(virtualScene);
+            }
+        }
+        return scenes;
+    }
+
     function processCurrentScene(test, renderImage, done, compareFunction) {
         currentScene.useConstantAnimationDeltaTime = true;
         // Frame at which to read back the framebuffer & validate. This is the
@@ -645,7 +659,8 @@
                     // per render id, so bump the render id to force a fresh
                     // evaluation on the next tick, exactly as Scene._checkIsReady
                     // does while polling.
-                    if (!isSceneConverged(currentScene)) {
+                    const convergenceScenes = getConvergenceScenes(currentScene);
+                    if (!convergenceScenes.every(isSceneConverged)) {
                         if (warmupFrames >= MAX_WARMUP_FRAMES) {
                             stopped = true;
                             console.error("Scene '" + (test.title || "?") + "' did not converge within " +
@@ -654,7 +669,9 @@
                             return;
                         }
                         warmupFrames++;
-                        currentScene.incrementRenderId();
+                        for (let i = 0; i < convergenceScenes.length; i++) {
+                            convergenceScenes[i].incrementRenderId();
+                        }
                         return;
                     }
 
