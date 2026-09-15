@@ -1,5 +1,6 @@
 import * as Mocha from "mocha";
 import { expect } from "chai";
+import { registerTriangleStripDepthTests } from "./tests.nativeEngine.triangleStripDepth";
 import {
   RequestFile,
   NativeEngine,
@@ -36,6 +37,8 @@ declare const hostPlatform: string;
 declare const setExitCode: (code: number) => void;
 declare const skipCanvasGpuTests: boolean;
 declare const _native: any;
+
+registerTriangleStripDepthTests(describe, it, skipCanvasGpuTests);
 
 describe("RequestFile", function () {
   this.timeout(0);

@@ -3806,14 +3806,11 @@ bgfx::DynamicVertexBufferHandle NativeEngine::RepackStorageInstances(bgfx::Encod
                         if (boundFrameBuffer.HasDepth())
                         {
                             // Triangle strips alternate winding (e.g. GPU particle billboard quads).
-                        // Drop cull for this draw only so both tris survive; do not mutate m_engineState.
-                        // fillMode 7 = triangle strip (GPU/CPU particle quads). Disable cull AND
-                        // depth write: coplanar strip tris share Z; with WRITE_Z + DEPTH_LESS the
-                        // second tri is rejected → half particles.
-                        const uint64_t drawState = (fillMode == 7)
-                            ? ((m_engineState | fillModeState) & ~(BGFX_STATE_CULL_MASK | BGFX_STATE_WRITE_Z))
-                            : (m_engineState | fillModeState);
-                        encoder->setState(drawState & multisampleMask);
+                            // Drop cull for this draw only so both tris survive; do not mutate m_engineState.
+                            const uint64_t drawState = (fillMode == 7)
+                                ? ((m_engineState | fillModeState) & ~BGFX_STATE_CULL_MASK)
+                                : (m_engineState | fillModeState);
+                            encoder->setState(drawState & multisampleMask);
                         }
                         else
                         {
