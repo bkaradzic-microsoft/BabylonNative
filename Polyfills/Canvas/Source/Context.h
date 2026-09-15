@@ -184,11 +184,15 @@ namespace Babylon::Polyfills::Internal
         JsRuntimeScheduler m_runtimeScheduler;
 
         std::unordered_map<const NativeCanvasImage*, int> m_nvgImageIndices;
+        // Pixel-backed images are referenced by deferred NanoVG draw commands until nvgEndFrame.
+        std::vector<int> m_pendingNvgImageDeletes;
         void BindFillStyle(const Napi::CallbackInfo& info);
         void BindStrokeStyle(const Napi::CallbackInfo& info);
         void FlushGraphicResources() override;
         void PlayPath2D(const NativeCanvasPath2D* path);
         void SetFilterStack();
+        void DeferNvgImageDelete(int imageIndex);
+        void DeletePendingNvgImages();
 
         // Start a fresh nanovg path and drop the clip state that described the old one.
         // clip() emulates a non-rectangular path by leaving it current and letting the next

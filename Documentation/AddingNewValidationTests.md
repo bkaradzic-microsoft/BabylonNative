@@ -58,6 +58,8 @@ Utility layers keep their textures and materials in virtual scenes, separate fro
 
 Material convergence is checked in the active camera's render pass, restoring the previous pass afterward. Inspecting an unused pass's cached defines can falsely veto a ready scene indefinitely.
 
+Pixel-backed offscreen canvases, ImageBitmap copies, and `putImageData` use temporary NanoVG images. These images must remain alive until `nvgEndFrame` submits the deferred drawing commands, with pending resources also released on context disposal. A correct `getImageData` CPU mirror does not prove the GPU image was drawn; regressions must read back the dynamic texture. Cropped `drawImage` calls must map the selected source rectangle onto the destination rather than scale the entire source into it.
+
 The runner loads bundled, licensed fonts from `Apps/Dependencies`, avoiding a network dependency during font initialization. Arimo supplies Arial-compatible metrics for the `Arial` family; Droid Sans remains the fallback and supplies the historical `droidsans`/`monospace` aliases. The latter preserves existing Native fixtures rather than providing a true monospaced face. Each font includes its license and immutable source provenance. Native's SDF glyph rasterization still differs from browser text rasterization even with matching layout metrics.
 
 When migrating an animated reference to a prewarmed fixture, include the captured frame in the simulation-step budget. The Havok multi-region reference represents 180 physics steps: 179 prewarm steps plus the first rendered frame, not 180 prewarm steps plus another step during rendering.

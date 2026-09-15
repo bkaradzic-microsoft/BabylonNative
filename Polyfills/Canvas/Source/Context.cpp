@@ -163,6 +163,7 @@ namespace Babylon::Polyfills::Internal
     {
         if (m_nvg)
         {
+            DeletePendingNvgImages();
             for (auto& image : m_nvgImageIndices)
             {
                 nvgDeleteImage(*m_nvg, image.second);
@@ -170,6 +171,23 @@ namespace Babylon::Polyfills::Internal
             nvgDelete(*m_nvg);
             m_nvg = nullptr;
         }
+    }
+
+    void Context::DeferNvgImageDelete(int imageIndex)
+    {
+        if (imageIndex != 0)
+        {
+            m_pendingNvgImageDeletes.emplace_back(imageIndex);
+        }
+    }
+
+    void Context::DeletePendingNvgImages()
+    {
+        for (const int imageIndex : m_pendingNvgImageDeletes)
+        {
+            nvgDeleteImage(*m_nvg, imageIndex);
+        }
+        m_pendingNvgImageDeletes.clear();
     }
 
     void Context::BindFillStyle(const Napi::CallbackInfo& info)
@@ -885,6 +903,7 @@ namespace Babylon::Polyfills::Internal
             nvgSetFrameBufferAndEncoder(*m_nvg, frameBuffer, encoder);
             nvgSetFrameBufferPool(*m_nvg, { acquire, release });
             nvgEndFrame(*m_nvg);
+            DeletePendingNvgImages();
             frameBuffer.Unbind();
 
             // Reserve the view id for the eventual canvas->texture blit NOW, while we are
@@ -1027,6 +1046,7 @@ namespace Babylon::Polyfills::Internal
         {
             throw Napi::Error::New(env, "Context2D.putImageData: failed to create the source image.");
         }
+        DeferNvgImageDelete(imageIndex);
 
         // putImageData bypasses the transform, the clip region, globalAlpha and
         // the composite operation, and replaces the destination pixels outright.
@@ -1041,9 +1061,7 @@ namespace Babylon::Polyfills::Internal
         nvgRect(*m_nvg, destX, destY, destWidth, destHeight);
         nvgFillPaint(*m_nvg, imagePaint);
         nvgFill(*m_nvg);
-
         nvgRestore(*m_nvg);
-        nvgDeleteImage(*m_nvg, imageIndex);
 
         // Keep the CPU mirror that getImageData() reads from in sync.
         BlitPixelsToCpu(patch.data(), copyWidth, copyHeight, 0, 0, copyWidth, copyHeight,
@@ -1242,8 +1260,12 @@ namespace Babylon::Polyfills::Internal
             }
 
             const int imageIndex = nvgCreateImageRGBA(*m_nvg, static_cast<int>(width), static_cast<int>(height), 0, rgba.data());
+            if (imageIndex == 0)
+            {
+                throw Napi::Error::New(info.Env(), "drawImage: failed to create the ImageBitmap source image.");
+            }
+            DeferNvgImageDelete(imageIndex);
             DrawImageCommon(info, imageIndex, rgba.data(), width, height);
-            nvgDeleteImage(*m_nvg, imageIndex);
             return;
 #else
             throw Napi::Error::New(info.Env(), "drawImage: image loading disabled in this build.");
@@ -1269,8 +1291,12 @@ namespace Babylon::Polyfills::Internal
                     }
 
                     const int imageIndex = nvgCreateImageRGBA(*m_nvg, static_cast<int>(width), static_cast<int>(height), 0, rgba.data());
+                    if (imageIndex == 0)
+                    {
+                        throw Napi::Error::New(info.Env(), "drawImage: failed to create the Canvas source image.");
+                    }
+                    DeferNvgImageDelete(imageIndex);
                     DrawImageCommon(info, imageIndex, rgba.data(), width, height);
-                    nvgDeleteImage(*m_nvg, imageIndex);
                     return;
                 }
 
@@ -1377,8 +1403,16 @@ namespace Babylon::Polyfills::Internal
             const auto dy = static_cast<float>(dyInt);
             const auto dWidth = static_cast<float>(dWidthInt);
             const auto dHeight = static_cast<float>(dHeightInt);
+            const auto scaleX = dWidth / static_cast<float>(sWidth);
+            const auto scaleY = dHeight / static_cast<float>(sHeight);
+            // Map the full source image so the requested source rectangle lands exactly on
+            // the destination rectangle; the destination path clips everything outside it.
+            const auto patternX = dx - static_cast<float>(sx) * scaleX;
+            const auto patternY = dy - static_cast<float>(sy) * scaleY;
+            const auto patternWidth = imgWidth * scaleX;
+            const auto patternHeight = imgHeight * scaleY;
 
-            NVGpaint imagePaint = nvgImagePattern(*m_nvg, dx, dy, dWidth, dHeight, 0.f, imageIndex, 1.f);
+            NVGpaint imagePaint = nvgImagePattern(*m_nvg, patternX, patternY, patternWidth, patternHeight, 0.f, imageIndex, 1.f);
 
             // See FillRect: clipping is a scissor, so the path must always be reset.
             ResetPathState();
