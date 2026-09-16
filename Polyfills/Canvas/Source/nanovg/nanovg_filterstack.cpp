@@ -57,7 +57,6 @@ void nanovg_filterstack::InitBgfx()
     m_uniforms.u_direction = bgfx::createUniform("u_direction", bgfx::UniformType::Vec4);
     m_uniforms.u_weights = bgfx::createUniform("u_weights", bgfx::UniformType::Vec4, BLUR_UNIFORM_SIZE);
 
-    // create shaders used by the different elements
     bgfx::RendererType::Enum type = bgfx::getRendererType();
     s_gaussBlurProg = bgfx::createProgram(
         bgfx::createEmbeddedShader(s_embeddedShadersFilterStack, type, "vs_fspass")

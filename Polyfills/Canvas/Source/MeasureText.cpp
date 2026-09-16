@@ -20,32 +20,31 @@ namespace Babylon::Polyfills::Internal
 {
     Napi::Value MeasureText::CreateInstance(Napi::Env env, Context* context, const std::string& text)
     {
-        // IMPORTANT: zero-initialize. nvgTextBounds / nvgTextMetrics do not always fill these
-        // slots (e.g. when called before the text atlas has been populated), and uninitialized
-        // stack values turn into garbage widths the size of millions of pixels, which Babylon
-        // GUI then propagates into a wildly negative fillText x coordinate, putting text off-
-        // screen.
+        // Ink extents (not the full line box): nvgTextBounds replaces ymin/ymax with
+        // fonsLineBounds, which would make height/actualBoundingBox* the em line box.
         float bounds[4] = {0, 0, 0, 0};
-        // nvgTextBounds returns the horizontal advance and only fills `bounds` with the glyph
-        // bounding box. TextMetrics.width is defined as the advance width, not the ink extent, so
-        // use the return value: the bounding box excludes side bearings and trailing whitespace,
-        // which makes GUI TextBlock size a control narrower/wider than the run it then draws and
-        // ellipsize text that actually fits.
-        const float advance = nvgTextBounds(context->GetNVGContext(), 0, 0, text.c_str(), nullptr, bounds);
+        const float advance = nvgTextBoundsInk(context->GetNVGContext(), 0, 0, text.c_str(), nullptr, bounds);
         float textMetrics[3] = {0, 0, 0};
         nvgTextMetrics(context->GetNVGContext(), &textMetrics[0], &textMetrics[1], &textMetrics[2]);
-        // Match the integral CSS line box used by browser text layout.
+
+        // CSS TextMetrics distances are signed when all ink lies on the opposite side
+        // of the alignment baseline.
+        const float inkAscent = -bounds[1];
+        const float inkDescent = bounds[3];
+        // Keep the browser-compatible integral CSS line box used by Babylon GUI.
+        // The raw font metrics are fractional em-scaled values; Canvas layout rounds
+        // the baseline and total line height independently.
         const float fontAscent = std::floor(textMetrics[0]);
         const float fontDescent = std::ceil(textMetrics[2]) - fontAscent;
 
         auto obj{Napi::Object::New(env)};
         obj.Set("width", Napi::Value::From(env, advance));
         obj.Set("height", Napi::Value::From(env, bounds[3] - bounds[1]));
-        // Measured with the pen at x = 0, so bounds[0]/bounds[2] are the ink extents relative to
-        // the alignment point. actualBoundingBoxLeft is positive to the LEFT of that point, so it
-        // is the negation of the left ink edge; actualBoundingBoxRight is positive to the right.
+        // actualBoundingBoxLeft is positive left of the alignment point.
         obj.Set("actualBoundingBoxLeft", Napi::Value::From(env, -bounds[0]));
         obj.Set("actualBoundingBoxRight", Napi::Value::From(env, bounds[2]));
+        obj.Set("actualBoundingBoxAscent", Napi::Value::From(env, inkAscent));
+        obj.Set("actualBoundingBoxDescent", Napi::Value::From(env, inkDescent));
         obj.Set("fontBoundingBoxAscent", Napi::Value::From(env, fontAscent));
         obj.Set("fontBoundingBoxDescent", Napi::Value::From(env, fontDescent));
 

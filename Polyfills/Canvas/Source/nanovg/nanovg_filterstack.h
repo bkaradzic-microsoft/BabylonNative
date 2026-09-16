@@ -10,20 +10,23 @@ class nanovg_filterstack
 public:
     nanovg_filterstack();
 
-    // Shared across all NVG/canvas contexts. Init/Dispose are refcounted so
-    // creating a second AdvancedDynamicTexture (or any second canvas) neither
-    // leaks a second set of programs nor double-destroys the first.
-        static void InitBgfx();
-        static void DisposeBgfx();
-        inline static bgfx::ProgramHandle s_gaussBlurProg = BGFX_INVALID_HANDLE;
-        inline static bgfx::ProgramHandle s_boxBlurProg = BGFX_INVALID_HANDLE;
-        inline static int s_bgfxRefCount = 0;
-        inline struct Uniforms
-        {
-            bgfx::UniformHandle u_strength = BGFX_INVALID_HANDLE;
-            bgfx::UniformHandle u_direction = BGFX_INVALID_HANDLE;
-            bgfx::UniformHandle u_weights = BGFX_INVALID_HANDLE;
-        } static m_uniforms;
+    // Shared bgfx blur resources; Init/Dispose are refcounted across canvases.
+    static void InitBgfx();
+    static void DisposeBgfx();
+
+    // No default member initializers here: GCC rejects them when the nested type is
+    // used as an inline static member of the enclosing class (complete-type rule).
+    struct Uniforms
+    {
+        bgfx::UniformHandle u_strength;
+        bgfx::UniformHandle u_direction;
+        bgfx::UniformHandle u_weights;
+    };
+
+    inline static bgfx::ProgramHandle s_gaussBlurProg;
+    inline static bgfx::ProgramHandle s_boxBlurProg;
+    inline static int s_bgfxRefCount = 0;
+    inline static Uniforms m_uniforms{};
 
     void AddSepia(float strength) {}
     void AddContrast(float strength) {}
@@ -41,9 +44,6 @@ public:
     );
     void Render(std::function<void()> element);
 
-    // Returns true if this stack has any filter elements (blur/sepia/etc.) that
-    // require intermediate pool framebuffers. When false, draws render straight
-    // into the final (canvas) framebuffer and can share a single bgfx view.
     bool HasFilters() const { return stackElementCount > 0; }
 
     void ParseString(const std::string& string);

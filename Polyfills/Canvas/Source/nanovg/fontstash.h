@@ -223,7 +223,10 @@ int fons__tt_buildGlyphBitmap(FONSttFontImpl *font, int glyph, float size, float
 	FT_Fixed advFixed;
 	FONS_NOTUSED(scale);
 
-	ftError = FT_Set_Pixel_Sizes(font->font, 0, (FT_UInt)(size * (float)font->font->units_per_EM / (float)(font->font->ascender - font->font->descender)));
+	// `size` is already CSS/canvas em pixels (see fons__tt_getPixelHeightScale). Do not
+	// re-scale by units_per_EM/(ascender-descender) — that was the old line-height path and
+	// would desync FreeType raster size from em-scaled advances/metrics.
+	ftError = FT_Set_Pixel_Sizes(font->font, 0, (FT_UInt)(size > 0.0f ? size + 0.5f : 0.0f));
 	if (ftError) return 0;
 	ftError = FT_Load_Glyph(font->font, glyph, FT_LOAD_RENDER | FT_LOAD_FORCE_AUTOHINT);
 	if (ftError) return 0;
@@ -1540,9 +1543,9 @@ void fonsDrawDebug(FONScontext* stash, float x, float y)
 	fons__flush(stash);
 }
 
-// Remove the SDF padding and the one-pixel atlas border that fons__getQuad retains.
-#ifdef FONS_SDF_PADDING
-#define FONS_TEXT_BOUNDS_PADDING ((float)FONS_SDF_PADDING + 1.0f)
+// Atlas SDF padding; interpolation/blur padding is stored on each glyph.
+#if defined(FONS_SDF_PADDING) && !defined(FONS_USE_FREETYPE)
+#define FONS_TEXT_BOUNDS_PADDING ((float)FONS_SDF_PADDING)
 #else
 #define FONS_TEXT_BOUNDS_PADDING 0.0f
 #endif
@@ -1564,7 +1567,7 @@ float fonsTextBounds(FONScontext* stash,
 	FONSfont* font;
 	float startx, advance;
 	float minx, miny, maxx, maxy;
-	int hasGlyph = 0;
+	int hasInk = 0;
 
 	if (stash == NULL) return 0;
 	if (state->font < 0 || state->font >= stash->nfonts) return 0;
@@ -1576,12 +1579,7 @@ float fonsTextBounds(FONScontext* stash,
 	// Align vertically.
 	y += fons__getVertAlign(stash, font, state->align, isize);
 
-	// Seeded with the pen position only as a fallback for a run with no drawable glyphs. The
-	// extents below are taken purely from the glyphs, because seeding them with the origin
-	// clamps away the left side bearing: the reported bounds could then never start right of
-	// the pen, which is exactly where a leading 'H' or 'B' starts. canvas2d reports that bearing
-	// through actualBoundingBoxLeft, and Babylon GUI centers text using it, so swallowing it
-	// shifts every centered run right by half the bearing.
+	// Init bounds from pen only as empty-run fallback; extents come from glyphs (LSB).
 	minx = maxx = x;
 	miny = maxy = y;
 	startx = x;
@@ -1595,36 +1593,36 @@ float fonsTextBounds(FONScontext* stash,
 		glyph = fons__getGlyph(stash, font, codepoint, isize, iblur, FONS_GLYPH_BITMAP_OPTIONAL);
 		if (glyph != NULL) {
 			float qx0, qx1, qy0, qy1;
+			const float padding = FONS_TEXT_BOUNDS_PADDING + (float)glyph->blur + 1.0f;
 			fons__getQuad(stash, font, prevGlyphIndex, glyph, scale, state->spacing, &x, &y, &q);
-			// The quad is the rasterization footprint, which fons__tt_buildGlyphBitmap inflates by
-			// FONS_SDF_PADDING on every side so the distance field has room around the glyph. That
-			// padding is not part of the glyph, so take it back off here: these bounds are reported
-			// to callers as the ink extents (canvas2d actualBoundingBoxLeft/Right), and leaving it
-			// in over-reports every measured run by 2*FONS_SDF_PADDING.
-			qx0 = q.x0 + FONS_TEXT_BOUNDS_PADDING;
-			qx1 = q.x1 - FONS_TEXT_BOUNDS_PADDING;
-			if (qx1 < qx0) qx0 = qx1 = (q.x0 + q.x1) * 0.5f;
-			if (!hasGlyph) { minx = qx0; maxx = qx1; }
-			if (qx0 < minx) minx = qx0;
-			if (qx1 > maxx) maxx = qx1;
+			// getQuad removes one of getGlyph's (blur + 2) border pixels.
+			qx0 = q.x0 + padding;
+			qx1 = q.x1 - padding;
 			if (stash->params.flags & FONS_ZERO_TOPLEFT) {
 				// q.y0 is the top edge and q.y1 the bottom edge.
-				qy0 = q.y0 + FONS_TEXT_BOUNDS_PADDING;
-				qy1 = q.y1 - FONS_TEXT_BOUNDS_PADDING;
-				if (qy1 < qy0) qy0 = qy1 = (q.y0 + q.y1) * 0.5f;
-				if (!hasGlyph) { miny = qy0; maxy = qy1; }
-				if (qy0 < miny) miny = qy0;
-				if (qy1 > maxy) maxy = qy1;
+				qy0 = q.y0 + padding;
+				qy1 = q.y1 - padding;
+				if (qx1 > qx0 && qy1 > qy0) {
+					if (!hasInk) { minx = qx0; maxx = qx1; miny = qy0; maxy = qy1; }
+					if (qx0 < minx) minx = qx0;
+					if (qx1 > maxx) maxx = qx1;
+					if (qy0 < miny) miny = qy0;
+					if (qy1 > maxy) maxy = qy1;
+					hasInk = 1;
+				}
 			} else {
 				// y grows upwards: q.y0 is the top edge and q.y1 the bottom edge.
-				qy0 = q.y0 - FONS_TEXT_BOUNDS_PADDING;
-				qy1 = q.y1 + FONS_TEXT_BOUNDS_PADDING;
-				if (qy0 < qy1) qy0 = qy1 = (q.y0 + q.y1) * 0.5f;
-				if (!hasGlyph) { miny = qy1; maxy = qy0; }
-				if (qy1 < miny) miny = qy1;
-				if (qy0 > maxy) maxy = qy0;
+				qy0 = q.y0 - padding;
+				qy1 = q.y1 + padding;
+				if (qx1 > qx0 && qy0 > qy1) {
+					if (!hasInk) { minx = qx0; maxx = qx1; miny = qy1; maxy = qy0; }
+					if (qx0 < minx) minx = qx0;
+					if (qx1 > maxx) maxx = qx1;
+					if (qy1 < miny) miny = qy1;
+					if (qy0 > maxy) maxy = qy0;
+					hasInk = 1;
+				}
 			}
-			hasGlyph = 1;
 		}
 		prevGlyphIndex = glyph != NULL ? glyph->index : -1;
 	}

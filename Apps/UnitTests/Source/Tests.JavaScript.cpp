@@ -79,8 +79,10 @@ TEST(JavaScript, All)
         device.AddToJavaScript(env);
 #if defined(SKIP_RENDER_TESTS) || defined(SKIP_EXTERNAL_TEXTURE_TESTS)
         env.Global().Set("skipCanvasGpuTests", true);
+        env.Global().Set("hasGpuRendering", false);
 #else
         env.Global().Set("skipCanvasGpuTests", false);
+        env.Global().Set("hasGpuRendering", true);
 #endif
 
         Babylon::Polyfills::XMLHttpRequest::Initialize(env);

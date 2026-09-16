@@ -54,24 +54,24 @@ namespace Babylon::Polyfills::Internal
     }
 
     NativeCanvasImage* NativeCanvasImage::TryUnwrap(Napi::Env env, const Napi::Value& value)
-        {
-            return NativeInstanceRegistry<NativeCanvasImage>::TryUnwrap(env, value);
-        }
+    {
+        return NativeInstanceRegistry<NativeCanvasImage>::TryUnwrap(env, value);
+    }
 
-        NativeCanvasImage::NativeCanvasImage(const Napi::CallbackInfo& info)
-            : Napi::ObjectWrap<NativeCanvasImage>{info}
-            , m_runtimeScheduler{JsRuntime::GetFromJavaScript(info.Env())}
-            , m_cancellationSource{std::make_shared<arcana::cancellation_source>()}
-        {
-            // Registered last: a constructor that throws never reaches the destructor.
-            NativeInstanceRegistry<NativeCanvasImage>::Add(info, this);
-        }
+    NativeCanvasImage::NativeCanvasImage(const Napi::CallbackInfo& info)
+        : Napi::ObjectWrap<NativeCanvasImage>{info}
+        , m_runtimeScheduler{JsRuntime::GetFromJavaScript(info.Env())}
+        , m_cancellationSource{std::make_shared<arcana::cancellation_source>()}
+    {
+        // Registered last: a constructor that throws never reaches the destructor.
+        NativeInstanceRegistry<NativeCanvasImage>::Add(info, this);
+    }
 
-        NativeCanvasImage::~NativeCanvasImage()
-        {
-            NativeInstanceRegistry<NativeCanvasImage>::Remove(this);
-            Dispose();
-        }
+    NativeCanvasImage::~NativeCanvasImage()
+    {
+        NativeInstanceRegistry<NativeCanvasImage>::Remove(this);
+        Dispose();
+    }
 
     void NativeCanvasImage::Dispose()
     {
