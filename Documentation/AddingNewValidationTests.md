@@ -70,6 +70,8 @@ When migrating an animated reference to a prewarmed fixture, include the capture
 
 For tests shared with Babylon.js, synchronize the canonical reference from `packages\tools\tests\test\visualization\ReferenceImages` and its configuration together, including the Playground revision, capture count, and canvas background. Do not regenerate a shared reference from Native to conceal a rendering difference.
 
+Particle fixtures often prewarm before the first captured frame. Follow the canonical capture count even when the Playground revision is unchanged: extra live frames can move an already-prewarmed effect away from its reference. Prewarming each CPU/NPE system is not equivalent to interleaving live frames across systems, since they consume the seeded random sequence in a different order. Synchronize the fixture rather than adjusting particle geometry, random seeds, or reference pixels.
+
 Browser default loading screens are HTML/CSS overlays and are not part of Native's GPU framebuffer capture. Keep such browser-only visualization tests excluded from Native with an explicit reason. Native applications can still provide an `ILoadingScreen` implementation appropriate for their host UI.
 
 Native's GLSL compute support does not imply WGSL or storage-texture support. The excluded WGSL graphics/storage-texture fixtures exercise unsupported backend capabilities, not image-tolerance problems.
