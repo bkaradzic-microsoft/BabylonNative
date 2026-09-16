@@ -3,7 +3,7 @@ import { expect } from "chai";
 import { registerTriangleStripDepthTests } from "./tests.nativeEngine.triangleStripDepth";
 import { registerIblCdfTests } from "./tests.nativeEngine.iblCdf";
 import { registerPrimitiveModeTests } from "./tests.nativeEngine.primitiveModes";
-import { registerPng16Tests } from "./tests.nativeEngine.png16";
+import { registerPngTests } from "./tests.nativeEngine.png";
 import { registerCanvasImageTests } from "./tests.nativeEngine.canvasImage";
 import {
   RequestFile,
@@ -45,7 +45,7 @@ declare const _native: any;
 registerTriangleStripDepthTests(describe, it, skipCanvasGpuTests);
 registerIblCdfTests(describe, it, skipCanvasGpuTests);
 registerPrimitiveModeTests(describe, it, skipCanvasGpuTests);
-registerPng16Tests(describe, it, skipCanvasGpuTests);
+registerPngTests(describe, it, skipCanvasGpuTests);
 registerCanvasImageTests(describe, it, skipCanvasGpuTests);
 
 describe("RequestFile", function () {

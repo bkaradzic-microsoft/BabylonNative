@@ -260,10 +260,10 @@ namespace Babylon
                 throw std::runtime_error{"Failed to parse image."};
             }
 
-            image = Graphics::ConvertPng16ToRgba8(allocator, image);
+            image = Graphics::NormalizePngImage(allocator, image);
             if (image == nullptr)
             {
-                throw std::runtime_error{"Failed to convert 16-bit PNG image to RGBA8."};
+                throw std::runtime_error{"Failed to normalize PNG image."};
             }
 
             assert(image->m_offset == 0);

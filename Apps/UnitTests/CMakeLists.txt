@@ -97,6 +97,7 @@ target_link_libraries(UnitTests
     PRIVATE Window
     PRIVATE XMLHttpRequest
     PRIVATE gtest_main
+    PRIVATE bimg_decode
     PRIVATE bimg_encode
     ${ADDITIONAL_LIBRARIES})
 

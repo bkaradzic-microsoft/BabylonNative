@@ -241,7 +241,7 @@ namespace Babylon::Polyfills::Internal
         m_imageContainer = bimg::imageParse(&allocator, buffer.data(), static_cast<uint32_t>(buffer.size_bytes()));
         if (m_imageContainer)
         {
-            m_imageContainer = Graphics::ConvertPng16ToRgba8(allocator, m_imageContainer);
+            m_imageContainer = Graphics::NormalizePngImage(allocator, m_imageContainer);
             if (m_imageContainer && m_imageContainer->m_format != bimg::TextureFormat::RGBA8)
             {
                 auto* source = m_imageContainer;

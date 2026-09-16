@@ -264,16 +264,16 @@ skipCanvasGpuTests)
 
 /***/ },
 
-/***/ "./src/tests.nativeEngine.png16.ts"
-/*!*****************************************!*\
-  !*** ./src/tests.nativeEngine.png16.ts ***!
-  \*****************************************/
+/***/ "./src/tests.nativeEngine.png.ts"
+/*!***************************************!*\
+  !*** ./src/tests.nativeEngine.png.ts ***!
+  \***************************************/
 (__unused_webpack_module, __webpack_exports__, __webpack_require__) {
 
 "use strict";
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
-/* harmony export */   registerPng16Tests: () => (/* binding */ registerPng16Tests)
+/* harmony export */   registerPngTests: () => (/* binding */ registerPngTests)
 /* harmony export */ });
 /* harmony import */ var _babel_runtime_helpers_asyncToGenerator__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! @babel/runtime/helpers/asyncToGenerator */ "../../node_modules/@babel/runtime/helpers/esm/asyncToGenerator.js");
 /* harmony import */ var _babel_runtime_regenerator__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! @babel/runtime/regenerator */ "../../node_modules/@babel/runtime/regenerator/index.js");
@@ -287,38 +287,86 @@ function _createForOfIteratorHelper(r, e) {var t = "undefined" != typeof Symbol 
 
 var fixtures = [
 {
-  name: "RGBA",
+  name: "16-bit RGBA",
   png: "iVBORw0KGgoAAAANSUhEUgAAAAQAAAABEAYAAACprNOOAAAAI0lEQVR4nGOo/38v9Ene//8MDP//NzBAeAwMIB4D4/9/90IBNYURsvcM43UAAAAASUVORK5CYII=",
   pixels: [128, 222, 227, 255, 0, 255, 128, 128, 222, 227, 0, 0, 255, 0, 255, 222]
 },
 {
-  name: "RGB",
+  name: "16-bit RGB",
   png: "iVBORw0KGgoAAAANSUhEUgAAAAQAAAABEAIAAAAmzkTZAAAAG0lEQVR4nGOo/38v9EkeA8P//w0MMBYD4/9/AKWbDQOAUd17AAAAAElFTkSuQmCC",
   pixels: [128, 222, 227, 255, 0, 255, 128, 255, 222, 227, 0, 255, 255, 0, 255, 255]
 },
 {
-  name: "grayscale",
+  name: "16-bit grayscale",
   png: "iVBORw0KGgoAAAANSUhEUgAAAAQAAAABEAAAAACMx4xSAAAAEUlEQVR4nGOo/38v9Ene//8AGa4GAvbhooAAAAAASUVORK5CYII=",
   pixels: [128, 128, 128, 255, 222, 222, 222, 255, 227, 227, 227, 255, 255, 255, 255, 255]
 },
 {
-  name: "grayscale with alpha",
+  name: "16-bit grayscale with alpha",
   png: "iVBORw0KGgoAAAANSUhEUgAAAAQAAAABEAQAAAADpRsFAAAAF0lEQVR4nGOo/////73Q+v9P8hgYQCwAYP8KsdIXi8oAAAAASUVORK5CYII=",
   pixels: [128, 128, 128, 255, 222, 222, 222, 128, 227, 227, 227, 0, 255, 255, 255, 222]
+},
+{
+  name: "8-bit RGB color key",
+  png: "iVBORw0KGgoAAAANSUhEUgAAAAMAAAABCAIAAACUgoPjAAAABnRSTlMAAAAAAABupgeRAAAAD0lEQVR42mNgAAFGLhE5AAByAD7AYQaiAAAAAElFTkSuQmCC",
+  width: 3,
+  pixels: [0, 0, 0, 0, 0, 0, 1, 255, 10, 20, 30, 255]
+},
+{
+  name: "8-bit grayscale color key",
+  png: "iVBORw0KGgoAAAANSUhEUgAAAAMAAAABCAAAAAA+i0toAAAAAnRSTlMAf7YpoZUAAAAMSURBVHjaY2Co/w8AAgEBf4sbZGEAAAAASUVORK5CYII=",
+  width: 3,
+  pixels: [0, 0, 0, 255, 127, 127, 127, 0, 255, 255, 255, 255]
+},
+{
+  name: "2-bit grayscale color key",
+  png: "iVBORw0KGgoAAAANSUhEUgAAAAUAAAACAgAAAAD/sVEgAAAAAnRSTlMAApidrBQAAAAOSURBVHjaY5B2YJjcAAADMwFvhMae/wAAAABJRU5ErkJggg==",
+  width: 5,
+  height: 2,
+  pixels: [
+  0, 0, 0, 255, 85, 85, 85, 255, 170, 170, 170, 0, 255, 255, 255, 255, 85, 85, 85, 255,
+  170, 170, 170, 0, 85, 85, 85, 255, 0, 0, 0, 255, 255, 255, 255, 255, 170, 170, 170, 0]
+
+},
+{
+  name: "16-bit grayscale color key",
+  png: "iVBORw0KGgoAAAANSUhEUgAAAAMAAAABEAAAAABuG5crAAAAAnRSTlMSNC/TSV4AAAAPSURBVHjaYxAyETJdfRYABIECBqQr4XkAAAAASUVORK5CYII=",
+  width: 3,
+  pixels: [18, 18, 18, 0, 18, 18, 18, 255, 171, 171, 171, 255]
+},
+{
+  name: "16-bit RGB color key",
+  png: "iVBORw0KGgoAAAANSUhEUgAAAAMAAAABEAIAAADEEl+gAAAABnRSTlMSNFZ4mryJ5E7mAAAAHElEQVR42mMQMgmrmLVHyDSsctbe1WdVMv7dAQBEhQi2aXh0TAAAAABJRU5ErkJggg==",
+  width: 3,
+  pixels: [18, 86, 154, 0, 18, 86, 154, 255, 171, 36, 254, 255]
+},
+{
+  name: "8-bit opaque grayscale",
+  png: "iVBORw0KGgoAAAANSUhEUgAAAAMAAAABCAAAAAA+i0toAAAADElEQVR42mNgqP8PAAIBAX+LG2RhAAAAAElFTkSuQmCC",
+  width: 3,
+  pixels: [0, 0, 0, 255, 127, 127, 127, 255, 255, 255, 255, 255]
+},
+{
+  name: "8-bit grayscale with alpha",
+  png: "iVBORw0KGgoAAAANSUhEUgAAAAMAAAABCAQAAACx6dw/AAAAD0lEQVR4nGNgYKh3+P8fAAXAAr4pW6ZDAAAAAElFTkSuQmCC",
+  width: 3,
+  pixels: [0, 0, 0, 0, 127, 127, 127, 64, 255, 255, 255, 255]
 }];
 
 
-function registerPng16Tests(
+function registerPngTests(
 describe,
 it,
 skipCanvasGpuTests)
 {
-  describe("NativeEngine 16-bit PNG decoding", function () {
+  describe("NativeEngine PNG decoding", function () {
     this.timeout(10000);
     var test = skipCanvasGpuTests ? it.skip : it;var _iterator = _createForOfIteratorHelper(
-        fixtures),_step;try {var _loop = function _loop() {var fixture = _step.value;var _loop2 = function _loop2()
+        fixtures),_step;try {var _loop = function _loop() {var _fixture$width, _fixture$height;var fixture = _step.value;
+        var width = (_fixture$width = fixture.width) !== null && _fixture$width !== void 0 ? _fixture$width : 4;
+        var height = (_fixture$height = fixture.height) !== null && _fixture$height !== void 0 ? _fixture$height : 1;var _loop2 = function _loop2()
         {var generateMips = _arr[_i];
-          test("uploads ".concat(fixture.name, " PNG as browser RGBA8 (mips ").concat(generateMips, ")"), /*#__PURE__*/(0,_babel_runtime_helpers_asyncToGenerator__WEBPACK_IMPORTED_MODULE_0__["default"])(/*#__PURE__*/_babel_runtime_regenerator__WEBPACK_IMPORTED_MODULE_1___default().mark(function _callee2() {var engine, scene, texture, pixels, mip;return _babel_runtime_regenerator__WEBPACK_IMPORTED_MODULE_1___default().wrap(function (_context2) {while (1) switch (_context2.prev = _context2.next) {case 0:
+          test("uploads ".concat(fixture.name, " PNG as browser RGBA8 (mips ").concat(generateMips, ")"), /*#__PURE__*/(0,_babel_runtime_helpers_asyncToGenerator__WEBPACK_IMPORTED_MODULE_0__["default"])(/*#__PURE__*/_babel_runtime_regenerator__WEBPACK_IMPORTED_MODULE_1___default().mark(function _callee2() {var engine, scene, texture, pixels, mipWidth, mipHeight, mip;return _babel_runtime_regenerator__WEBPACK_IMPORTED_MODULE_1___default().wrap(function (_context2) {while (1) switch (_context2.prev = _context2.next) {case 0:
                   engine = new _babylonjs_core__WEBPACK_IMPORTED_MODULE_3__.NativeEngine();
                   scene = new _babylonjs_core__WEBPACK_IMPORTED_MODULE_3__.Scene(engine);_context2.prev = 1;_context2.next = 2;return (
 
@@ -333,11 +381,16 @@ skipCanvasGpuTests)
                   pixels instanceof Uint8Array) {_context2.next = 4;break;}throw (
                     new Error("Expected unsigned-byte PNG texture readback"));case 4:
 
-                  (0,chai__WEBPACK_IMPORTED_MODULE_2__.expect)(Array.from(pixels)).to.deep.equal(fixture.pixels);if (!
-                  generateMips) {_context2.next = 6;break;}_context2.next = 5;return (
-                    texture.readPixels(0, 1));case 5:mip = _context2.sent;
+                  (0,chai__WEBPACK_IMPORTED_MODULE_2__.expect)(Array.from(pixels)).to.deep.equal(fixture.pixels);
+                  (0,chai__WEBPACK_IMPORTED_MODULE_2__.expect)(texture.getSize().width).to.equal(width);
+                  (0,chai__WEBPACK_IMPORTED_MODULE_2__.expect)(texture.getSize().height).to.equal(height);if (!
+                  generateMips) {_context2.next = 6;break;}
+                  mipWidth = Math.max(1, width >> 1);
+                  mipHeight = Math.max(1, height >> 1);
+                  // Read only the valid mip extent for odd-sized PNG fixtures.
+                  _context2.next = 5;return texture.readPixels(0, 1, null, true, false, 0, 0, mipWidth, mipHeight);case 5:mip = _context2.sent;
                   (0,chai__WEBPACK_IMPORTED_MODULE_2__.expect)(mip instanceof Uint8Array).to.equal(true);
-                  (0,chai__WEBPACK_IMPORTED_MODULE_2__.expect)(mip === null || mip === void 0 ? void 0 : mip.byteLength).to.equal(8);case 6:_context2.prev = 6;
+                  (0,chai__WEBPACK_IMPORTED_MODULE_2__.expect)(mip === null || mip === void 0 ? void 0 : mip.byteLength).to.equal(mipWidth * mipHeight * 4);case 6:_context2.prev = 6;
 
 
                   scene.dispose();
@@ -350,9 +403,9 @@ skipCanvasGpuTests)
                 engine = new _babylonjs_core__WEBPACK_IMPORTED_MODULE_3__.NativeEngine();_context3.prev = 1;_context3.next = 2;return (
 
                   engine._createImageBitmapFromSource("data:image/png;base64," + fixture.png));case 2:bitmap = _context3.sent;
-                (0,chai__WEBPACK_IMPORTED_MODULE_2__.expect)(bitmap.width).to.equal(4);
-                (0,chai__WEBPACK_IMPORTED_MODULE_2__.expect)(bitmap.height).to.equal(1);
-                pixels = engine.resizeImageBitmap(bitmap, 4, 1);
+                (0,chai__WEBPACK_IMPORTED_MODULE_2__.expect)(bitmap.width).to.equal(width);
+                (0,chai__WEBPACK_IMPORTED_MODULE_2__.expect)(bitmap.height).to.equal(height);
+                pixels = engine.resizeImageBitmap(bitmap, width, height);
                 (0,chai__WEBPACK_IMPORTED_MODULE_2__.expect)(Array.from(pixels)).to.deep.equal(fixture.pixels);case 3:_context3.prev = 3;
 
                 engine.dispose();return _context3.finish(3);case 4:case "end":return _context3.stop();}}, _callee3, null, [[1,, 3, 4]]);}))
@@ -29052,7 +29105,7 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony import */ var _tests_nativeEngine_triangleStripDepth__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(/*! ./tests.nativeEngine.triangleStripDepth */ "./src/tests.nativeEngine.triangleStripDepth.ts");
 /* harmony import */ var _tests_nativeEngine_iblCdf__WEBPACK_IMPORTED_MODULE_6__ = __webpack_require__(/*! ./tests.nativeEngine.iblCdf */ "./src/tests.nativeEngine.iblCdf.ts");
 /* harmony import */ var _tests_nativeEngine_primitiveModes__WEBPACK_IMPORTED_MODULE_7__ = __webpack_require__(/*! ./tests.nativeEngine.primitiveModes */ "./src/tests.nativeEngine.primitiveModes.ts");
-/* harmony import */ var _tests_nativeEngine_png16__WEBPACK_IMPORTED_MODULE_8__ = __webpack_require__(/*! ./tests.nativeEngine.png16 */ "./src/tests.nativeEngine.png16.ts");
+/* harmony import */ var _tests_nativeEngine_png__WEBPACK_IMPORTED_MODULE_8__ = __webpack_require__(/*! ./tests.nativeEngine.png */ "./src/tests.nativeEngine.png.ts");
 /* harmony import */ var _tests_nativeEngine_canvasImage__WEBPACK_IMPORTED_MODULE_9__ = __webpack_require__(/*! ./tests.nativeEngine.canvasImage */ "./src/tests.nativeEngine.canvasImage.ts");
 /* harmony import */ var _babylonjs_core__WEBPACK_IMPORTED_MODULE_10__ = __webpack_require__(/*! @babylonjs/materials */ "@babylonjs/core");
 /* harmony import */ var _babylonjs_core__WEBPACK_IMPORTED_MODULE_10___default = /*#__PURE__*/__webpack_require__.n(_babylonjs_core__WEBPACK_IMPORTED_MODULE_10__);
@@ -29081,7 +29134,7 @@ mocha__WEBPACK_IMPORTED_MODULE_3__.reporter("spec");
 (0,_tests_nativeEngine_triangleStripDepth__WEBPACK_IMPORTED_MODULE_5__.registerTriangleStripDepthTests)(describe, it, skipCanvasGpuTests);
 (0,_tests_nativeEngine_iblCdf__WEBPACK_IMPORTED_MODULE_6__.registerIblCdfTests)(describe, it, skipCanvasGpuTests);
 (0,_tests_nativeEngine_primitiveModes__WEBPACK_IMPORTED_MODULE_7__.registerPrimitiveModeTests)(describe, it, skipCanvasGpuTests);
-(0,_tests_nativeEngine_png16__WEBPACK_IMPORTED_MODULE_8__.registerPng16Tests)(describe, it, skipCanvasGpuTests);
+(0,_tests_nativeEngine_png__WEBPACK_IMPORTED_MODULE_8__.registerPngTests)(describe, it, skipCanvasGpuTests);
 (0,_tests_nativeEngine_canvasImage__WEBPACK_IMPORTED_MODULE_9__.registerCanvasImageTests)(describe, it, skipCanvasGpuTests);
 
 describe("RequestFile", function () {

@@ -2,38 +2,86 @@ import * as Mocha from "mocha";
 import { expect } from "chai";
 import { Constants, NativeEngine, RawTexture, Scene, Texture } from "@babylonjs/core";
 
-const fixtures = [
+const fixtures: { name: string; png: string; pixels: number[]; width?: number; height?: number }[] = [
     {
-        name: "RGBA",
+        name: "16-bit RGBA",
         png: "iVBORw0KGgoAAAANSUhEUgAAAAQAAAABEAYAAACprNOOAAAAI0lEQVR4nGOo/38v9Ene//8MDP//NzBAeAwMIB4D4/9/90IBNYURsvcM43UAAAAASUVORK5CYII=",
         pixels: [128, 222, 227, 255, 0, 255, 128, 128, 222, 227, 0, 0, 255, 0, 255, 222],
     },
     {
-        name: "RGB",
+        name: "16-bit RGB",
         png: "iVBORw0KGgoAAAANSUhEUgAAAAQAAAABEAIAAAAmzkTZAAAAG0lEQVR4nGOo/38v9EkeA8P//w0MMBYD4/9/AKWbDQOAUd17AAAAAElFTkSuQmCC",
         pixels: [128, 222, 227, 255, 0, 255, 128, 255, 222, 227, 0, 255, 255, 0, 255, 255],
     },
     {
-        name: "grayscale",
+        name: "16-bit grayscale",
         png: "iVBORw0KGgoAAAANSUhEUgAAAAQAAAABEAAAAACMx4xSAAAAEUlEQVR4nGOo/38v9Ene//8AGa4GAvbhooAAAAAASUVORK5CYII=",
         pixels: [128, 128, 128, 255, 222, 222, 222, 255, 227, 227, 227, 255, 255, 255, 255, 255],
     },
     {
-        name: "grayscale with alpha",
+        name: "16-bit grayscale with alpha",
         png: "iVBORw0KGgoAAAANSUhEUgAAAAQAAAABEAQAAAADpRsFAAAAF0lEQVR4nGOo/////73Q+v9P8hgYQCwAYP8KsdIXi8oAAAAASUVORK5CYII=",
         pixels: [128, 128, 128, 255, 222, 222, 222, 128, 227, 227, 227, 0, 255, 255, 255, 222],
     },
+    {
+        name: "8-bit RGB color key",
+        png: "iVBORw0KGgoAAAANSUhEUgAAAAMAAAABCAIAAACUgoPjAAAABnRSTlMAAAAAAABupgeRAAAAD0lEQVR42mNgAAFGLhE5AAByAD7AYQaiAAAAAElFTkSuQmCC",
+        width: 3,
+        pixels: [0, 0, 0, 0, 0, 0, 1, 255, 10, 20, 30, 255],
+    },
+    {
+        name: "8-bit grayscale color key",
+        png: "iVBORw0KGgoAAAANSUhEUgAAAAMAAAABCAAAAAA+i0toAAAAAnRSTlMAf7YpoZUAAAAMSURBVHjaY2Co/w8AAgEBf4sbZGEAAAAASUVORK5CYII=",
+        width: 3,
+        pixels: [0, 0, 0, 255, 127, 127, 127, 0, 255, 255, 255, 255],
+    },
+    {
+        name: "2-bit grayscale color key",
+        png: "iVBORw0KGgoAAAANSUhEUgAAAAUAAAACAgAAAAD/sVEgAAAAAnRSTlMAApidrBQAAAAOSURBVHjaY5B2YJjcAAADMwFvhMae/wAAAABJRU5ErkJggg==",
+        width: 5,
+        height: 2,
+        pixels: [
+            0, 0, 0, 255, 85, 85, 85, 255, 170, 170, 170, 0, 255, 255, 255, 255, 85, 85, 85, 255,
+            170, 170, 170, 0, 85, 85, 85, 255, 0, 0, 0, 255, 255, 255, 255, 255, 170, 170, 170, 0,
+        ],
+    },
+    {
+        name: "16-bit grayscale color key",
+        png: "iVBORw0KGgoAAAANSUhEUgAAAAMAAAABEAAAAABuG5crAAAAAnRSTlMSNC/TSV4AAAAPSURBVHjaYxAyETJdfRYABIECBqQr4XkAAAAASUVORK5CYII=",
+        width: 3,
+        pixels: [18, 18, 18, 0, 18, 18, 18, 255, 171, 171, 171, 255],
+    },
+    {
+        name: "16-bit RGB color key",
+        png: "iVBORw0KGgoAAAANSUhEUgAAAAMAAAABEAIAAADEEl+gAAAABnRSTlMSNFZ4mryJ5E7mAAAAHElEQVR42mMQMgmrmLVHyDSsctbe1WdVMv7dAQBEhQi2aXh0TAAAAABJRU5ErkJggg==",
+        width: 3,
+        pixels: [18, 86, 154, 0, 18, 86, 154, 255, 171, 36, 254, 255],
+    },
+    {
+        name: "8-bit opaque grayscale",
+        png: "iVBORw0KGgoAAAANSUhEUgAAAAMAAAABCAAAAAA+i0toAAAADElEQVR42mNgqP8PAAIBAX+LG2RhAAAAAElFTkSuQmCC",
+        width: 3,
+        pixels: [0, 0, 0, 255, 127, 127, 127, 255, 255, 255, 255, 255],
+    },
+    {
+        name: "8-bit grayscale with alpha",
+        png: "iVBORw0KGgoAAAANSUhEUgAAAAMAAAABCAQAAACx6dw/AAAAD0lEQVR4nGNgYKh3+P8fAAXAAr4pW6ZDAAAAAElFTkSuQmCC",
+        width: 3,
+        pixels: [0, 0, 0, 0, 127, 127, 127, 64, 255, 255, 255, 255],
+    },
 ];
 
-export function registerPng16Tests(
+export function registerPngTests(
     describe: typeof Mocha.describe,
     it: typeof Mocha.it,
     skipCanvasGpuTests: boolean
 ): void {
-    describe("NativeEngine 16-bit PNG decoding", function () {
+    describe("NativeEngine PNG decoding", function () {
         this.timeout(10000);
         const test = skipCanvasGpuTests ? it.skip : it;
         for (const fixture of fixtures) {
+            const width = fixture.width ?? 4;
+            const height = fixture.height ?? 1;
             for (const generateMips of [false, true]) {
                 test(`uploads ${fixture.name} PNG as browser RGBA8 (mips ${generateMips})`, async function () {
                     const engine = new NativeEngine();
@@ -51,10 +99,15 @@ export function registerPng16Tests(
                             throw new Error("Expected unsigned-byte PNG texture readback");
                         }
                         expect(Array.from(pixels)).to.deep.equal(fixture.pixels);
+                        expect(texture.getSize().width).to.equal(width);
+                        expect(texture.getSize().height).to.equal(height);
                         if (generateMips) {
-                            const mip = await texture.readPixels(0, 1);
+                            const mipWidth = Math.max(1, width >> 1);
+                            const mipHeight = Math.max(1, height >> 1);
+                            // Read only the valid mip extent for odd-sized PNG fixtures.
+                            const mip = await texture.readPixels(0, 1, null, true, false, 0, 0, mipWidth, mipHeight);
                             expect(mip instanceof Uint8Array).to.equal(true);
-                            expect(mip?.byteLength).to.equal(8);
+                            expect(mip?.byteLength).to.equal(mipWidth * mipHeight * 4);
                         }
                     } finally {
                         scene.dispose();
@@ -67,9 +120,9 @@ export function registerPng16Tests(
                 const engine = new NativeEngine();
                 try {
                     const bitmap = await engine._createImageBitmapFromSource("data:image/png;base64," + fixture.png);
-                    expect(bitmap.width).to.equal(4);
-                    expect(bitmap.height).to.equal(1);
-                    const pixels = engine.resizeImageBitmap(bitmap, 4, 1);
+                    expect(bitmap.width).to.equal(width);
+                    expect(bitmap.height).to.equal(height);
+                    const pixels = engine.resizeImageBitmap(bitmap, width, height);
                     expect(Array.from(pixels)).to.deep.equal(fixture.pixels);
                 } finally {
                     engine.dispose();
