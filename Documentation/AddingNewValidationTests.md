@@ -40,6 +40,8 @@ For suite-wide tolerance tightening, use the worst measurement from repeated com
 
 The runner restores its deterministic `Math.random` implementation and resets its seed before each test. A snippet may install its own random generator, but that generator must not leak into subsequent tests in a mixed run.
 
+Stable repeated captures on one backend do not establish cross-GPU noise reproducibility. Trigonometric GPU hashes such as `fract(cos(dot(...)) * 43758.5453)` amplify small backend math differences into different procedural patterns, even with identical inputs. Scene 255's allowance records this reference-portability problem, not a sky-position error. Before assigning another residual to the same cause, verify an active hash call and use controlled captures or a diagnostic replacement of the hash; a shared, unused `getRand` declaration is not evidence. Distinguish GPU hashing from seeded CPU randomness, capture timing, and CPU/GPU algorithm substitutions. Keep fixtures, references, and numerical gates unchanged during that investigation.
+
 Validation disables back-buffer MSAA with `TestUtils.setMSAASamples(0)`, matching the browser harness's `antialias: false`. This does not change the embedding runtime's default or a scene's explicitly multisampled render targets. Custom diagnostic scripts can select 0/1 (disabled), 2, 4, 8, or 16 samples with the same API.
 
 FrameGraph retains requested MSAA for graphs that only use depth as an attachment. On Native, graphs with explicit depth-texture dependencies still use single-sample targets because multisampled depth cannot be resolved for ordinary shader sampling. Disabling MSAA for every graph unnecessarily changes bounding-box and post-process coverage.
