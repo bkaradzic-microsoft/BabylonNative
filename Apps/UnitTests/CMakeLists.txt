@@ -40,6 +40,7 @@ set(SOURCES
     "Source/Tests.ExternalTexture.Render.cpp"
     "Source/Tests.JavaScript.cpp"
     "Source/Tests.NativeEngine.InstanceData.cpp"
+    "Source/Tests.NativeEngine.Msaa.cpp"
     "Source/Tests.NativeEngine.Teardown.cpp"
     "Source/Tests.ShaderCache.cpp"
     "Source/Tests.ShaderCompilation.cpp"
