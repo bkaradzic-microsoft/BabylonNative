@@ -699,7 +699,8 @@
       "title": "NPE - Angle align",
       "playgroundId": "#H5RP91",
       "referenceImage": "npe-angle-align.png",
-      "errorRatio": 0.35
+      "errorRatio": 0.05,
+      "note": "Batch 179: restore legacy NPE timing when serialized fields are absent (updateSpeed 0.01, preWarmStepOffset 1). Zero-step prewarming emitted no particles and the blank image incorrectly passed the old 0.35% gate at 0.272083%. Canonical first-frame capture now measures 0.040417%; the 0.05% gate rejects missing particles. Snippet, reference, seed, and capture count are unchanged; explicit serialized timing, including zero, is preserved."
     },
     {
       "title": "SPZ v3 - Splat",
