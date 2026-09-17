@@ -11,16 +11,18 @@ Once it's done, you can save it, get a snippet Id and add it to the test lists.
 
 In order to add a new test scene, first thing to do is to add a few lines in `Apps\Playground\Scripts\config.json`.
 
+Keep `config.json` human-readable with two-space indentation and a final newline. Programmatic updates must preserve this layout; use `JSON.stringify(config, null, 2) + "\n"` or its equivalent instead of compact serialization.
+
 ```json
 {
-    "root": "https://cdn.babylonjs.com",
-    "tests": [
-        {
-            "title": "setParent",
-            "playgroundId": "#JD49CT#2",
-            "referenceImage": "setParent.png"
-        },
-        ...
+  "root": "https://cdn.babylonjs.com",
+  "tests": [
+    {
+      "title": "setParent",
+      "playgroundId": "#JD49CT#2",
+      "referenceImage": "setParent.png"
+    }
+  ]
 }
 ```
 
