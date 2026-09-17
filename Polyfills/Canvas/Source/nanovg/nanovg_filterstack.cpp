@@ -194,7 +194,8 @@ void nanovg_filterstack::Render(
     std::function<void(bgfx::ProgramHandle, Babylon::Graphics::FrameBuffer*, Babylon::Graphics::FrameBuffer*)> finalPass,
     Babylon::Graphics::FrameBuffer* finalFrameBuffer,
     std::function<Babylon::Graphics::FrameBuffer*()> acquire,
-    std::function<void(Babylon::Graphics::FrameBuffer*)> release
+    std::function<void(Babylon::Graphics::FrameBuffer*)> release,
+    bool separateComposite
 )
 {
     if (!stackElementCount)
@@ -232,7 +233,7 @@ void nanovg_filterstack::Render(
                 for (int i = 0; i < 2; i++)
                 {
                     const std::array<float, 4>& direction = directions[i];
-                    bool last = lastElement && i == 1;
+                    bool last = lastElement && i == 1 && !separateComposite;
                     float sigma = i == 0 ? element.blurElement.horizontal : element.blurElement.vertical;
 
                     // use gaussian blur for sigma < 2, box blur for sigma >= 2

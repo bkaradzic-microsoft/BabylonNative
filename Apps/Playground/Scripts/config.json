@@ -2757,7 +2757,7 @@
       "renderCount": 5,
       "referenceImage": "show-multiple-guis.png",
       "errorRatio": 3.5,
-      "note": "Batch 175 corrected Canvas alpha uploads (4.236667% to 3.295417%). Batch 177 normalizes negative clip dimensions, restoring the top-right Sphere7 label instead of collapsing its -20px-wide clip to zero. Error falls to 3.150833%; tighten the allowance from 3.65% to 3.5%. GUI text, rounded-path rendering, and dashed-connector differences remain separate. Fixture, five-frame capture, and reference are unchanged."
+      "note": "Batch 175 corrected Canvas alpha uploads (4.236667% to 3.295417%). Batch 177 normalized negative clip dimensions and restored the top-right Sphere7 label (3.150833%). Batch 178 applies an antialiased path mask to the left rounded button's Click Me text instead of leaving it unclipped. Error is 3.146250%, with 66 changed pixels confined to that button; the 3.5% allowance is unchanged. Text rasterization and dashed-connector differences remain. Fixture, five-frame capture, and reference are unchanged."
     },
     {
       "title": "skybox-with-boombox",
