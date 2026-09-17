@@ -6,6 +6,7 @@
 #include "../../../Polyfills/Canvas/Source/Canvas.h"
 #include "../../../Polyfills/Canvas/Source/Context.h"
 #include "../../../Polyfills/Canvas/Source/nanovg/nanovg.h"
+#include <napi/pointer.h>
 
 #include <array>
 #include <chrono>
@@ -155,6 +156,33 @@ TEST(CanvasReadback, UntouchedCanvasReadbackCreatesRenderTarget)
             }
             EXPECT_TRUE(nativeCanvas->HasFrameBuffer());
         }
+    });
+}
+
+TEST(CanvasReadback, CanvasTexturePreservesLegacyPremultipliedSource)
+{
+    RunCanvasTest([](Napi::Env env) {
+        const auto constructor = Babylon::JsRuntime::NativeObject::GetFromJavaScript(env).Get("Canvas").As<Napi::Function>();
+        auto canvas = constructor.New({});
+        canvas.Set("width", 4);
+        canvas.Set("height", 4);
+        auto context = canvas.Get("getContext").As<Napi::Function>().Call(canvas, {Napi::String::New(env, "2d")}).As<Napi::Object>();
+        auto getTexture = canvas.Get("getCanvasTexture").As<Napi::Function>();
+        EXPECT_THROW(getTexture.Call(canvas, {}), Napi::Error);
+        context.Get("flush").As<Napi::Function>().Call(context, {});
+        auto* nativeCanvas = Babylon::Polyfills::Internal::NativeCanvas::Unwrap(canvas);
+        const auto source = bgfx::getTexture(nativeCanvas->GetFrameBuffer().Handle());
+        for (const std::vector<Napi::Value>& arguments : std::vector<std::vector<Napi::Value>>{
+            {}, {env.Undefined()}, {Napi::Boolean::New(env, true)}})
+        {
+            auto* texture = getTexture.Call(canvas, arguments).As<Napi::Pointer<Babylon::Graphics::Texture>>().Get();
+            EXPECT_EQ(texture->Handle().idx, source.idx);
+        }
+        auto* straight = getTexture.Call(canvas, {Napi::Boolean::New(env, false)}).As<Napi::Pointer<Babylon::Graphics::Texture>>().Get();
+        EXPECT_NE(straight->Handle().idx, source.idx);
+        EXPECT_EQ(straight->Width(), 4u);
+        EXPECT_EQ(straight->Height(), 4u);
+        EXPECT_EQ(bgfx::getTexture(nativeCanvas->GetFrameBuffer().Handle()).idx, source.idx);
     });
 }
 

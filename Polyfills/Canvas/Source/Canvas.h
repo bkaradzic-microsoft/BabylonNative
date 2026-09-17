@@ -7,6 +7,7 @@
 #include <Babylon/Graphics/Texture.h>
 
 #include "FrameBufferPool.h"
+#include <array>
 
 namespace Babylon::Polyfills
 {
@@ -100,6 +101,7 @@ namespace Babylon::Polyfills::Internal
         Napi::Value GetHeight(const Napi::CallbackInfo&);
         void SetHeight(const Napi::CallbackInfo&, const Napi::Value& value);
         Napi::Value GetCanvasTexture(const Napi::CallbackInfo& info);
+        Graphics::Texture& GetConvertedTexture(bool premulAlpha, bool generateMipMaps);
         Napi::Value ToDataURL(const Napi::CallbackInfo& info);
         static void LoadTTF(const Napi::CallbackInfo& info);
         static Napi::Value LoadTTFAsync(const Napi::CallbackInfo& info);
@@ -121,6 +123,15 @@ namespace Babylon::Polyfills::Internal
 
         std::unique_ptr<Graphics::FrameBuffer> m_frameBuffer;
         std::unique_ptr<Graphics::Texture> m_texture{};
+        struct ConvertedTexture
+        {
+            std::unique_ptr<Graphics::FrameBuffer> FrameBuffer{};
+            std::unique_ptr<Graphics::Texture> Texture{};
+        };
+        std::array<ConvertedTexture, 3> m_convertedTextures{};
+        bgfx::ProgramHandle m_unpremultiplyProgram{BGFX_INVALID_HANDLE};
+        bgfx::UniformHandle m_copySampler{BGFX_INVALID_HANDLE};
+        bgfx::UniformHandle m_copyParams{BGFX_INVALID_HANDLE};
         bgfx::ViewId m_blitViewId{UINT16_MAX};
         uint32_t m_blitViewIdGeneration{0};
         bool m_dirty{};
