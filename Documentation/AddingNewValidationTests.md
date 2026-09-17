@@ -46,6 +46,8 @@ Validation disables back-buffer MSAA with `TestUtils.setMSAASamples(0)`, matchin
 
 FrameGraph retains requested MSAA for graphs that only use depth as an attachment. On Native, graphs with explicit depth-texture dependencies still use single-sample targets because multisampled depth cannot be resolved for ordinary shader sampling. Disabling MSAA for every graph unnecessarily changes bounding-box and post-process coverage.
 
+Cascaded shadows retain the requested filter on Native. `FILTER_NONE` uses the color cascade array with nearest sampling; it must not be silently replaced with PCF because of FrameGraph's single-sample depth restriction. Verify both hard-shadow silhouettes and explicitly filtered PCF/PCSS controls before tightening a shadow-scene allowance.
+
 Native's 3D texture sampling uses the same shader-visible row convention as WebGL, for both raw uploads and rendered volumes. The compiler normalizes sample/fetch Y coordinates without changing the depth slice, and raw uploads normalize each XY slice without modifying caller data. Voxelization, grid combination, and mip generation must therefore use their ordinary shared shaders, not Native-specific axis offsets or reflections.
 
 Native supports GPU irradiance prefiltering, including CDF importance sampling and the dominant-light direction used by OpenPBR. CDF lookups use explicit, clamped `floor(uv * textureSize)` texel bins: normalized nearest sampling can choose the adjacent logical row at exact boundaries after a backend's texture-origin reflection. Use the shared CDF lookup helper, not fractional offsets, material-color adjustments, or a CPU irradiance substitute.
