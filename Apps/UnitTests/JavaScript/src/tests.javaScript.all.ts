@@ -301,6 +301,63 @@ describe("Canvas2D", function () {
     }
   });
 
+  (skipCanvasGpuTests ? it.skip : it)("normalizes negative rectangle dimensions before intersecting GPU clips", async function () {
+    this.timeout(10000);
+    const engine = new NativeEngine();
+    const scene = new Scene(engine);
+    try {
+      const texture = new DynamicTexture("signed clips", 64, scene, false);
+      const ctx = texture.getContext();
+      for (const rotated of [false, true]) {
+        let expected: Uint8Array | undefined;
+        for (const [flipX, flipY] of [[false, false], [true, false], [false, true], [true, true]]) {
+          ctx.fillStyle = "white";
+          ctx.fillRect(0, 0, 64, 64);
+          ctx.save();
+          ctx.beginPath();
+          ctx.rect(18, 12, 36, 44);
+          ctx.clip();
+          ctx.save();
+          if (rotated) {
+            ctx.translate(32, 32);
+            ctx.rotate(0.3);
+            ctx.translate(-32, -32);
+          }
+          ctx.beginPath();
+          ctx.rect(flipX ? 40 : 16, flipY ? 40 : 20, flipX ? -24 : 24, flipY ? -20 : 20);
+          ctx.clip();
+          ctx.fillStyle = "blue";
+          ctx.fillRect(0, 0, 64, 64);
+          ctx.restore();
+          ctx.restore();
+          texture.update(false);
+
+          const pixels = await texture.readPixels();
+          if (!(pixels instanceof Uint8Array)) {
+            throw new Error("Expected RGBA8 GPU readback for signed clips");
+          }
+          const inside = (30 * 64 + 28) * 4;
+          expect(Array.from(pixels.subarray(inside, inside + 4)), `inside clip, rotated=${rotated}, flipX=${flipX}, flipY=${flipY}`).to.deep.equal([0, 0, 255, 255]);
+          expect(Array.from(pixels.subarray(0, 4)), "outside parent clip").to.deep.equal([255, 255, 255, 255]);
+          if (expected) {
+            let changed = 0;
+            for (let index = 0; index < pixels.length; ++index) {
+              if (pixels[index] !== expected[index]) {
+                ++changed;
+              }
+            }
+            expect(changed, `signed clip equivalence, rotated=${rotated}, flipX=${flipX}, flipY=${flipY}`).to.equal(0);
+          } else {
+            expected = pixels.slice();
+          }
+        }
+      }
+    } finally {
+      scene.dispose();
+      engine.dispose();
+    }
+  });
+
   (skipCanvasGpuTests ? it.skip : it)("clears only the clipped GPU region and ignores globalAlpha and filters", async function () {
     this.timeout(10000);
     const engine = new NativeEngine();
