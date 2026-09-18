@@ -55,6 +55,8 @@ namespace Babylon::Graphics
         , m_width{width}
         , m_height{height}
         , m_defaultBackBuffer{defaultBackBuffer}
+        // XR uses default framebuffer semantics but supplies an explicit render target.
+        , m_useDeviceBackBuffer{defaultBackBuffer && !bgfx::isValid(handle)}
         , m_hasDepth{hasDepth}
         , m_hasStencil{hasStencil}
         , m_isMultisampled{isMultisampled}
@@ -95,7 +97,7 @@ namespace Babylon::Graphics
 
     bgfx::FrameBufferHandle FrameBuffer::Handle() const
     {
-        return m_handle;
+        return m_useDeviceBackBuffer ? m_deviceContext.GetBackBufferHandle() : m_handle;
     }
 
     uint16_t FrameBuffer::Width() const
@@ -135,41 +137,24 @@ namespace Babylon::Graphics
         m_viewIdGeneration = m_deviceContext.ViewIdGeneration();
 
         bgfx::setViewMode(m_viewId.value(), bgfx::ViewMode::Sequential);
-
-                // Always route color clears through the float palette. The packed-rgba setViewClear path only
-                // carries 8-bit UNORM values, which cannot express OIT's -99999 depth-texture clear (or any
-                // out-of-[0,1] / high-precision float MRT clear). Palette indices also support per-attachment
-                // masking (gl.drawBuffers equivalent) on D3D11/12.
-                if ((flags & BGFX_CLEAR_COLOR) != 0)
-                {
-                    const uint8_t paletteIndex{AcquireClearPaletteIndex(r, g, b, a)};
-                    uint8_t indices[MaxColorAttachments];
-
-                    const bool maskColorAttachments{colorAttachmentMask != UINT8_MAX && bgfx::isValid(m_handle) && SupportsClearAttachmentMasking()};
-                    for (uint8_t attachment = 0; attachment < MaxColorAttachments; ++attachment)
-                    {
-                        if (maskColorAttachments)
-                        {
-                            indices[attachment] = (colorAttachmentMask & (1 << attachment)) != 0 ? paletteIndex : UINT8_MAX;
-                        }
-                        else
-                        {
-                            // Full clear (or backends that ignore UINT8_MAX): every attachment gets the color.
-                            indices[attachment] = paletteIndex;
-                        }
-                    }
-
-                    // Palette overload of setViewClear; flags keep depth/stencil bits. BGFX_CLEAR_COLOR is
-                    // derived from the indices when at least one is not UINT8_MAX.
-                    bgfx::setViewClear(m_viewId.value(), flags, depth, stencil,
-                        indices[0], indices[1], indices[2], indices[3], indices[4], indices[5], indices[6], indices[7]);
-                }
-                else
-                {
-                    bgfx::setViewClear(m_viewId.value(), flags, 0u, depth, stencil);
-                }
-
-        bgfx::setViewFrameBuffer(m_viewId.value(), m_handle);
+        // Float palette entries preserve HDR clears and per-attachment masks.
+        if ((flags & BGFX_CLEAR_COLOR) != 0)
+        {
+            const uint8_t paletteIndex{AcquireClearPaletteIndex(r, g, b, a)};
+            uint8_t indices[MaxColorAttachments];
+            const bool maskColorAttachments{colorAttachmentMask != UINT8_MAX && bgfx::isValid(m_handle) && SupportsClearAttachmentMasking()};
+            for (uint8_t attachment = 0; attachment < MaxColorAttachments; ++attachment)
+            {
+                indices[attachment] = !maskColorAttachments || (colorAttachmentMask & (1 << attachment)) != 0 ? paletteIndex : UINT8_MAX;
+            }
+            bgfx::setViewClear(m_viewId.value(), flags, depth, stencil,
+                indices[0], indices[1], indices[2], indices[3], indices[4], indices[5], indices[6], indices[7]);
+        }
+        else
+        {
+            bgfx::setViewClear(m_viewId.value(), flags, 0u, depth, stencil);
+        }
+        bgfx::setViewFrameBuffer(m_viewId.value(), Handle());
 
         // If a scissor is not set, WebGL clears the entire screen, so set the view rect to cover the entire screen
         // before clearing to match WebGL's behavior; otherwise BGFX will only clear the view rect.
@@ -317,7 +302,7 @@ namespace Babylon::Graphics
 
         bgfx::setViewMode(m_viewId.value(), bgfx::ViewMode::Sequential);
         bgfx::setViewClear(m_viewId.value(), BGFX_CLEAR_NONE, 0, 1.0f, 0);
-        bgfx::setViewFrameBuffer(m_viewId.value(), m_handle);
+        bgfx::setViewFrameBuffer(m_viewId.value(), Handle());
 
         m_bgfxViewPort = viewPort;
         bgfx::setViewRect(m_viewId.value(),

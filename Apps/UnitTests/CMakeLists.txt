@@ -23,6 +23,9 @@ set(TEST_FONT_ASSETS
     "../Dependencies/Arimo-Regular.ttf"
     "../Dependencies/Arimo-OFL.txt"
     "../Dependencies/Arimo-PROVENANCE.txt")
+set(PACKAGED_TEST_ASSETS
+    "Assets/droidsans.ttf"
+    "Assets/droidsans.LICENSE.txt")
 
 file(GLOB TEST_SCRIPTS "JavaScript/src/*.ts")
 set_source_files_properties(${TEST_SCRIPTS} PROPERTIES HEADER_FILE_ONLY TRUE)
@@ -30,9 +33,11 @@ set_source_files_properties(${TEST_SCRIPTS} PROPERTIES HEADER_FILE_ONLY TRUE)
 set(SOURCES
     "Source/App.h"
     "Source/App.cpp"
+    "Source/Tests.BgfxCallback.cpp"
     "Source/Tests.Canvas.TextMetrics.cpp"
     "Source/Tests.Canvas.Readback.cpp"
     "Source/Tests.Device.FrameEncoder.cpp"
+    "Source/Tests.Device.SwapChain.cpp"
     "Source/Tests.ExternalTexture.cpp"
     "Source/Tests.ExternalTexture.Lifecycle.cpp"
     "Source/Tests.ExternalTexture.DeviceLoss.cpp"
@@ -60,7 +65,8 @@ endif()
 
 if(GRAPHICS_API STREQUAL "D3D11")
     set(SOURCES ${SOURCES}
-        "Source/Tests.Device.${GRAPHICS_API}.cpp")
+        "Source/Tests.Device.${GRAPHICS_API}.cpp"
+        "Source/Tests.Device.D3D11.ExternalBackBuffer.cpp")
 endif()
 
 if(APPLE)
@@ -82,11 +88,12 @@ elseif(WIN32)
     set(ADDITIONAL_COMPILE_DEFINITIONS ${ADDITIONAL_COMPILE_DEFINITIONS} PRIVATE HAS_RENDERDOC)
 endif()
 
-add_executable(UnitTests ${BABYLONJS_ASSETS} ${BABYLONJS_MATERIALS_ASSETS} ${TEST_ASSETS} ${TEST_FONT_ASSETS} ${TEST_SCRIPTS} ${SOURCES})
+add_executable(UnitTests ${BABYLONJS_ASSETS} ${BABYLONJS_MATERIALS_ASSETS} ${TEST_ASSETS} ${TEST_FONT_ASSETS} ${PACKAGED_TEST_ASSETS} ${TEST_SCRIPTS} ${SOURCES})
+if(BABYLON_NATIVE_PLUGIN_NATIVEENGINE_LOAD_IMAGES)
+    target_compile_definitions(UnitTests PRIVATE HAS_NATIVE_IMAGE_LOADING)
+endif()
 target_include_directories(UnitTests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/../../Plugins/NativeEngine/Source")
 target_include_directories(UnitTests PRIVATE "${BGFX_DIR}/3rdparty")
-file(TO_CMAKE_PATH "${BGFX_DIR}/examples/runtime/font/droidsans.ttf" CANVAS_TEST_FONT_PATH)
-target_compile_definitions(UnitTests PRIVATE CANVAS_TEST_FONT_PATH="${CANVAS_TEST_FONT_PATH}")
 target_link_libraries(UnitTests
     PRIVATE AppRuntime
     PRIVATE Blob
@@ -104,9 +111,15 @@ target_link_libraries(UnitTests
     PRIVATE gtest_main
     PRIVATE bimg_decode
     PRIVATE bimg_encode
+    PRIVATE bimg
     ${ADDITIONAL_LIBRARIES})
 
 target_compile_definitions(UnitTests PRIVATE ${ADDITIONAL_COMPILE_DEFINITIONS})
+
+if(BABYLON_NATIVE_PLUGIN_SHADERCOMPILER)
+    target_link_libraries(UnitTests PRIVATE ShaderCompilerInternal)
+    target_compile_definitions(UnitTests PRIVATE HAS_SHADER_COMPILER)
+endif()
 
 # NativeDraco and NativeMeshopt default to OFF, so link and exercise them only when the
 # consuming build opted in. CI turns both on for the jobs that run UnitTests.
@@ -131,11 +144,16 @@ if(BABYLON_NATIVE_PLUGIN_TESTUTILS)
 endif()
 
 if(GRAPHICS_API STREQUAL "D3D12")
-    target_compile_definitions(UnitTests PRIVATE SKIP_RENDER_TESTS)
+    target_compile_definitions(UnitTests PRIVATE SKIP_RENDER_TESTS BABYLON_NATIVE_GRAPHICS_API_D3D12)
 endif()
 
 if(GRAPHICS_API STREQUAL "Vulkan")
-    target_compile_definitions(UnitTests PRIVATE BABYLON_NATIVE_GRAPHICS_API_VULKAN)
+    # Vulkan packaging paths (e.g. the >16 sampler rejection) are gated on this define.
+    # ExternalTexture / native-texture helpers are not implemented for Vulkan yet, so skip
+    # those tests rather than failing at link or runtime.
+    target_compile_definitions(UnitTests PRIVATE
+        BABYLON_NATIVE_GRAPHICS_API_VULKAN
+        SKIP_EXTERNAL_TEXTURE_TESTS)
 endif()
 
 if(GRAPHICS_API STREQUAL "OpenGL")
@@ -169,7 +187,7 @@ if(ANGLE_LIBEGL)
     )
 endif()
 
-foreach(ASSET ${BABYLONJS_ASSETS} ${BABYLONJS_MATERIALS_ASSETS} ${TEST_ASSETS} ${TEST_FONT_ASSETS})
+foreach(ASSET ${BABYLONJS_ASSETS} ${BABYLONJS_MATERIALS_ASSETS} ${TEST_ASSETS} ${TEST_FONT_ASSETS} ${PACKAGED_TEST_ASSETS})
     get_filename_component(ASSET_NAME "${ASSET}" NAME)
     add_custom_command(
         OUTPUT "${CMAKE_CFG_INTDIR}/Assets/${ASSET_NAME}"
@@ -184,4 +202,5 @@ source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR}/../node_modules/babylonjs PREFIX A
 source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR}/../node_modules/babylonjs-materials PREFIX Assets FILES ${BABYLONJS_MATERIALS_ASSETS})
 source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR}/JavaScript/dist PREFIX Assets FILES ${TEST_ASSETS})
 source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR}/../Dependencies PREFIX Assets FILES ${TEST_FONT_ASSETS})
+source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR}/Assets PREFIX Assets FILES ${PACKAGED_TEST_ASSETS})
 source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR}/JavaScript/src PREFIX TypeScript FILES ${TEST_SCRIPTS})

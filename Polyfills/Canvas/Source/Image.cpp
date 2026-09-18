@@ -239,10 +239,10 @@ namespace Babylon::Polyfills::Internal
 
         auto& allocator = Graphics::DeviceContext::GetDefaultAllocator();
         m_imageContainer = bimg::imageParse(&allocator, buffer.data(), static_cast<uint32_t>(buffer.size_bytes()));
-        if (m_imageContainer)
+        if (m_imageContainer != nullptr)
         {
             m_imageContainer = Graphics::NormalizePngImage(allocator, m_imageContainer);
-            if (m_imageContainer && m_imageContainer->m_format != bimg::TextureFormat::RGBA8)
+            if (m_imageContainer != nullptr && m_imageContainer->m_format != bimg::TextureFormat::RGBA8)
             {
                 auto* source = m_imageContainer;
                 m_imageContainer = bimg::imageConvert(&allocator, bimg::TextureFormat::RGBA8, *source);

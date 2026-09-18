@@ -77,6 +77,11 @@ TEST(JavaScript, All)
 
     runtime.Dispatch([&exitCodePromise, &device, &nativeCanvas](Napi::Env env) {
         device.AddToJavaScript(env);
+#ifdef HAS_NATIVE_IMAGE_LOADING
+        env.Global().Set("hasNativeImageLoading", true);
+#else
+        env.Global().Set("hasNativeImageLoading", false);
+#endif
 #if defined(SKIP_RENDER_TESTS) || defined(SKIP_EXTERNAL_TEXTURE_TESTS)
         env.Global().Set("skipCanvasGpuTests", true);
         env.Global().Set("hasGpuRendering", false);

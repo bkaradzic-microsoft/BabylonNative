@@ -61,13 +61,7 @@ namespace Babylon
                 throw std::runtime_error{"Unsupported vertex buffer attribute type or normalized flag"};
             }
 
-            // Check if instancing is supported.
             const bgfx::Caps* caps = bgfx::getCaps();
-            const bool instancingSupported = 0 != (BGFX_CAPS_INSTANCING & caps->supported);
-            if (!instancingSupported)
-            {
-                throw std::runtime_error{"Instancing is not supported"};
-            }
 
             // Use the runtime cap, not MAX_INSTANCE_DATA_SLOT_COUNT: backends clamp maxInstanceData
             // to the device's maxVertexAttributes during init, so the compile-time value is a
@@ -107,13 +101,6 @@ namespace Babylon
     void VertexArray::RecordStorageBuffer(StorageBuffer* storageBuffer, uint32_t location, uint32_t byteOffset, uint32_t byteStride, uint32_t numElements)
     {
         auto attrib = static_cast<bgfx::Attrib::Enum>(location);
-
-        // Check if instancing is supported.
-        const bool instancingSupported = 0 != (BGFX_CAPS_INSTANCING & bgfx::getCaps()->supported);
-        if (!instancingSupported)
-        {
-            throw std::runtime_error{"Instancing is not supported"};
-        }
 
         if (m_vertexBufferInstances.size() >= bgfx::getCaps()->limits.maxInstanceData)
         {
@@ -201,22 +188,20 @@ namespace Babylon
 
     void VertexArray::SetVertexBuffers(bgfx::Encoder* encoder, uint32_t startVertex, uint32_t numVertices, uint32_t instanceCount, const VertexBuffer::InstanceDataLayout& instanceDataLayout)
     {
-        // Check if instancing is supported.
-        const bool instancingSupported = 0 != (BGFX_CAPS_INSTANCING & bgfx::getCaps()->supported);
-        if (!m_vertexBufferInstances.empty() && instancingSupported && !HasStorageInstances())
+        if (!m_vertexBufferInstances.empty() && !HasStorageInstances())
         {
             bgfx::InstanceDataBuffer instanceDataBuffer{};
             VertexBuffer::BuildInstanceDataBuffer(instanceDataBuffer, m_vertexBufferInstances, instanceCount, instanceDataLayout);
             encoder->setInstanceDataBuffer(&instanceDataBuffer);
         }
-        else if (instanceCount > 0 && !HasStorageInstances() && (0 != (BGFX_CAPS_VERTEX_ID & bgfx::getCaps()->supported)))
+        else if (instanceCount > 0 && !HasStorageInstances())
         {
             // Attribute-less instancing: the draw requests multiple instances but has no per-instance
             // vertex data (e.g. the clustered-light tile-mask proxies, which derive the light index,
             // vertical batch offset and bit mask purely from gl_InstanceID). Without an instance data
             // buffer bgfx would fall back to drawing a single instance, leaving the tile mask empty and
             // breaking clustered lighting. Tell bgfx the instance count explicitly so gl_InstanceID
-            // iterates 0..instanceCount-1. Requires BGFX_CAPS_VERTEX_ID (gl_InstanceID support).
+            // iterates 0..instanceCount-1.
             encoder->setInstanceCount(instanceCount);
         }
 

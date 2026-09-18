@@ -40,6 +40,7 @@ Mocha.reporter("spec");
 
 declare const hostPlatform: string;
 declare const hasGpuRendering: boolean;
+declare const hasNativeImageLoading: boolean;
 declare const setExitCode: (code: number) => void;
 declare const skipCanvasGpuTests: boolean;
 declare const _native: any;
@@ -47,7 +48,7 @@ declare const _native: any;
 registerTriangleStripDepthTests(describe, it, skipCanvasGpuTests);
 registerIblCdfTests(describe, it, skipCanvasGpuTests);
 registerPrimitiveModeTests(describe, it, skipCanvasGpuTests);
-registerPngTests(describe, it, skipCanvasGpuTests);
+registerPngTests(describe, it, hasGpuRendering && hasNativeImageLoading);
 registerCanvasImageTests(describe, it, skipCanvasGpuTests);
 
 describe("RequestFile", function () {

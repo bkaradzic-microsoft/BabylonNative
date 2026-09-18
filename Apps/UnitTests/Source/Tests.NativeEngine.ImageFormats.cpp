@@ -113,6 +113,30 @@ TEST(NativeEngineImageFormats, Png16GrayscaleReplicatesColorAndPreservesAlpha)
     }
 }
 
+TEST(NativeEngineImageFormats, Png8GrayscaleReplicatesColorAndPreservesAlpha)
+{
+    bx::DefaultAllocator allocator;
+    for (const auto format : {bimg::TextureFormat::R8, bimg::TextureFormat::RG8})
+    {
+        const std::array<uint8_t, 2> pixels{127, 64};
+        auto* source = bimg::imageAlloc(&allocator, format, 1, 1, 0, 1, false, false, pixels.data());
+        ASSERT_NE(source, nullptr);
+        source->m_parser = bimg::ImageParser::Png;
+        source->m_hasAlpha = format == bimg::TextureFormat::RG8;
+        source->m_srgb = true;
+        Image image{Babylon::Graphics::NormalizePngImage(allocator, source), bimg::imageFree};
+        ASSERT_NE(image, nullptr);
+        EXPECT_EQ(image->m_format, bimg::TextureFormat::RGBA8);
+        const auto* actual = static_cast<const uint8_t*>(image->m_data);
+        EXPECT_EQ(actual[0], 127);
+        EXPECT_EQ(actual[1], 127);
+        EXPECT_EQ(actual[2], 127);
+        EXPECT_EQ(actual[3], format == bimg::TextureFormat::RG8 ? 64 : 255);
+        EXPECT_EQ(image->m_hasAlpha, format == bimg::TextureFormat::RG8);
+        EXPECT_TRUE(image->m_srgb);
+    }
+}
+
 TEST(NativeEngineImageFormats, PreservesOrdinaryAndAuthoredHighPrecisionFormats)
 {
     bx::DefaultAllocator allocator;
@@ -132,28 +156,6 @@ TEST(NativeEngineImageFormats, PreservesOrdinaryAndAuthoredHighPrecisionFormats)
             EXPECT_EQ(image->m_format, format);
             EXPECT_EQ(image->m_numMips, 3);
         }
-    }
-}
-
-TEST(NativeEngineImageFormats, Png8GrayscaleReplicatesColorAndPreservesAlpha)
-{
-    bx::DefaultAllocator allocator;
-    for (const auto format : {bimg::TextureFormat::R8, bimg::TextureFormat::RG8})
-    {
-        const std::array<uint8_t, 2> pixels{127, 64};
-        auto* source = bimg::imageAlloc(&allocator, format, 1, 1, 0, 1, false, false, pixels.data());
-        ASSERT_NE(source, nullptr);
-        source->m_parser = bimg::ImageParser::Png;
-        source->m_hasAlpha = format == bimg::TextureFormat::RG8;
-        Image image{Babylon::Graphics::NormalizePngImage(allocator, source), bimg::imageFree};
-        ASSERT_NE(image, nullptr);
-        EXPECT_EQ(image->m_format, bimg::TextureFormat::RGBA8);
-        const auto* actual = static_cast<const uint8_t*>(image->m_data);
-        EXPECT_EQ(actual[0], 127);
-        EXPECT_EQ(actual[1], 127);
-        EXPECT_EQ(actual[2], 127);
-        EXPECT_EQ(actual[3], format == bimg::TextureFormat::RG8 ? 64 : 255);
-        EXPECT_EQ(image->m_hasAlpha, format == bimg::TextureFormat::RG8);
     }
 }
 

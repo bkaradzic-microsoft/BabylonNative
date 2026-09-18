@@ -74,11 +74,11 @@ const fixtures: { name: string; png: string; pixels: number[]; width?: number; h
 export function registerPngTests(
     describe: typeof Mocha.describe,
     it: typeof Mocha.it,
-    skipCanvasGpuTests: boolean
+    enabled: boolean
 ): void {
     describe("NativeEngine PNG decoding", function () {
         this.timeout(10000);
-        const test = skipCanvasGpuTests ? it.skip : it;
+        const test = enabled ? it : it.skip;
         for (const fixture of fixtures) {
             const width = fixture.width ?? 4;
             const height = fixture.height ?? 1;

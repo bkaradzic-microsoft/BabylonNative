@@ -22,8 +22,8 @@ namespace Babylon::Graphics
 
         using Image = std::unique_ptr<bimg::ImageContainer, decltype(&bimg::imageFree)>;
         Image source{image, bimg::imageFree};
-        // Browser high-bit-depth PNG decoding uses RGBA_F16 before an unsigned-byte
-        // WebGL upload. Direct UNORM16-to-8 conversion gives different normal vectors.
+        // Match the RGBA_F16 intermediate used by browser high-bit-depth PNG decoding.
+        // Direct UNORM16-to-8 conversion gives different normal vectors.
         Image half{nullptr, bimg::imageFree};
         if (format == bimg::TextureFormat::R16 || format == bimg::TextureFormat::RG16 || format == bimg::TextureFormat::RGBA16)
         {

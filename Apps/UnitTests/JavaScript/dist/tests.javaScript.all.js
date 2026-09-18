@@ -531,11 +531,11 @@ var fixtures = [
 function registerPngTests(
 describe,
 it,
-skipCanvasGpuTests)
+enabled)
 {
   describe("NativeEngine PNG decoding", function () {
     this.timeout(10000);
-    var test = skipCanvasGpuTests ? it.skip : it;var _iterator = _createForOfIteratorHelper(
+    var test = enabled ? it : it.skip;var _iterator = _createForOfIteratorHelper(
         fixtures),_step;try {var _loop = function _loop() {var _fixture$width, _fixture$height;var fixture = _step.value;
         var width = (_fixture$width = fixture.width) !== null && _fixture$width !== void 0 ? _fixture$width : 4;
         var height = (_fixture$height = fixture.height) !== null && _fixture$height !== void 0 ? _fixture$height : 1;var _loop2 = function _loop2()
@@ -29407,10 +29407,11 @@ mocha__WEBPACK_IMPORTED_MODULE_3__.reporter("spec");
 
 
 
+
 (0,_tests_nativeEngine_triangleStripDepth__WEBPACK_IMPORTED_MODULE_5__.registerTriangleStripDepthTests)(describe, it, skipCanvasGpuTests);
 (0,_tests_nativeEngine_iblCdf__WEBPACK_IMPORTED_MODULE_6__.registerIblCdfTests)(describe, it, skipCanvasGpuTests);
 (0,_tests_nativeEngine_primitiveModes__WEBPACK_IMPORTED_MODULE_7__.registerPrimitiveModeTests)(describe, it, skipCanvasGpuTests);
-(0,_tests_nativeEngine_png__WEBPACK_IMPORTED_MODULE_8__.registerPngTests)(describe, it, skipCanvasGpuTests);
+(0,_tests_nativeEngine_png__WEBPACK_IMPORTED_MODULE_8__.registerPngTests)(describe, it, hasGpuRendering && hasNativeImageLoading);
 (0,_tests_nativeEngine_canvasImage__WEBPACK_IMPORTED_MODULE_9__.registerCanvasImageTests)(describe, it, skipCanvasGpuTests);
 
 describe("RequestFile", function () {
