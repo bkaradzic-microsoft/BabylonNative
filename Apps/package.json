@@ -8,6 +8,7 @@
   "scripts": {
     "getNightly": "node scripts/getNightly.js",
     "downlevel:native-scripts": "node scripts/downlevelNativeScripts.mjs",
+    "test:validation-runner": "node --test Playground/Tests/validation_native.test.cjs",
     "postinstall": "node scripts/downlevelNativeScripts.mjs node_modules"
       },
       "dependencies": {

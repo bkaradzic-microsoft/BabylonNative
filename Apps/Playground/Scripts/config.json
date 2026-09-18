@@ -4765,7 +4765,7 @@
       "title": "Node material PBR Pure WebGPU",
       "playgroundId": "#D8AK3Z#122",
       "excludeFromAutomaticTesting": true,
-      "reason": "Requires WGSL/Pure WebGPU graphics, unsupported on Native. The WGSL PBR non-UBO include path is unavailable, leaving scene readiness pending.",
+      "reason": "Requires WGSL/Pure WebGPU graphics, unsupported on Native. Native rejects WGSL graphics shaders explicitly.",
       "referenceImage": "node-material-pbr-2.png"
     },
     {
@@ -4780,7 +4780,7 @@
       "playgroundId": "#8RU8Q3#193",
       "renderCount": 30,
       "excludeFromAutomaticTesting": true,
-      "reason": "Requires WGSL graphics, unsupported on Native's GLSL compiler. Shader compilation fails and this fixture's scene promise remains pending.",
+      "reason": "Requires WGSL graphics, fragment-stage storage resources, and storage-buffer readback, unsupported on Native. Native rejects WGSL graphics shaders explicitly.",
       "referenceImage": "wgsl-in-shadermaterial.png"
     },
     {

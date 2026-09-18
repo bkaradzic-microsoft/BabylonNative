@@ -723,8 +723,43 @@
     }
 
     function loadPlayground(test, done, referenceImage, compareFunction) {
+        const outerDone = done;
+        const testEngine = engine;
+        let finished = false;
+        let shaderFailure;
+        let failureTimeoutId;
+        let rejectSceneCreation;
+        const effectErrorObserver = testEngine.onEffectErrorObservable.add(function (event) {
+            if (finished || shaderFailure || event.effect.isDisposed || !event.effect.allFallbacksProcessed() || event.effect.isReady()) {
+                return;
+            }
+            shaderFailure = new Error("Shader compilation failed for '" + test.title + "': " + event.errors);
+            console.error(shaderFailure.message);
+            // Do not dispose scenes/effects inside the compiler's notification stack.
+            failureTimeoutId = setTimeout(function () {
+                if (rejectSceneCreation) {
+                    rejectSceneCreation(shaderFailure);
+                } else {
+                    failTest(done);
+                }
+            }, 0);
+        });
+        done = function (status) {
+            if (finished) {
+                return;
+            }
+            finished = true;
+            testEngine.onEffectErrorObservable.remove(effectErrorObserver);
+            clearTimeout(failureTimeoutId);
+            outerDone(shaderFailure ? false : status);
+        };
+
         if (test.sceneFolder) {
             BABYLON.SceneLoader.Load(config.root + test.sceneFolder, test.sceneFilename, engine, function (newScene) {
+                if (finished) {
+                    newScene.dispose();
+                    return;
+                }
                 currentScene = newScene;
                 processCurrentScene(test, referenceImage, done, compareFunction);
             },
@@ -747,6 +782,9 @@
                 BABYLON.Tools.LoadFile(
                     url,
                     function (responseText) {
+                        if (finished) {
+                            return;
+                        }
                         try {
                             const snippet = JSON.parse(responseText);
                             let code = JSON.parse(snippet.jsonPayload).code.toString();
@@ -792,6 +830,9 @@
                             // native XHR dispatch frames and can overflow engines
                             // with a small C stack (e.g. QuickJS).
                             setTimeout(async function () {
+                                if (finished) {
+                                    return;
+                                }
                                 // eslint-disable-next-line no-unused-vars
                                 var name = ""; // see the note on the scriptToRun eval below
                                 try {
@@ -799,9 +840,9 @@
                                         await initializeHavokAsync();
                                     }
 
-                                    currentScene = eval(pgCode);
+                                    const createdScene = eval(pgCode);
 
-                                    if (currentScene && currentScene.then) {
+                                    if (createdScene && createdScene.then) {
                                         // Handle if createScene returns a promise. Guard against a
                                         // snippet whose promise never resolves (e.g. a scene whose
                                         // utility-layer executeWhenReady never fires on Native): the
@@ -816,8 +857,15 @@
                                         let createSceneTimeoutId;
                                         try {
                                             currentScene = await Promise.race([
-                                                currentScene,
+                                                Promise.resolve(createdScene).then(function (scene) {
+                                                    if (finished) {
+                                                        scene.dispose();
+                                                        return;
+                                                    }
+                                                    return scene;
+                                                }),
                                                 new Promise(function (resolve, reject) {
+                                                    rejectSceneCreation = reject;
                                                     createSceneTimeoutId = setTimeout(function () {
                                                         reject(new Error("createScene promise for " + test.playgroundId +
                                                             " did not resolve within " + (createSceneTimeoutMs / 1000) + "s."));
@@ -830,7 +878,10 @@
                                             // event loop alive for the full timeout after a scene that
                                             // resolved normally.
                                             clearTimeout(createSceneTimeoutId);
+                                            rejectSceneCreation = undefined;
                                         }
+                                    } else {
+                                        currentScene = createdScene;
                                     }
 
                                     processCurrentScene(test, referenceImage, done, compareFunction);
@@ -871,6 +922,9 @@
 
             request.onreadystatechange = function () {
                 if (request.readyState === 4) {
+                    if (finished) {
+                        return;
+                    }
                     try {
                         request.onreadystatechange = null;
 
@@ -904,6 +958,9 @@
                         // the native XHR dispatch frames and can overflow engines
                         // with a small C stack (e.g. QuickJS).
                         setTimeout(function () {
+                            if (finished) {
+                                return;
+                            }
                             // Browser scripts sometimes reference `name` without declaring it. In a
                             // page that silently resolves to window.name (""), so the mistake is
                             // invisible there but throws "ReferenceError: name is not defined"
