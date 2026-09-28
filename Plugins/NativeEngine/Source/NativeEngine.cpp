@@ -1954,7 +1954,10 @@ namespace Babylon
             }
             else
             {
-                throw Napi::Error::New(info.Env(), "Unsupported texture format for requested flags");
+                throw Napi::Error::New(info.Env(), "Unsupported texture format " + std::to_string(format) +
+                    " for requested flags (renderTarget=" + (renderTarget ? "true" : "false") +
+                    ", srgb=" + (srgb ? "true" : "false") + ", samples=" + std::to_string(samples) +
+                    ", createFlags=" + std::to_string(createFlags) + ")");
             }
         }
 
@@ -2922,10 +2925,16 @@ namespace Babylon
         const bool autoGenerateMips = (info.Length() > 8 && !info[8].IsUndefined()) ? info[8].As<Napi::Boolean>().Value() : true;
 
         // A single render target is just the zero-or-one color attachment case of the shared implementation.
+        const bool requestDepthStencilTexture = texture != nullptr && !texture->IsValid();
+        if (requestDepthStencilTexture && !generateDepth && !generateStencilBuffer)
+        {
+            throw Napi::Error::New(info.Env(), "An uninitialized texture requires a depth/stencil attachment");
+        }
         Graphics::Texture* const colorTextures[]{texture};
-        const gsl::span<Graphics::Texture* const> colorAttachments{colorTextures, texture != nullptr ? 1u : 0u};
+        const gsl::span<Graphics::Texture* const> colorAttachments{colorTextures, texture != nullptr && !requestDepthStencilTexture ? 1u : 0u};
 
-        return CreateFrameBufferImpl(info.Env(), colorAttachments, width, height, generateStencilBuffer, generateDepth, samples, layer, mip, {}, nullptr, autoGenerateMips);
+        return CreateFrameBufferImpl(info.Env(), colorAttachments, width, height, generateStencilBuffer, generateDepth, samples, layer, mip, {},
+            nullptr, autoGenerateMips, requestDepthStencilTexture ? texture : nullptr);
     }
 
     Napi::Value NativeEngine::CreateMultiFrameBuffer(const Napi::CallbackInfo& info)
@@ -2979,7 +2988,7 @@ namespace Babylon
         return CreateFrameBufferImpl(info.Env(), gsl::span<Graphics::Texture* const>{colorTextures.data(), colorCount}, width, height, generateStencilBuffer, generateDepth, samples, 0, 0, gsl::span<const uint16_t>{perAttachmentLayers.data(), layerCount}, explicitDepthTexture);
     }
 
-    Napi::Value NativeEngine::CreateFrameBufferImpl(Napi::Env env, gsl::span<Graphics::Texture* const> colorTextures, uint16_t width, uint16_t height, bool generateStencilBuffer, bool generateDepth, uint32_t samples, uint16_t layer, uint16_t mip, gsl::span<const uint16_t> perAttachmentLayers, Graphics::Texture* explicitDepthTexture, bool autoGenerateMips)
+    Napi::Value NativeEngine::CreateFrameBufferImpl(Napi::Env env, gsl::span<Graphics::Texture* const> colorTextures, uint16_t width, uint16_t height, bool generateStencilBuffer, bool generateDepth, uint32_t samples, uint16_t layer, uint16_t mip, gsl::span<const uint16_t> perAttachmentLayers, Graphics::Texture* explicitDepthTexture, bool autoGenerateMips, Graphics::Texture* depthStencilTexture)
     {
         const bgfx::Caps* caps = bgfx::getCaps();
         const uint32_t colorCount = static_cast<uint32_t>(colorTextures.size());
@@ -3000,7 +3009,7 @@ namespace Babylon
         // texture by passing a freshly created (and therefore uninitialized) color texture: its bgfx handle is
         // still kInvalidHandle. Detect that here so we (a) don't attach the invalid handle as a color target and
         // (b) create a readable depth attachment and alias it back into the supplied texture so it can be sampled.
-        Graphics::Texture* depthStencilTextureRequest = nullptr;
+        Graphics::Texture* depthStencilTextureRequest = depthStencilTexture;
 
         uint32_t colorIndex = 0;
         for (Graphics::Texture* texture : colorTextures)
@@ -3180,16 +3189,21 @@ const bool requestDepthStencilTexture = (depthStencilTextureRequest != nullptr);
         const bool hasDepthAttachment = generateDepth || generateStencilBuffer || borrowedExplicitDepth;
 
                 // Ownership of a freshly created sampleable depth texture:
-                // - When Babylon requested a standalone depth texture (shadow PCF / fluid depth copy / CSM), the
+                // - When Babylon requested a shared depth texture (FrameGraph / CSM), the
                 //   Texture object owns the handle so multiple cascade framebuffers can share it and disposing any
                 //   one framebuffer does not destroy the shared array.
+                // - A standalone depth texture is a non-owning alias of its framebuffer's attachment.
                 // - Otherwise the framebuffer owns the (write-only) depth attachment as before.
                 int8_t frameBufferDepthOwnerIndex = depthStencilAttachmentIndex;
                 if (depthStencilTextureRequest != nullptr && depthStencilAttachmentIndex >= 0)
                 {
+                    const bool textureOwnsDepth = depthStencilTexture == nullptr;
                     depthStencilTextureRequest->Attach(bgfx::getTexture(frameBufferHandle, static_cast<uint8_t>(depthStencilAttachmentIndex)),
-                        true, width, height, false, depthStencilNumLayers, depthStencilTextureFormat, depthStencilTextureFlags);
-                    frameBufferDepthOwnerIndex = -1;
+                        textureOwnsDepth, width, height, false, depthStencilNumLayers, depthStencilTextureFormat, depthStencilTextureFlags);
+                    if (textureOwnsDepth)
+                    {
+                        frameBufferDepthOwnerIndex = -1;
+                    }
                 }
 
                 const bool isMultisampled = RenderTargetSamplesToBgfxMsaaFlag(samples) != BGFX_TEXTURE_NONE;

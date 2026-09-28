@@ -49,6 +49,7 @@ set(SOURCES
     "Source/Tests.NativeEngine.ImageFormats.cpp"
     "Source/Tests.NativeEngine.Mipmaps.cpp"
     "Source/Tests.NativeEngine.PrimitiveModeExpansion.cpp"
+    "Source/Tests.NativeEngine.DepthTextures.cpp"
     "Source/Tests.NativeEngine.Teardown.cpp"
     "Source/Tests.NativeEngine.TextureFormats.cpp"
     "Source/Tests.ShaderCache.cpp"
