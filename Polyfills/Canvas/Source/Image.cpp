@@ -7,6 +7,7 @@
 #include <functional>
 #include <sstream>
 #include <assert.h>
+#include <vector>
 #ifdef BABYLON_NATIVE_PLUGIN_NATIVEENGINE_LOAD_IMAGES
 #include <Babylon/Graphics/ImageFormat.h>
 #include <bimg/bimg.h>
@@ -133,7 +134,6 @@ namespace Babylon::Polyfills::Internal
                 bimg::imageFree(source);
             }
         }
-
         if (m_imageContainer == nullptr)
         {
             return false;
@@ -245,12 +245,11 @@ namespace Babylon::Polyfills::Internal
 
     void NativeCanvasImage::HandleLoadImageError(const Napi::Error& error)
     {
+        // Match HTML <img>: fire onerror when set; otherwise fail silently.
+        // Throwing here made GUI image tests flaky (async decode after/during ready).
         if (!m_onerrorHandlerRef.IsEmpty())
         {
             m_onerrorHandlerRef.Call({error.Value()});
-            return;
         }
-
-        error.ThrowAsJavaScriptException();
     }
 }
