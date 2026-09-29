@@ -15,6 +15,7 @@
 #include <iostream>
 #include <limits>
 #include <stdexcept>
+#include <vector>
 
 extern Babylon::Graphics::Configuration g_deviceConfig;
 
@@ -197,6 +198,81 @@ TEST(NativeEngineTextureFormats, RejectedInitializationPreservesExistingTexture)
             EXPECT_EQ(texture->Handle().idx, originalHandle.idx);
             EXPECT_EQ(texture->Format(), bgfx::TextureFormat::RGBA8);
         }
+    });
+}
+
+TEST(NativeEngineTextureFormats, RejectedDimensionsAndLayersPreserveExistingTexture)
+{
+    RunTextureTest([](Napi::Object engine, Napi::Value value) {
+        const auto env = engine.Env();
+        InitializeTexture(engine, value, bgfx::TextureFormat::RGBA8, true);
+        auto* texture = value.As<Napi::Pointer<Babylon::Graphics::Texture>>().Get();
+        const auto originalHandle = texture->Handle();
+        for (const double invalid : {-1.0, 0.0, 0.5, 65536.0, 4294967296.0,
+                 std::numeric_limits<double>::quiet_NaN(), std::numeric_limits<double>::infinity()})
+        {
+            for (const size_t component : {size_t{1}, size_t{2}, size_t{9}})
+            {
+                if (component == 9 && invalid == 0)
+                {
+                    continue;
+                }
+                for (const bool volume : {false, true})
+                {
+                    std::vector<Napi::Value> args{
+                        value, Napi::Number::New(env, 16), Napi::Number::New(env, 16),
+                        Napi::Boolean::New(env, false), Napi::Number::New(env, bgfx::TextureFormat::RGBA8),
+                        Napi::Boolean::New(env, true), Napi::Boolean::New(env, false), Napi::Number::New(env, 1),
+                        Napi::Boolean::New(env, !volume), Napi::Number::New(env, 1), Napi::Boolean::New(env, volume)};
+                    args[component] = Napi::Number::New(env, invalid);
+                    if (!volume && component == 1)
+                    {
+                        args[2] = args[1];
+                    }
+                    EXPECT_THROW(engine.Get("initializeTexture").As<Napi::Function>().Call(engine, args), Napi::Error);
+                    EXPECT_EQ(texture->Handle().idx, originalHandle.idx);
+                    EXPECT_EQ(texture->Width(), 16u);
+                    EXPECT_EQ(texture->Height(), 16u);
+                }
+            }
+        }
+    });
+}
+
+TEST(NativeEngineTextureFormats, TruncatesFractionalDimensionsBeforeAllocation)
+{
+    RunTextureTest([](Napi::Object engine, Napi::Value value) {
+        const auto env = engine.Env();
+        auto* texture = value.As<Napi::Pointer<Babylon::Graphics::Texture>>().Get();
+        for (const bool cube : {false, true})
+        {
+            engine.Get("initializeTexture").As<Napi::Function>().Call(engine, {
+                value, Napi::Number::New(env, 16.9), Napi::Number::New(env, cube ? 16.9 : 12.4),
+                Napi::Boolean::New(env, false), Napi::Number::New(env, bgfx::TextureFormat::RGBA8),
+                Napi::Boolean::New(env, true), Napi::Boolean::New(env, false),
+                Napi::Number::New(env, 1), Napi::Boolean::New(env, cube), Napi::Number::New(env, 0)});
+            EXPECT_EQ(texture->Width(), 16u);
+            EXPECT_EQ(texture->Height(), cube ? 16u : 12u);
+        }
+    });
+}
+
+TEST(NativeEngineTextureFormats, RejectsComparisonEnumsWithoutChangingSampler)
+{
+    RunTextureTest([](Napi::Object engine, Napi::Value value) {
+        const auto env = engine.Env();
+        auto* texture = value.As<Napi::Pointer<Babylon::Graphics::Texture>>().Get();
+        constexpr uint32_t flags = BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_COMPARE_LESS;
+        texture->SamplerFlags(flags);
+        auto setComparison = engine.Get("setTextureComparisonFunction").As<Napi::Function>();
+        for (const double invalid : {-1.0, 1.0, 520.0, 0x0201 + 0.5, 4294967296.0,
+                 std::numeric_limits<double>::quiet_NaN(), std::numeric_limits<double>::infinity()})
+        {
+            EXPECT_THROW(setComparison.Call(engine, {value, Napi::Number::New(env, invalid)}), Napi::Error);
+            EXPECT_EQ(texture->SamplerFlags(), flags);
+        }
+        EXPECT_NO_THROW(setComparison.Call(engine, {value, Napi::Number::New(env, 0)}));
+        EXPECT_EQ(texture->SamplerFlags(), BGFX_SAMPLER_U_CLAMP);
     });
 }
 
