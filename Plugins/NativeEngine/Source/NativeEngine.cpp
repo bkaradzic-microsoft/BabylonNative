@@ -17,6 +17,14 @@
 
 #include <bgfx/bgfx.h>
 #include <bimg/bimg.h>
+#include <bx/error.h>
+
+namespace bgfx
+{
+    // Internal bgfx API (declared in bgfx_p.h) with external linkage; forward-declared here so the
+    // NativeEngine diagnostic can surface the exact frame buffer validation failure reason.
+    void isFrameBufferValid(uint8_t _num, const Attachment* _attachment, bx::Error* _err);
+}
 
 #ifdef BABYLON_NATIVE_PLUGIN_NATIVEENGINE_LOAD_IMAGES
 #include <Babylon/Graphics/ImageFormat.h>
@@ -89,6 +97,41 @@ namespace Babylon
             constexpr uint64_t PREMULTIPLIED_PORTERDUFF = BGFX_STATE_BLEND_FUNC_SEPARATE(BGFX_STATE_BLEND_ONE, BGFX_STATE_BLEND_INV_SRC_ALPHA, BGFX_STATE_BLEND_ONE, BGFX_STATE_BLEND_INV_SRC_ALPHA);
             constexpr uint64_t INTERPOLATE = BGFX_STATE_BLEND_FUNC_SEPARATE(BGFX_STATE_BLEND_FACTOR, BGFX_STATE_BLEND_INV_FACTOR, BGFX_STATE_BLEND_FACTOR, BGFX_STATE_BLEND_INV_FACTOR);
             constexpr uint64_t SCREENMODE = BGFX_STATE_BLEND_FUNC_SEPARATE(BGFX_STATE_BLEND_ONE, BGFX_STATE_BLEND_INV_SRC_COLOR, BGFX_STATE_BLEND_ONE, BGFX_STATE_BLEND_INV_SRC_ALPHA);
+        }
+
+                // Matches BABYLON.Constants.ALPHA_EQUATION_* (not bgfx's internal equation indices).
+                namespace AlphaEquation
+                {
+                    constexpr uint32_t ADD = 0;
+                    constexpr uint32_t SUBTRACT = 1;
+                    constexpr uint32_t REVERSE_SUBTRACT = 2;
+                    constexpr uint32_t MAX = 3;
+                    constexpr uint32_t MIN = 4;
+                    constexpr uint32_t DARKEN = 5;
+                }
+
+        // True for the formats whose texels carry floating point data. Reading one of these back as
+        // RGBA8 would quantize the values to 8 bits per channel, which silently destroys depth and
+        // HDR readbacks, so they are normalized to RGBA32F instead.
+        constexpr bool IsFloatTextureFormat(bgfx::TextureFormat::Enum format)
+        {
+            switch (format)
+            {
+                case bgfx::TextureFormat::R16F:
+                case bgfx::TextureFormat::RG16F:
+                case bgfx::TextureFormat::RGBA16F:
+                case bgfx::TextureFormat::R32F:
+                case bgfx::TextureFormat::RG32F:
+                case bgfx::TextureFormat::RGBA32F:
+                case bgfx::TextureFormat::RGB9E5F:
+                case bgfx::TextureFormat::RG11B10F:
+                case bgfx::TextureFormat::D16F:
+                case bgfx::TextureFormat::D24F:
+                case bgfx::TextureFormat::D32F:
+                    return true;
+                default:
+                    return false;
+            }
         }
 
         void FlipImage(gsl::span<uint8_t> image, uint32_t height)
@@ -894,7 +937,14 @@ namespace Babylon
                 StaticValue("ALPHA_INTERPOLATE", Napi::Number::From(env, AlphaMode::INTERPOLATE)),
                 StaticValue("ALPHA_SCREENMODE", Napi::Number::From(env, AlphaMode::SCREENMODE)),
 
-                StaticValue("STENCIL_TEST_LESS", Napi::Number::From(env, BGFX_STENCIL_TEST_LESS)),
+                                StaticValue("ALPHA_EQUATION_ADD", Napi::Number::From(env, AlphaEquation::ADD)),
+                                StaticValue("ALPHA_EQUATION_SUBTRACT", Napi::Number::From(env, AlphaEquation::SUBTRACT)),
+                                StaticValue("ALPHA_EQUATION_REVERSE_SUBTRACT", Napi::Number::From(env, AlphaEquation::REVERSE_SUBTRACT)),
+                                StaticValue("ALPHA_EQUATION_MAX", Napi::Number::From(env, AlphaEquation::MAX)),
+                                StaticValue("ALPHA_EQUATION_MIN", Napi::Number::From(env, AlphaEquation::MIN)),
+                                StaticValue("ALPHA_EQUATION_DARKEN", Napi::Number::From(env, AlphaEquation::DARKEN)),
+
+                                StaticValue("STENCIL_TEST_LESS", Napi::Number::From(env, BGFX_STENCIL_TEST_LESS)),
                 StaticValue("STENCIL_TEST_LEQUAL", Napi::Number::From(env, BGFX_STENCIL_TEST_LEQUAL)),
                 StaticValue("STENCIL_TEST_EQUAL", Napi::Number::From(env, BGFX_STENCIL_TEST_EQUAL)),
                 StaticValue("STENCIL_TEST_GEQUAL", Napi::Number::From(env, BGFX_STENCIL_TEST_GEQUAL)),
@@ -962,6 +1012,7 @@ namespace Babylon
                 StaticValue("COMMAND_SETDEPTHWRITE", Napi::FunctionPointer::Create(env, &NativeEngine::SetDepthWrite)),
                 StaticValue("COMMAND_SETCOLORWRITE", Napi::FunctionPointer::Create(env, &NativeEngine::SetColorWrite)),
                 StaticValue("COMMAND_SETBLENDMODE", Napi::FunctionPointer::Create(env, &NativeEngine::SetBlendMode)),
+                StaticValue("COMMAND_SETBLENDEQUATION", Napi::FunctionPointer::Create(env, &NativeEngine::SetBlendEquation)),
                 StaticValue("COMMAND_SETFLOAT", Napi::FunctionPointer::Create(env, &NativeEngine::SetFloat)),
                 StaticValue("COMMAND_SETFLOAT2", Napi::FunctionPointer::Create(env, &NativeEngine::SetFloat2)),
                 StaticValue("COMMAND_SETFLOAT3", Napi::FunctionPointer::Create(env, &NativeEngine::SetFloat3)),
@@ -1467,6 +1518,40 @@ namespace Babylon
         m_engineState &= ~BGFX_STATE_BLEND_MASK;
         m_engineState |= blendMode;
     }
+
+        void NativeEngine::SetBlendEquation(NativeDataStream::Reader& data)
+            {
+                // Dual depth peeling (OIT) needs ALPHA_EQUATION_MAX so peel passes write the farthest /
+                // nearest depth via max blending. Without this, setAlphaEquation is a no-op on Native
+                // (only blend *factors* were wired) and transparent geometry never accumulates.
+                const auto equation = data.ReadUint32();
+
+                m_engineState &= ~BGFX_STATE_BLEND_EQUATION_MASK;
+                switch (equation)
+                {
+                    case AlphaEquation::ADD:
+                        // BGFX_STATE_BLEND_EQUATION_ADD is 0
+                        break;
+                    case AlphaEquation::SUBTRACT:
+                        m_engineState |= BGFX_STATE_BLEND_EQUATION(BGFX_STATE_BLEND_EQUATION_SUB);
+                        break;
+                    case AlphaEquation::REVERSE_SUBTRACT:
+                        m_engineState |= BGFX_STATE_BLEND_EQUATION(BGFX_STATE_BLEND_EQUATION_REVSUB);
+                        break;
+                    case AlphaEquation::MAX:
+                        m_engineState |= BGFX_STATE_BLEND_EQUATION(BGFX_STATE_BLEND_EQUATION_MAX);
+                        break;
+                    case AlphaEquation::MIN:
+                        m_engineState |= BGFX_STATE_BLEND_EQUATION(BGFX_STATE_BLEND_EQUATION_MIN);
+                        break;
+                    case AlphaEquation::DARKEN:
+                        // MIN for RGB, ADD for alpha — matches Constants.ALPHA_EQUATION_DARKEN.
+                        m_engineState |= BGFX_STATE_BLEND_EQUATION_SEPARATE(BGFX_STATE_BLEND_EQUATION_MIN, BGFX_STATE_BLEND_EQUATION_ADD);
+                        break;
+                    default:
+                        break;
+                }
+            }
 
     void NativeEngine::SetInt(NativeDataStream::Reader& data)
     {
@@ -2597,12 +2682,20 @@ namespace Babylon
         const uint32_t samples = info[5].IsUndefined() ? 1 : info[5].As<Napi::Number>().Uint32Value();
         const double layer = info[6].IsUndefined() ? 0 : info[6].As<Napi::Number>().DoubleValue();
         const bool isCube = texture != nullptr && texture->IsCube();
-        if (!std::isfinite(layer) || layer != std::floor(layer) || layer < 0 || layer > (isCube ? 5 : 0))
+        const uint16_t maxLayer = texture == nullptr ? 0 : isCube ? 5 :
+            texture->Is3D() ? texture->Depth() - 1 : texture->NumLayers() - 1;
+        if (!std::isfinite(layer) || layer != std::floor(layer) || layer < 0 || layer > maxLayer)
         {
             throw Napi::RangeError::New(info.Env(), isCube
                 ? "Cube frame buffer face must be an integer between 0 and 5"
-                : "Non-cube frame buffer layer must be 0");
+                : "Frame buffer layer must be an integer within the texture");
         }
+        // Optional mip level for the color attachment (IBL voxel-grid mip-copy renders into a specific mip).
+        const uint16_t mip = (info.Length() > 7 && !info[7].IsUndefined()) ? static_cast<uint16_t>(info[7].As<Napi::Number>().Uint32Value()) : 0;
+        // Optional: whether the mip chain may be auto-generated on resolve. Render targets that author their own
+        // mip levels (HDR radiance prefiltering renders one convolution per cube face + mip) pass false, because
+        // D3D11 GenerateMips would rebuild the whole chain from mip 0 and wipe those explicit levels.
+        const bool autoGenerateMips = (info.Length() > 8 && !info[8].IsUndefined()) ? info[8].As<Napi::Boolean>().Value() : true;
 
         // A single render target is just the zero-or-one color attachment case of the shared implementation.
         const bool requestDepthStencilTexture = texture != nullptr && !texture->IsValid();
@@ -2613,8 +2706,8 @@ namespace Babylon
         Graphics::Texture* const colorTextures[]{texture};
         const gsl::span<Graphics::Texture* const> colorAttachments{colorTextures, texture != nullptr && !requestDepthStencilTexture ? 1u : 0u};
 
-        return CreateFrameBufferImpl(info.Env(), colorAttachments, width, height, generateStencilBuffer, generateDepth, samples,
-            static_cast<uint16_t>(layer), requestDepthStencilTexture ? texture : nullptr);
+        return CreateFrameBufferImpl(info.Env(), colorAttachments, width, height, generateStencilBuffer, generateDepth, samples, static_cast<uint16_t>(layer), mip, {},
+            nullptr, autoGenerateMips, requestDepthStencilTexture ? texture : nullptr);
     }
 
     Napi::Value NativeEngine::CreateMultiFrameBuffer(const Napi::CallbackInfo& info)
@@ -2639,10 +2732,36 @@ namespace Babylon
             colorTextures[i] = colorTexturesArray.Get(i).As<Napi::Pointer<Graphics::Texture>>().Get();
         }
 
-        return CreateFrameBufferImpl(info.Env(), gsl::span<Graphics::Texture* const>{colorTextures.data(), colorCount}, width, height, generateStencilBuffer, generateDepth, samples);
+        // Optional per-attachment layer array: lets each color attachment target a distinct layer of a shared
+        // texture (IBL voxelization renders N draw buffers into N Z-slices of one 3D voxel grid).
+        std::array<uint16_t, 8> perAttachmentLayers{};
+        uint32_t layerCount = 0;
+        if (info.Length() > 6 && info[6].IsArray())
+        {
+            const auto layersArray = info[6].As<Napi::Array>();
+            const uint32_t rawLayerCount = layersArray.Length();
+            layerCount = rawLayerCount < static_cast<uint32_t>(perAttachmentLayers.size()) ? rawLayerCount : static_cast<uint32_t>(perAttachmentLayers.size());
+            for (uint32_t i = 0; i < layerCount; ++i)
+            {
+                perAttachmentLayers[i] = static_cast<uint16_t>(layersArray.Get(i).As<Napi::Number>().Uint32Value());
+            }
+        }
+
+        // Optional explicit shared depth-stencil texture (info[7]). Used by the FrameGraph geometry-buffer
+        // path so the separately-scheduled depth-clear pass and the geometry MRT render share ONE depth
+        // buffer (matching WebGL/WebGPU, where the geometry MRT's depth attachment IS the shared depth
+        // texture). Without this the MRT auto-generates its own depth and the depth clear is misdirected,
+        // leaving the prepass geometry buffer empty (breaks SSR / motion blur / curvature / SSAO).
+        Graphics::Texture* explicitDepthTexture = nullptr;
+        if (info.Length() > 7 && !info[7].IsUndefined() && !info[7].IsNull())
+        {
+            explicitDepthTexture = info[7].As<Napi::Pointer<Graphics::Texture>>().Get();
+        }
+
+        return CreateFrameBufferImpl(info.Env(), gsl::span<Graphics::Texture* const>{colorTextures.data(), colorCount}, width, height, generateStencilBuffer, generateDepth, samples, 0, 0, gsl::span<const uint16_t>{perAttachmentLayers.data(), layerCount}, explicitDepthTexture);
     }
 
-    Napi::Value NativeEngine::CreateFrameBufferImpl(Napi::Env env, gsl::span<Graphics::Texture* const> colorTextures, uint16_t width, uint16_t height, bool generateStencilBuffer, bool generateDepth, uint32_t samples, uint16_t layer, Graphics::Texture* depthStencilTexture)
+    Napi::Value NativeEngine::CreateFrameBufferImpl(Napi::Env env, gsl::span<Graphics::Texture* const> colorTextures, uint16_t width, uint16_t height, bool generateStencilBuffer, bool generateDepth, uint32_t samples, uint16_t layer, uint16_t mip, gsl::span<const uint16_t> perAttachmentLayers, Graphics::Texture* explicitDepthTexture, bool autoGenerateMips, Graphics::Texture* depthStencilTexture)
     {
         const bgfx::Caps* caps = bgfx::getCaps();
         const uint32_t colorCount = static_cast<uint32_t>(colorTextures.size());
@@ -2659,70 +2778,163 @@ namespace Babylon
         std::array<bgfx::Attachment, 9> attachments{};
         uint8_t numAttachments = 0;
 
+        // Babylon's NativeEngine._createDepthStencilTexture asks for a standalone, *sampleable* depth/stencil
+        // texture by passing a freshly created (and therefore uninitialized) color texture: its bgfx handle is
+        // still kInvalidHandle. Detect that here so we (a) don't attach the invalid handle as a color target and
+        // (b) create a readable depth attachment and alias it back into the supplied texture so it can be sampled.
+        Graphics::Texture* depthStencilTextureRequest = depthStencilTexture;
+
+        uint32_t colorIndex = 0;
         for (Graphics::Texture* texture : colorTextures)
         {
+            const uint16_t attachmentLayer = (colorIndex < perAttachmentLayers.size()) ? perAttachmentLayers[colorIndex] : layer;
+            ++colorIndex;
+
+            if (texture == nullptr)
+            {
+                continue;
+            }
+
+            if (!bgfx::isValid(texture->Handle()))
+            {
+                // Standalone sampleable depth/stencil texture request (uninitialized color handle):
+                // don't attach it as a color target; alias the depth attachment back into it below.
+                depthStencilTextureRequest = texture;
+                continue;
+            }
+
             // bgfx validation now asserts when trying to use BGFX_ATTACHMENT_AUTO_GEN_MIPS with a texture that doesn't have the BGFX_CAPS_FORMAT_TEXTURE_MIP_AUTOGEN flag,
             // but before it would just ignore the flag and not generate mips without any warning. This prevents validation assert, but rendering might be broken if autogen
             // mips were expected. Basically this change preserves previous behavior.
-            attachments[numAttachments++].init(texture->Handle(), bgfx::Access::Write, layer, 1, 0
-                , 0 != (caps->formats[texture->Format()] & BGFX_CAPS_FORMAT_TEXTURE_MIP_AUTOGEN) ? BGFX_ATTACHMENT_AUTO_GEN_MIPS : BGFX_ATTACHMENT_NONE
+            // layer selects the cube face / array layer / 3D Z-slice; mip selects the target mip level
+            // (used by the IBL voxel-grid mip-copy pass, which renders into a specific volume mip).
+            // Only auto-generate the mip chain when rendering into the base mip (mip 0). D3D11 GenerateMips
+            // regenerates the WHOLE chain from mip 0 on resolve, so leaving it on while explicitly authoring a
+            // higher mip level (the IBL voxel-grid mip-copy pass, HDR cube-face prefiltering, etc.) would clobber
+            // the just-written mip with a box-filtered average of mip 0 (observed as corrupted voxel occupancy masks).
+            // Cube render targets whose mip chain is authored explicitly must never auto-generate, and the
+            // mip==0 guard above is NOT sufficient for them. HDR radiance prefiltering walks (face, lod) pairs,
+            // so every unbind of a face's mip-0 framebuffer resolves with GenerateMips and rebuilds mips 1..N
+            // from mip 0, destroying the per-roughness convolutions written by the previous iterations. What
+            // survives is a box-filtered mip 0, which keeps a small bright sun as a compact bright texel instead
+            // of spreading it into a wide glow -- so rough/coated surfaces rendered a sharp specular blob where
+            // the reference has a broad falloff. Babylon distinguishes the two cases already: a render target
+            // that authors its own mips is created with createMipMaps:true + generateMipMaps:false, and the
+            // engine forwards generateMipMaps here as autoGenerateMips (defaulting to true, so every other
+            // render target keeps the previous behaviour).
+            const bool autoGenMips = (mip == 0) && autoGenerateMips && (0 != (caps->formats[texture->Format()] & BGFX_CAPS_FORMAT_TEXTURE_MIP_AUTOGEN));
+            attachments[numAttachments++].init(texture->Handle(), bgfx::Access::Write, attachmentLayer, 1, mip
+                , autoGenMips ? BGFX_ATTACHMENT_AUTO_GEN_MIPS : BGFX_ATTACHMENT_NONE
                 );
         }
 
-        bgfx::TextureHandle depthStencilTextureHandle = BGFX_INVALID_HANDLE;
-        int8_t depthStencilAttachmentIndex = -1;
-        bgfx::TextureFormat::Enum depthStencilTextureFormat = bgfx::TextureFormat::Unknown;
-        uint64_t depthStencilTextureFlags = BGFX_TEXTURE_NONE;
-        if (generateStencilBuffer || generateDepth)
-        {
-            if (generateStencilBuffer && !generateDepth)
-            {
-                JsConsoleLogger::LogWarn(env, "Stencil without depth is not supported, assuming depth and stencil");
-            }
+        // Explicit shared depth-stencil texture (FrameGraph geometry buffer / CSM PCF depth array).
+                // The SAME depth texture is shared between the depth-clear pass and the geometry MRT so the
+                // separately-scheduled depth clear targets the exact buffer the geometry render depth-tests against.
+                // For cascaded shadows the depth is a 2D array (one layer per cascade) owned by the first
+                // framebuffer build and borrowed by the rest. First build: invalid handle -> create + alias.
+                // Later builds: valid handle -> attach the matching layer, not owned.
+                bool borrowedExplicitDepth = false;
+                // Depth-array layer to attach. Matches the color-layer index for cascaded shadow maps so each
+                // cascade framebuffer writes into its own slice of the shared sampleable depth array.
+                const uint16_t depthAttachLayer = (perAttachmentLayers.size() > 0) ? perAttachmentLayers[0] : layer;
+                if (explicitDepthTexture != nullptr)
+                {
+                    if (bgfx::isValid(explicitDepthTexture->Handle()))
+                    {
+                        const uint16_t attachLayer =
+                            (explicitDepthTexture->NumLayers() > 1) ? depthAttachLayer : static_cast<uint16_t>(0);
+                        attachments[numAttachments++].init(explicitDepthTexture->Handle(), bgfx::Access::Write, attachLayer, 1, 0, BGFX_ATTACHMENT_NONE);
+                        borrowedExplicitDepth = true;
+                    }
+                    else
+                    {
+                        depthStencilTextureRequest = explicitDepthTexture;
+                    }
+                }
 
-            const auto rtFlag = RenderTargetSamplesToBgfxRtFlag(samples);
-            auto flags = BGFX_TEXTURE_RT_WRITE_ONLY | rtFlag;
-            if (depthStencilTexture != nullptr)
-            {
-                // A standalone texture must be readable. Multisampled depth is sampled directly, not resolved.
-                flags = rtFlag | (rtFlag == BGFX_TEXTURE_RT ? BGFX_TEXTURE_NONE : BGFX_TEXTURE_MSAA_SAMPLE);
-            }
+                const bool requestDepthStencilTexture = (depthStencilTextureRequest != nullptr);
 
-            // Pick a depth(/stencil) format the active renderer actually supports as an RT.
-            // Plain D32 is not a valid D3D11 depth RT (bgfx maps it to R24G8 with no DSV), and
-            // newer bgfx asserts in createTexture2D when isTextureValid fails. Prefer D32F for
-            // depth-only when available; otherwise fall back to D24S8. Android always uses
-            // D24S8 — D32/D32F has produced glitches on several Mali devices
-            // (https://forum.babylonjs.com/t/post-processing-graphics-glitch/49523).
-            bgfx::TextureFormat::Enum depthStencilFormat{bgfx::TextureFormat::D24S8};
+                bgfx::TextureHandle depthStencilTextureHandle = BGFX_INVALID_HANDLE;
+                int8_t depthStencilAttachmentIndex = -1;
+                bgfx::TextureFormat::Enum depthStencilTextureFormat = bgfx::TextureFormat::Unknown;
+                uint64_t depthStencilTextureFlags = 0;
+                uint16_t depthStencilNumLayers = 1;
+                if ((generateStencilBuffer || generateDepth) && !borrowedExplicitDepth)
+                {
+                    if (generateStencilBuffer && !generateDepth)
+                    {
+                        JsConsoleLogger::LogWarn(env, "Stencil without depth is not supported, assuming depth and stencil");
+                    }
+
+                    // A standalone depth/stencil texture must be readable; render-target-only depth attachments stay
+                    // write-only (cheaper, and the resolve path below relies on it).
+                    // BGFX_TEXTURE_RT and the BGFX_TEXTURE_RT_MSAA_X* levels share one exclusive field, so pick the
+                    // MSAA-level flag when multisampled and the plain RT flag otherwise — never OR them (RT|X8 becomes
+                    // X16). BGFX_TEXTURE_RT_WRITE_ONLY is orthogonal and can be OR'd freely.
+                    const uint64_t depthRtFlag = RenderTargetSamplesToBgfxRtFlag(samples);
+                    auto flags = requestDepthStencilTexture ? depthRtFlag : (BGFX_TEXTURE_RT_WRITE_ONLY | depthRtFlag);
+
+                    // bgfx rejects an MSAA depth attachment that is not write-only unless it is flagged as an
+                    // MSAA-sample texture (MSAA depth cannot be resolved to a single-sample texture; see
+                    // isFrameBufferValid). A sampleable (readable) MSAA depth request must therefore be marked
+                    // BGFX_TEXTURE_MSAA_SAMPLE so it is sampled per-sample rather than resolved.
+                    if (requestDepthStencilTexture)
+                    {
+                        const uint64_t msaaBits = (flags & BGFX_TEXTURE_RT_MSAA_MASK) >> BGFX_TEXTURE_RT_MSAA_SHIFT;
+                        if (msaaBits > 1)
+                        {
+                            flags |= BGFX_TEXTURE_MSAA_SAMPLE;
+                        }
+
+                        // Cascaded shadow maps need a sampleable depth *array* (one layer per cascade). When the
+                        // color attachment is already a 2D array, size the depth texture to match so PCF can bind
+                        // sampler2DArrayShadow against the whole cascade stack.
+                        for (Graphics::Texture* colorTexture : colorTextures)
+                        {
+                            if (colorTexture != nullptr && bgfx::isValid(colorTexture->Handle()) && colorTexture->NumLayers() > depthStencilNumLayers)
+                            {
+                                depthStencilNumLayers = colorTexture->NumLayers();
+                            }
+                        }
+                    }
+
+                    // Pick a depth(/stencil) format the active renderer actually supports as an RT.
+                    // Plain D32 is not a valid D3D11 depth RT (bgfx maps it to R24G8 with no DSV), and
+                    // newer bgfx asserts in createTexture2D when isTextureValid fails. Prefer D32F for
+                    // depth-only when available; otherwise fall back to D24/D24S8. Android always uses
+                    // D24S8 — D32/D32F has produced glitches on several Mali devices
+                    // (https://forum.babylonjs.com/t/post-processing-graphics-glitch/49523).
+                    bgfx::TextureFormat::Enum depthStencilFormat{bgfx::TextureFormat::D24S8};
 #ifndef ANDROID
-            if (!generateStencilBuffer)
-            {
-                if (bgfx::isTextureValid(0, false, 1, bgfx::TextureFormat::D32F, flags))
-                {
-                    depthStencilFormat = bgfx::TextureFormat::D32F;
-                }
-                else if (bgfx::isTextureValid(0, false, 1, bgfx::TextureFormat::D24, flags))
-                {
-                    depthStencilFormat = bgfx::TextureFormat::D24;
-                }
-            }
+                    if (!generateStencilBuffer)
+                    {
+                        if (bgfx::isTextureValid(0, false, depthStencilNumLayers, bgfx::TextureFormat::D32F, flags))
+                        {
+                            depthStencilFormat = bgfx::TextureFormat::D32F;
+                        }
+                        else if (bgfx::isTextureValid(0, false, depthStencilNumLayers, bgfx::TextureFormat::D24, flags))
+                        {
+                            depthStencilFormat = bgfx::TextureFormat::D24;
+                        }
+                    }
 #endif
-            if (!bgfx::isTextureValid(0, false, 1, depthStencilFormat, flags))
-            {
-                throw Napi::Error::New(env, "No supported depth/stencil texture format for frame buffer");
-            }
-            depthStencilTextureHandle = bgfx::createTexture2D(width, height, false, 1, depthStencilFormat, flags);
-            depthStencilTextureFormat = depthStencilFormat;
-            depthStencilTextureFlags = flags;
+                    if (!bgfx::isTextureValid(0, false, depthStencilNumLayers, depthStencilFormat, flags))
+                    {
+                        throw Napi::Error::New(env, "No supported depth/stencil texture format for frame buffer");
+                    }
+                    depthStencilTextureHandle = bgfx::createTexture2D(width, height, false, depthStencilNumLayers, depthStencilFormat, flags);
+                    depthStencilTextureFormat = depthStencilFormat;
+                    depthStencilTextureFlags = flags;
 
-            // bgfx doesn't add flag D3D11_RESOURCE_MISC_GENERATE_MIPS for depth textures (missing that flag will crash D3D with resolving)
-            // And not sure it makes sense to generate mipmaps from a depth buffer with exponential values.
-            // only allows mipmaps resolve step when mipmapping is asked and for the color texture, not the depth.
-            // https://github.com/bkaradzic/bgfx/blob/2c21f68998595fa388e25cb6527e82254d0e9bff/src/renderer_d3d11.cpp#L4525
-            depthStencilAttachmentIndex = numAttachments;
-            attachments[numAttachments++].init(depthStencilTextureHandle, bgfx::Access::Write, 0, 1, 0, BGFX_ATTACHMENT_NONE);
-        }
+                    // bgfx doesn't add flag D3D11_RESOURCE_MISC_GENERATE_MIPS for depth textures (missing that flag will crash D3D with resolving)
+                    // And not sure it makes sense to generate mipmaps from a depth buffer with exponential values.
+                    // only allows mipmaps resolve step when mipmapping is asked and for the color texture, not the depth.
+                    // https://github.com/bkaradzic/bgfx/blob/2c21f68998595fa388e25cb6527e82254d0e9bff/src/renderer_d3d11.cpp#L4525
+                    depthStencilAttachmentIndex = numAttachments;
+                    const uint16_t attachLayer = (depthStencilNumLayers > 1) ? depthAttachLayer : static_cast<uint16_t>(0);
+                    attachments[numAttachments++].init(depthStencilTextureHandle, bgfx::Access::Write, attachLayer, 1, 0, BGFX_ATTACHMENT_NONE);
+                }
 
         bgfx::FrameBufferHandle frameBufferHandle = bgfx::createFrameBuffer(numAttachments, attachments.data());
         if (!bgfx::isValid(frameBufferHandle))
@@ -2732,18 +2944,45 @@ namespace Babylon
                 bgfx::destroy(depthStencilTextureHandle);
             }
 
-            throw Napi::Error::New(env, "Failed to create frame buffer");
+            // Surface the exact bgfx validation reason (e.g. "Mismatch in texture sample count.") instead of a
+            // generic message, which makes frame buffer configuration bugs far easier to diagnose.
+            bx::Error fbErr;
+            bgfx::isFrameBufferValid(numAttachments, attachments.data(), &fbErr);
+            const bx::StringView reason = fbErr.getMessage();
+            char message[512];
+            snprintf(message, sizeof(message), "Failed to create frame buffer: %.*s",
+                static_cast<int>(reason.getLength()), reason.getPtr());
+            throw Napi::Error::New(env, message);
         }
 
-        const bool hasDepthAttachment = generateDepth || generateStencilBuffer;
-        Graphics::FrameBuffer* frameBuffer = new Graphics::FrameBuffer(m_deviceContext, frameBufferHandle, width, height, false, hasDepthAttachment, generateStencilBuffer, depthStencilAttachmentIndex);
-        if (depthStencilTexture != nullptr)
-        {
-            // The framebuffer owns its depth attachment; expose a non-owning texture for sampling.
-            depthStencilTexture->Attach(depthStencilTextureHandle, width, height, false, 1, depthStencilTextureFormat, depthStencilTextureFlags);
-        }
-        return Napi::Pointer<Graphics::FrameBuffer>::Create(env, frameBuffer, Napi::NapiPointerDeleter(frameBuffer));
-    }
+        // Stencil-without-depth still allocates a combined depth/stencil attachment above, so the framebuffer
+        // genuinely has depth in that case too. Report hasDepth accordingly, otherwise Clear/DrawInternal would
+        // skip depth clear and Z-writes against a depth buffer that actually exists.
+        const bool hasDepthAttachment = generateDepth || generateStencilBuffer || borrowedExplicitDepth;
+
+                // Ownership of a freshly created sampleable depth texture:
+                // - When Babylon requested a shared depth texture (FrameGraph / CSM), the
+                //   Texture object owns the handle so multiple cascade framebuffers can share it and disposing any
+                //   one framebuffer does not destroy the shared array.
+                // - A standalone depth texture is a non-owning alias of its framebuffer's attachment.
+                // - Otherwise the framebuffer owns the (write-only) depth attachment as before.
+                int8_t frameBufferDepthOwnerIndex = depthStencilAttachmentIndex;
+                if (depthStencilTextureRequest != nullptr && depthStencilAttachmentIndex >= 0)
+                {
+                    const bool textureOwnsDepth = depthStencilTexture == nullptr;
+                    depthStencilTextureRequest->Attach(bgfx::getTexture(frameBufferHandle, static_cast<uint8_t>(depthStencilAttachmentIndex)),
+                        textureOwnsDepth, width, height, false, depthStencilNumLayers, depthStencilTextureFormat, depthStencilTextureFlags);
+                    if (textureOwnsDepth)
+                    {
+                        frameBufferDepthOwnerIndex = -1;
+                    }
+                }
+
+                const bool isMultisampled = RenderTargetSamplesToBgfxRtFlag(samples) != BGFX_TEXTURE_RT;
+                Graphics::FrameBuffer* frameBuffer = new Graphics::FrameBuffer(m_deviceContext, frameBufferHandle, width, height, false, hasDepthAttachment, generateStencilBuffer, frameBufferDepthOwnerIndex, isMultisampled);
+
+                return Napi::Pointer<Graphics::FrameBuffer>::Create(env, frameBuffer, Napi::NapiPointerDeleter(frameBuffer));
+            }
 
     // TODO: This doesn't get called when an Engine instance is disposed.
     void NativeEngine::DeleteFrameBuffer(NativeDataStream::Reader& data)
@@ -2854,45 +3093,45 @@ namespace Babylon
     }
 
     void NativeEngine::Clear(NativeDataStream::Reader& data)
-    {
-        uint16_t flags{0};
-        uint32_t rgba{0x000000ff};
-
-        const bool shouldClearColor{static_cast<bool>(data.ReadUint32())};
-        const float r{data.ReadFloat32()};
-        const float g{data.ReadFloat32()};
-        const float b{data.ReadFloat32()};
-        const float a{data.ReadFloat32()};
-        const bool shouldClearDepth{static_cast<bool>(data.ReadUint32())};
-        const float depth{data.ReadFloat32()};
-        const bool shouldClearStencil{static_cast<bool>(data.ReadUint32())};
-        const uint8_t stencil{static_cast<uint8_t>(data.ReadUint32())};
-
-        bgfx::Encoder* encoder = GetEncoder();
-
-        if (shouldClearColor)
         {
-            rgba =
-                (static_cast<uint8_t>(r * std::numeric_limits<uint8_t>::max()) << 24) +
-                (static_cast<uint8_t>(g * std::numeric_limits<uint8_t>::max()) << 16) +
-                (static_cast<uint8_t>(b * std::numeric_limits<uint8_t>::max()) << 8) +
-                static_cast<uint8_t>(a * std::numeric_limits<uint8_t>::max());
+            uint16_t flags{0};
 
-            flags |= BGFX_CLEAR_COLOR;
+            const bool shouldClearColor{static_cast<bool>(data.ReadUint32())};
+            const float r{data.ReadFloat32()};
+            const float g{data.ReadFloat32()};
+            const float b{data.ReadFloat32()};
+            const float a{data.ReadFloat32()};
+            const bool shouldClearDepth{static_cast<bool>(data.ReadUint32())};
+            const float depth{data.ReadFloat32()};
+            const bool shouldClearStencil{static_cast<bool>(data.ReadUint32())};
+            const uint8_t stencil{static_cast<uint8_t>(data.ReadUint32())};
+            // Bit i selects color attachment i (see ThinNativeEngine.bindAttachments). 0xff means "all
+            // attachments". Partial masks are required for OIT depth-peel clears that only reset the
+            // depth attachment while leaving shared front/back color attachments untouched.
+            const uint8_t colorAttachmentMask{static_cast<uint8_t>(data.ReadUint32())};
+
+            bgfx::Encoder* encoder = GetEncoder();
+
+            // Pass float clear colors through unchanged. Quantizing to 8-bit rgba destroyed OIT's
+            // -99999 depth-texture clear (and any out-of-range float MRT clear). FrameBuffer routes
+            // color clears through bgfx's float clear palette.
+            if (shouldClearColor)
+            {
+                flags |= BGFX_CLEAR_COLOR;
+            }
+
+            if (shouldClearDepth && (!m_boundFrameBuffer || m_boundFrameBuffer->HasDepth()))
+            {
+                flags |= BGFX_CLEAR_DEPTH;
+            }
+
+            if (shouldClearStencil && (!m_boundFrameBuffer || m_boundFrameBuffer->HasStencil()))
+            {
+                flags |= BGFX_CLEAR_STENCIL;
+            }
+
+            GetBoundFrameBuffer().Clear(*encoder, flags, r, g, b, a, depth, stencil, colorAttachmentMask);
         }
-
-        if (shouldClearDepth && (!m_boundFrameBuffer || m_boundFrameBuffer->HasDepth()))
-        {
-            flags |= BGFX_CLEAR_DEPTH;
-        }
-
-        if (shouldClearStencil && (!m_boundFrameBuffer || m_boundFrameBuffer->HasStencil()))
-        {
-            flags |= BGFX_CLEAR_STENCIL;
-        }
-
-        GetBoundFrameBuffer().Clear(*encoder, flags, rgba, depth, stencil);
-    }
 
     Napi::Value NativeEngine::GetRenderWidth(const Napi::CallbackInfo& info)
     {
@@ -3088,8 +3327,12 @@ namespace Babylon
         const uint32_t depthOpPass{data.ReadUint32()};
         const uint32_t func{data.ReadUint32()};
         const uint32_t ref{data.ReadUint32()};
+        // Function mask (gl.stencilFunc's mask / BGFX_STENCIL_FUNC_RMASK). HighlightLayer
+        // compares only the high glowing-mesh bits; without this, Native always forced 0xFF
+        // and outer/inner glow stencil tests matched the wrong fragments.
+        const uint32_t funcMask{data.ReadUint32()};
 
-        m_stencilState = BGFX_STENCIL_FUNC_RMASK(0xFF); //  always 0xFF
+        m_stencilState = BGFX_STENCIL_FUNC_RMASK(funcMask & 0xFFu);
         m_stencilState |= stencilOpFail;
         m_stencilState |= depthOpFail;
         // bgfx write mask is always 0xFF, to not change stencil value when writemask is 0
