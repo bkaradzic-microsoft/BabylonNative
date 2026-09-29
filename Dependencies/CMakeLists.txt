@@ -176,7 +176,7 @@ function(group_directory_targets DIR FOLDER_NAME)
 endfunction()
 
 # --------------------------------------------------
-# draco (mesh compression/decompression, native replacement for the WASM modules)
+# draco (mesh decompression, native replacement for the WASM decoder)
 # --------------------------------------------------
 if(BABYLON_NATIVE_PLUGIN_NATIVEDRACO AND NOT TARGET draco AND NOT TARGET draco_static)
     set(DRACO_TESTS OFF CACHE BOOL "" FORCE)
@@ -184,14 +184,13 @@ if(BABYLON_NATIVE_PLUGIN_NATIVEDRACO AND NOT TARGET draco AND NOT TARGET draco_s
     set(DRACO_BUILD_EXECUTABLES OFF CACHE BOOL "" FORCE)
     set(DRACO_JS_GLUE OFF CACHE BOOL "" FORCE)
 
-    # Keep the glTF bitstream subset. NativeDraco is intended to produce and consume
-    # glTF-compatible Draco data (Babylon.js defaults to the glTF-only decoder). The
-    # subset still supports mesh encoding, normals, and standard Edgebreaker; it
-    # constrains the output rather than disabling encoding, and avoids emitting
-    # features outside the glTF profile (e.g. predictive valence at slower speeds)
-    # that the default decoder may reject. Attribute deduplication may be compiled
-    # out; Encode guards those passes on the feature macros Draco publishes.
-    set(DRACO_GLTF_BITSTREAM ON CACHE BOOL "" FORCE)
+    # Shotgun deviation: upstream sets DRACO_GLTF_BITSTREAM ON to build only the glTF
+    # bitstream subset (mesh compression, normal encoding, standard edgebreaker), on the
+    # grounds that Babylon.js loads draco_decoder_gltf.wasm by default. In practice the
+    # validation suite feeds streams that subset rejects with "Unsupported major version"
+    # (it also drops pre-glTF backwards compatibility), and it compiles out the attribute
+    # deduplication passes the encoder uses. Build the full decoder here so the suite runs.
+    set(DRACO_GLTF_BITSTREAM OFF CACHE BOOL "" FORCE)
 
     FetchContent_MakeAvailable_With_Message(draco)
 
@@ -256,6 +255,22 @@ endif()
 # --------------------------------------------------
 # JsRuntimeHost
 # --------------------------------------------------
+
+# Babylon Native defaults Win32 desktop to V8 rather than inheriting JsRuntimeHost's
+# Chakra default. Chakra is frozen at ES2017 and cannot even *parse* the modern
+# JavaScript that Babylon.js and the Playground validation scripts emit (optional
+# chaining, numeric separators), let alone run it, so the visual/validation suite
+# is not meaningfully testable on it.
+#
+# This is a plain CACHE entry (no FORCE) set before JsRuntimeHost is added, so
+# JsRuntimeHost's own `set(... CACHE ...)` becomes a no-op and an explicit
+# -D NAPI_JAVASCRIPT_ENGINE=<engine> on the command line still wins. Scoped to
+# desktop Windows: the V8 NuGet packages (v8-v143-<arch>) are desktop-only, so
+# UWP/WINDOWS_STORE keeps inheriting the JsRuntimeHost default.
+if(WIN32 AND NOT WINDOWS_STORE)
+    set(NAPI_JAVASCRIPT_ENGINE "V8" CACHE STRING "JavaScript engine for Node-API")
+endif()
+
 FetchContent_MakeAvailable_With_Message(JsRuntimeHost)
 
 # Two JsRuntimeHost targets cannot be built without RTTI:
