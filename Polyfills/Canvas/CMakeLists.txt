@@ -27,6 +27,7 @@ set(SOURCES
     "Source/Gradient.h"
     "Source/Font.cpp"
     "Source/Font.h"
+    "Source/StbTrueType.cpp"
     "Source/nanosvg.h"
     "Source/nanosvgrast.h"
     "Source/nanovg/nanovg.cpp"
