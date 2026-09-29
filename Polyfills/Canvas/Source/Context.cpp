@@ -1239,12 +1239,15 @@ namespace Babylon::Polyfills::Internal
         nvgGlobalCompositeOperation(*m_nvg, NVG_COPY);
 
         NVGpaint imagePaint = nvgImagePattern(*m_nvg, destX, destY, destWidth, destHeight, 0.f, imageIndex, 1.f);
-        ResetPathState();
+        ScopedPath temporaryPath{*m_nvg};
         nvgRect(*m_nvg, destX, destY, destWidth, destHeight);
         nvgFillPaint(*m_nvg, imagePaint);
         nvgFill(*m_nvg);
-
         nvgRestore(*m_nvg);
+
+        // Keep the CPU mirror that getImageData() reads from in sync.
+        BlitPixelsToCpu(patch.data(), copyWidth, copyHeight, 0, 0, copyWidth, copyHeight,
+            destLeft, destTop, copyWidth, copyHeight);
     }
 
     void Context::Arc(const Napi::CallbackInfo& info)
@@ -1344,7 +1347,7 @@ namespace Babylon::Polyfills::Internal
                 throw Napi::Error::New(info.Env(), "drawImage: failed to create the source image.");
             }
             RetainImageUntilFlush(imageIndex);
-            DrawImageCommon(imageIndex, *rectangles);
+            DrawImageCommon(imageIndex, *rectangles, rgba.data(), width, height);
             return;
         }
 
@@ -1422,7 +1425,7 @@ namespace Babylon::Polyfills::Internal
                 throw Napi::Error::New(info.Env(), "drawImage: failed to create the source image.");
             }
             RetainImageUntilFlush(imageIndex);
-            DrawImageCommon(imageIndex, *rectangles);
+            DrawImageCommon(imageIndex, *rectangles, rgba.data(), width, height);
             return;
 #else
             throw Napi::Error::New(info.Env(), "drawImage: image loading disabled in this build.");
@@ -1448,7 +1451,12 @@ namespace Babylon::Polyfills::Internal
         }
         assert(imageIndex != -1);
 
-        DrawImageCommon(imageIndex, *rectangles);
+        DrawImageCommon(
+            imageIndex,
+            *rectangles,
+            canvasImage->GetPixels(),
+            canvasImage->GetWidth(),
+            canvasImage->GetHeight());
     }
 
     std::optional<Context::DrawImageRectangles> Context::ParseDrawImageRectangles(std::span<const double> arguments, uint32_t srcWidth, uint32_t srcHeight)
@@ -1576,10 +1584,17 @@ namespace Babylon::Polyfills::Internal
 
         return DrawImageRectangles{
             drawX, drawY, drawWidth, drawHeight,
-            static_cast<float>(patternX), static_cast<float>(patternY), paintWidth, paintHeight};
+            static_cast<float>(patternX), static_cast<float>(patternY), paintWidth, paintHeight,
+            static_cast<float>(sx), static_cast<float>(sy),
+            static_cast<float>(clippedSWidth), static_cast<float>(clippedSHeight)};
     }
 
-    void Context::DrawImageCommon(int imageIndex, const DrawImageRectangles& rectangles)
+    void Context::DrawImageCommon(
+        int imageIndex,
+        const DrawImageRectangles& rectangles,
+        const uint8_t* srcPixels,
+        uint32_t srcWidth,
+        uint32_t srcHeight)
     {
         NVGpaint imagePaint = nvgImagePattern(
             *m_nvg,
@@ -1591,27 +1606,52 @@ namespace Babylon::Polyfills::Internal
             imageIndex,
             1.f);
 
-        if (m_isClipped)
+        ScopedPath temporaryPath{*m_nvg};
+        nvgRect(*m_nvg, rectangles.X, rectangles.Y, rectangles.Width, rectangles.Height);
+        nvgFillPaint(*m_nvg, imagePaint);
+        SetFilterStack();
+        nvgFill(*m_nvg);
+
+        // Preserve the pixel-backed mirror for integral draws. GPU readback is authoritative
+        // for Canvas APIs, while this mirror remains useful to code paths that consume decoded
+        // image pixels without forcing another render-thread synchronization.
+        const auto isIntegral = [](float value) {
+            return std::isfinite(value) && value == std::trunc(value);
+        };
+        if (srcPixels != nullptr &&
+            isIntegral(rectangles.SourceX) &&
+            isIntegral(rectangles.SourceY) &&
+            isIntegral(rectangles.SourceWidth) &&
+            isIntegral(rectangles.SourceHeight) &&
+            isIntegral(rectangles.X) &&
+            isIntegral(rectangles.Y) &&
+            isIntegral(rectangles.Width) &&
+            isIntegral(rectangles.Height) &&
+            rectangles.SourceX >= 0.f &&
+            rectangles.SourceX < static_cast<float>(std::numeric_limits<int32_t>::max()) &&
+            rectangles.SourceY >= 0.f &&
+            rectangles.SourceY < static_cast<float>(std::numeric_limits<int32_t>::max()) &&
+            rectangles.SourceWidth < static_cast<float>(std::numeric_limits<uint32_t>::max()) &&
+            rectangles.SourceHeight < static_cast<float>(std::numeric_limits<uint32_t>::max()) &&
+            rectangles.X >= static_cast<float>(std::numeric_limits<int32_t>::min()) &&
+            rectangles.X < static_cast<float>(std::numeric_limits<int32_t>::max()) &&
+            rectangles.Y >= static_cast<float>(std::numeric_limits<int32_t>::min()) &&
+            rectangles.Y < static_cast<float>(std::numeric_limits<int32_t>::max()) &&
+            rectangles.Width < static_cast<float>(std::numeric_limits<uint32_t>::max()) &&
+            rectangles.Height < static_cast<float>(std::numeric_limits<uint32_t>::max()))
         {
-            // The current path is the emulated non-rectangular clip. Restrict it to
-            // the destination rectangle with a temporary scissor instead of appending
-            // the rectangle to the path, which would fill and retain their union.
-            nvgSave(*m_nvg);
-            nvgIntersectScissor(*m_nvg, rectangles.X, rectangles.Y, rectangles.Width, rectangles.Height);
-            nvgFillPaint(*m_nvg, imagePaint);
-            SetFilterStack();
-            nvgFill(*m_nvg);
-            nvgRestore(*m_nvg);
-        }
-        else
-        {
-            // Rectangular clips live in NanoVG's scissor state and survive resetting
-            // the temporary draw path. Keep the wrapper's path flags in sync as well.
-            ResetPathState();
-            nvgRect(*m_nvg, rectangles.X, rectangles.Y, rectangles.Width, rectangles.Height);
-            nvgFillPaint(*m_nvg, imagePaint);
-            SetFilterStack();
-            nvgFill(*m_nvg);
+            BlitPixelsToCpu(
+                srcPixels,
+                srcWidth,
+                srcHeight,
+                static_cast<int32_t>(rectangles.SourceX),
+                static_cast<int32_t>(rectangles.SourceY),
+                static_cast<uint32_t>(rectangles.SourceWidth),
+                static_cast<uint32_t>(rectangles.SourceHeight),
+                static_cast<int32_t>(rectangles.X),
+                static_cast<int32_t>(rectangles.Y),
+                static_cast<uint32_t>(rectangles.Width),
+                static_cast<uint32_t>(rectangles.Height));
         }
     }
 

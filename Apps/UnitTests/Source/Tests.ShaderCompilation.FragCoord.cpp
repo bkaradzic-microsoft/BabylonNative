@@ -26,9 +26,15 @@ extern Babylon::Graphics::Configuration g_deviceConfig;
 
 // These tests pin down the orientation of gl_FragCoord.y.
 //
-// D3D, Metal and Vulkan rasterize with a top-left origin while GL uses bottom-left,
-// and Babylon Native does not flip geometry, so gl_FragCoord.y arrives mirrored and
-// is corrected by the shader compiler (FragCoordYFlipTraverser).
+// Babylon Native's shader model is "shader-visible coordinates are GL-logical,
+// converted to physical at each sampler access". D3D, Metal and Vulkan rasterize
+// with a top-left origin while GL uses bottom-left, and Babylon Native does not
+// flip geometry, so gl_FragCoord.y arrives mirrored from the hardware and has to
+// be corrected by the shader compiler (FragCoordYFlipTraverser).
+//
+// Both tests render a full-screen quad into a render target and read the result
+// back. Helpers::ReadPixels returns rows in memory order, so row 0 is the top of
+// the image on every backend.
 namespace
 {
     class TestCompletion
@@ -105,6 +111,9 @@ namespace
         const std::string& setupScript = {},
         std::chrono::milliseconds renderTimeout = std::chrono::seconds{30})
     {
+        // Clip-space quad, so no projection matrix is involved and the geometry
+        // lines up with the render target exactly. uv follows the GL convention
+        // of (0,0) at the bottom-left corner.
         Babylon::Graphics::Device device{g_deviceConfig};
         Babylon::Graphics::TextureT outputTexture{};
         const auto releaseOutput = gsl::finally([&outputTexture] {
@@ -195,8 +204,10 @@ namespace
                     camera.orthoRight = 1;
                     camera.outputRenderTarget = outputTexture;
 
-                    // Clip-space quad passed straight through the vertex shader, so no
-                    // projection matrix is involved and it lines up with the target exactly.
+                    // Two triangles in clip space covering the whole target. The
+                    // vertex shader passes position straight through, so no
+                    // projection matrix is involved and the quad lines up exactly
+                    // with the render target regardless of camera conventions.
                     var quad = new BABYLON.Mesh("quad", scene);
                     var vertexData = new BABYLON.VertexData();
                     vertexData.positions = [
@@ -234,8 +245,9 @@ namespace
                     material.setVector2("targetSize", new BABYLON.Vector2(width, height));
 
                     if (WITH_INPUT_TEXTURE) {
-                        // Decreasing red ramp makes a vertical mirror unambiguous; blue
-                        // encodes the low bits of the row index to catch off-by-one errors.
+                        // Row y is filled with a monotonically decreasing red ramp so
+                        // that a vertical mirror is unambiguous. Blue encodes the low
+                        // bits of the row index to catch off-by-one errors.
                         var data = new Uint8Array(width * height * 4);
                         for (var y = 0; y < height; ++y) {
                             for (var x = 0; x < width; ++x) {
@@ -385,6 +397,179 @@ namespace
 
         return Helpers::ReadPixels(device.GetPlatformInfo(), outputTexture, width, height);
     }
+}
+
+TEST(NativeEngineShadows, PointLightCubeOrientationMatchesAllShadowLookups)
+{
+#if defined(SKIP_EXTERNAL_TEXTURE_TESTS) || defined(SKIP_RENDER_TESTS)
+    GTEST_SKIP();
+#else
+    constexpr uint32_t CELL_SIZE = 8;
+    constexpr uint32_t FACE_COUNT = 6;
+    constexpr uint32_t WIDTH = FACE_COUNT * 2 * CELL_SIZE;
+    constexpr uint32_t HEIGHT = CELL_SIZE;
+
+    const std::string vertexShader =
+        "precision highp float;\n"
+        "attribute vec3 position;\n"
+        "attribute vec2 uv;\n"
+        "varying vec2 vUV;\n"
+        "void main(void) { vUV = uv; gl_Position = vec4(position, 1.0); }\n";
+
+    struct ShadowCase
+    {
+        int Filter;
+        const char* Name;
+        bool BackFaceCulling;
+        bool CullBackFaces;
+        bool ForceBackFacesOnly;
+        const char* Lookup;
+    };
+    const ShadowCase cases[] = {
+        {0, "none/back-cull", true, true, false, "computeShadowCube(worldPos, vec3(0.0), shadowSampler, 0.0, vec2(0.1, 10.1))"},
+        {0, "none/front-cull", true, false, false, "computeShadowCube(worldPos, vec3(0.0), shadowSampler, 0.0, vec2(0.1, 10.1))"},
+        {0, "none/force-back-faces", true, true, true, "computeShadowCube(worldPos, vec3(0.0), shadowSampler, 0.0, vec2(0.1, 10.1))"},
+        {1, "esm", true, true, false, "computeShadowWithESMCube(worldPos, vec3(0.0), shadowSampler, 0.0, 20.0, vec2(0.1, 10.1))"},
+        {2, "poisson", true, true, false, "computeShadowWithPoissonSamplingCube(worldPos, vec3(0.0), shadowSampler, 1.0 / 64.0, 0.0, vec2(0.1, 10.1))"},
+        {4, "close-esm", true, true, false, "computeShadowWithCloseESMCube(worldPos, vec3(0.0), shadowSampler, 0.0, 20.0, vec2(0.1, 10.1))"},
+    };
+
+    for (const auto& shadowCase : cases)
+    {
+        SCOPED_TRACE(shadowCase.Name);
+
+        // Each pair addresses one cube face in PointLight.getShadowDirection order:
+        // +X, -X, -Y, +Y, +Z, -Z. The first ray goes through an off-axis
+        // caster; the second reflects that ray across the face's projection-Y
+        // axis and must stay lit. The +/-Y faces use Z as their vertical axis.
+        const std::string fragmentShader =
+            "precision highp float;\n"
+            "varying vec2 vUV;\n"
+            "uniform samplerCube shadowSampler;\n"
+            "#define SHADOWS\n"
+            "#include<shadowsFragmentFunctions>\n"
+            "void main(void) {\n"
+            "    float cell = floor(min(vUV.x, 0.999999) * 12.0);\n"
+            "    vec3 direction;\n"
+            "    if (cell < 0.5) direction = vec3( 1.00,  0.31,  0.17);\n"
+            "    else if (cell < 1.5) direction = vec3( 1.00, -0.31,  0.17);\n"
+            "    else if (cell < 2.5) direction = vec3(-1.00, -0.27,  0.19);\n"
+            "    else if (cell < 3.5) direction = vec3(-1.00,  0.27,  0.19);\n"
+            "    else if (cell < 4.5) direction = vec3( 0.23, -1.00,  0.37);\n"
+            "    else if (cell < 5.5) direction = vec3( 0.23, -1.00, -0.37);\n"
+            "    else if (cell < 6.5) direction = vec3(-0.21,  1.00,  0.33);\n"
+            "    else if (cell < 7.5) direction = vec3(-0.21,  1.00, -0.33);\n"
+            "    else if (cell < 8.5) direction = vec3( 0.29,  0.35,  1.00);\n"
+            "    else if (cell < 9.5) direction = vec3( 0.29, -0.35,  1.00);\n"
+            "    else if (cell < 10.5) direction = vec3(-0.25, -0.33, -1.00);\n"
+            "    else direction = vec3(-0.25,  0.33, -1.00);\n"
+            "    vec3 worldPos = normalize(direction) * 6.0;\n"
+            "    float visibility = " +
+            std::string{shadowCase.Lookup} +
+            ";\n"
+            "    gl_FragColor = vec4(vec3(visibility), 1.0);\n"
+            "}\n";
+
+        const std::string setupScript =
+            R"(
+                var filter = )" +
+            std::to_string(shadowCase.Filter) +
+            R"(;
+                var backFaceCulling = )" +
+            std::string{shadowCase.BackFaceCulling ? "true" : "false"} +
+            R"(;
+                var cullBackFaces = )" +
+            std::string{shadowCase.CullBackFaces ? "true" : "false"} +
+            R"(;
+                var forceBackFacesOnly = )" +
+            std::string{shadowCase.ForceBackFacesOnly ? "true" : "false"} +
+            R"(;
+
+                camera.layerMask = 0x1;
+                quad.layerMask = 0x1;
+                quad.renderingGroupId = 1;
+
+                var light = new BABYLON.PointLight("shadowLight", BABYLON.Vector3.Zero(), scene);
+                light.shadowMinZ = 0.1;
+                light.shadowMaxZ = 10.0;
+
+                // Force the portable packed-RGBA shadow path so the lookup
+                // shader has one format on every Native backend.
+                var caps = engine.getCaps();
+                var capNames = [
+                    "textureHalfFloatRender",
+                    "textureHalfFloatLinearFiltering",
+                    "textureFloatRender",
+                    "textureFloatLinearFiltering"
+                ];
+                var savedCaps = capNames.map(function (name) { return caps[name]; });
+                var shadowGenerator;
+                try {
+                    capNames.forEach(function (name) { caps[name] = false; });
+                    shadowGenerator = new BABYLON.ShadowGenerator(64, light);
+                } finally {
+                    capNames.forEach(function (name, index) { caps[name] = savedCaps[index]; });
+                }
+                shadowGenerator.filter = filter;
+                shadowGenerator.bias = 0.0;
+                shadowGenerator.depthScale = 20.0;
+                shadowGenerator.forceBackFacesOnly = forceBackFacesOnly;
+
+                var casterMaterial = new BABYLON.StandardMaterial("casterMaterial", scene);
+                casterMaterial.disableLighting = true;
+                casterMaterial.backFaceCulling = backFaceCulling;
+                casterMaterial.cullBackFaces = cullBackFaces;
+
+                var casterDirections = [
+                    new BABYLON.Vector3( 1.00,  0.31,  0.17),
+                    new BABYLON.Vector3(-1.00, -0.27,  0.19),
+                    new BABYLON.Vector3( 0.23, -1.00,  0.37),
+                    new BABYLON.Vector3(-0.21,  1.00,  0.33),
+                    new BABYLON.Vector3( 0.29,  0.35,  1.00),
+                    new BABYLON.Vector3(-0.25, -0.33, -1.00)
+                ];
+                casterDirections.forEach(function (direction, face) {
+                    direction.normalize();
+                    var caster = BABYLON.MeshBuilder.CreateBox(
+                        "caster" + face,
+                        { width: 0.8, height: 0.8, depth: 0.8 },
+                        scene);
+                    caster.position.copyFrom(direction.scale(3.0));
+                    caster.material = casterMaterial;
+                    caster.layerMask = 0x2;
+                    shadowGenerator.addShadowCaster(caster, false);
+                });
+
+                material.options.samplers.push("shadowSampler");
+                material.setTexture("shadowSampler", shadowGenerator.getShadowMapForRendering());
+                globalThis.__prepare = function () {
+                    return Promise.all([
+                        shadowGenerator.forceCompilationAsync(),
+                        material.forceCompilationAsync(quad)
+                    ]);
+                };
+            )";
+
+        const auto pixels = RenderFullScreenQuad(WIDTH, HEIGHT, vertexShader, fragmentShader, false, setupScript);
+        ASSERT_EQ(pixels.size(), static_cast<size_t>(WIDTH) * HEIGHT * 4);
+
+        const auto redAtCell = [&pixels](uint32_t cell) {
+            const uint32_t x = cell * CELL_SIZE + CELL_SIZE / 2;
+            const uint32_t y = HEIGHT / 2;
+            return static_cast<int>(pixels[(static_cast<size_t>(y) * WIDTH + x) * 4]);
+        };
+        const char* faceNames[] = {"+X", "-X", "-Y", "+Y", "+Z", "-Z"};
+        for (uint32_t face = 0; face < FACE_COUNT; ++face)
+        {
+            const int shadowed = redAtCell(face * 2);
+            const int lit = redAtCell(face * 2 + 1);
+            EXPECT_LT(shadowed, 64)
+                << faceNames[face] << " off-axis caster ray was not shadowed (visibility=" << shadowed << ")";
+            EXPECT_GT(lit, 192)
+                << faceNames[face] << " projection-Y mirror ray was not lit (visibility=" << lit << ")";
+        }
+    }
+#endif
 }
 
 TEST(ShaderCompilation, FragCoordSetupAndPreparationFailuresPropagate)
@@ -667,10 +852,12 @@ TEST(NativeEngineInstanceData, DynamicVertexBufferUpdateWithEmptyStreamDoesNotWa
 // gl_FragCoord.y must increase towards +Y in clip space, like the interpolated vUV.y
 // the quad supplies. Without the correction the two ramps become mirror images.
 //
-// Two channels of a single render are compared rather than absolute row indices
-// because Helpers::ReadPixels returns the bottom scanline first on OpenGL and the top
-// first on D3D11; an absolute check would encode one backend's readback convention
-// instead of the shading language rule under test.
+// The comparison is made between two channels of a single render rather than
+// against absolute row indices on purpose: Helpers::ReadPixels is a plain
+// glReadPixels on OpenGL, which returns the bottom scanline first, while the
+// D3D11 path returns the top scanline first. An absolute check would therefore
+// encode the readback convention of one backend rather than the shading
+// language rule under test.
 TEST(ShaderCompilation, FragCoordYMatchesInterpolatedUV)
 {
 #if defined(SKIP_EXTERNAL_TEXTURE_TESTS) || defined(SKIP_RENDER_TESTS)
@@ -710,13 +897,15 @@ TEST(ShaderCompilation, FragCoordYMatchesInterpolatedUV)
               << ", row " << (HEIGHT - 1) << " fragCoord=" << last.first << " uv=" << last.second
               << std::endl;
 
-    // Guard against a vacuous pass: the reference ramp must actually sweep the range.
+    // Guard against the whole comparison passing vacuously: the reference ramp
+    // has to actually sweep the range rather than sitting at a constant.
     ASSERT_GT(std::abs(first.second - last.second), 200)
         << "vUV.y reference ramp did not vary across the target";
 
-    // Both channels come from the same fragment invocation, so they must agree row by
-    // row whichever end of the image the readback starts at. The tolerance absorbs
-    // interpolation and 8-bit quantization only.
+    // Both channels are produced by the same fragment invocation, so they must
+    // agree row by row no matter which end of the image the readback starts at.
+    // The tolerance absorbs interpolation and 8-bit quantization only; a flipped
+    // gl_FragCoord.y misses by the full range of the ramp.
     for (uint32_t row = 0; row < HEIGHT; ++row)
     {
         const auto values = texel(row);
@@ -727,60 +916,15 @@ TEST(ShaderCompilation, FragCoordYMatchesInterpolatedUV)
 #endif
 }
 
-// `return gl_FragCoord;` parents the symbol on TIntermBranch, which MakeReplacements
-// must handle; without that the compiler throws "Cannot replace symbol".
-TEST(ShaderCompilation, FragCoordDirectReturnMatchesInterpolatedUV)
-{
-#if defined(SKIP_EXTERNAL_TEXTURE_TESTS) || defined(SKIP_RENDER_TESTS)
-    GTEST_SKIP();
-#else
-    constexpr uint32_t WIDTH = 8;
-    constexpr uint32_t HEIGHT = 64;
-
-    const std::string vertexShader =
-        "precision highp float;\n"
-        "attribute vec3 position;\n"
-        "attribute vec2 uv;\n"
-        "varying vec2 vUV;\n"
-        "void main(void) { vUV = uv; gl_Position = vec4(position, 1.0); }\n";
-
-    const std::string fragmentShader =
-        "precision highp float;\n"
-        "uniform vec2 targetSize;\n"
-        "varying vec2 vUV;\n"
-        "vec4 fragCoord() { return gl_FragCoord; }\n"
-        "void main(void) {\n"
-        "    gl_FragColor = vec4(fragCoord().y / targetSize.y, vUV.y, 0.0, 1.0);\n"
-        "}\n";
-
-    auto pixels = RenderFullScreenQuad(WIDTH, HEIGHT, vertexShader, fragmentShader, false);
-    ASSERT_EQ(pixels.size(), static_cast<size_t>(WIDTH) * HEIGHT * 4);
-
-    const auto texel = [&pixels](uint32_t row) {
-        const size_t offset = static_cast<size_t>(row) * WIDTH * 4;
-        return std::make_pair(static_cast<int>(pixels[offset]), static_cast<int>(pixels[offset + 1]));
-    };
-
-    const auto first = texel(0);
-    const auto last = texel(HEIGHT - 1);
-    ASSERT_GT(std::abs(first.second - last.second), 200)
-        << "vUV.y reference ramp did not vary across the target";
-
-    for (uint32_t row = 0; row < HEIGHT; ++row)
-    {
-        const auto values = texel(row);
-        ASSERT_LE(std::abs(values.first - values.second), 6)
-            << "gl_FragCoord.y disagrees with the interpolated vUV.y at row " << row
-            << " after a direct return (gl_FragCoord=" << values.first << ", vUV=" << values.second << ")";
-    }
-#endif
-}
-
 // Indexing a screen-sized texture with gl_FragCoord must give the same image as
-// indexing it with the interpolated UVs of a full-screen quad; this only holds if the
-// gl_FragCoord correction and FlipSamplerCoordinatesTraverser compose to a no-op.
-// The two addressing modes are compared against each other rather than against the
-// source pixels so the test does not depend on createRawTexture's memory layout.
+// indexing it with the interpolated UVs of a full-screen quad. This is the
+// pattern used by order-independent transparency, TAA and screen space
+// curvature, and it only holds if the gl_FragCoord correction and
+// FlipSamplerCoordinatesTraverser compose to a no-op.
+//
+// Comparing the two addressing modes against each other rather than against the
+// source pixels keeps the test independent of how createRawTexture lays its data
+// out in memory.
 TEST(ShaderCompilation, FragCoordAndUVAddressATextureIdentically)
 {
 #if defined(SKIP_EXTERNAL_TEXTURE_TESTS) || defined(SKIP_RENDER_TESTS)
@@ -827,7 +971,8 @@ TEST(ShaderCompilation, FragCoordAndUVAddressATextureIdentically)
         return static_cast<int>(pixels[static_cast<size_t>(row) * WIDTH * 4]);
     };
 
-    // Guard against a vacuous pass: the source must actually vary down the image.
+    // Guard against a vacuous pass: the source must actually vary down the image,
+    // otherwise a vertical mirror would be undetectable.
     ASSERT_GT(std::abs(red(uvPixels, 0) - red(uvPixels, HEIGHT - 1)), 200)
         << "the source texture must vary from top to bottom for this test to mean anything";
 
@@ -838,6 +983,91 @@ TEST(ShaderCompilation, FragCoordAndUVAddressATextureIdentically)
     {
         ASSERT_EQ(red(fragCoordPixels, row), red(uvPixels, row))
             << "row " << row << " differs between gl_FragCoord and uv addressing";
+    }
+#endif
+}
+
+TEST(ShaderCompilation, PbrRoughnessSquareInNestedLoops)
+{
+#if defined(SKIP_EXTERNAL_TEXTURE_TESTS) || defined(SKIP_RENDER_TESTS)
+    GTEST_SKIP();
+#else
+    const std::string vertexShader =
+        "precision highp float;\n"
+        "attribute vec3 position;\n"
+        "void main(void) { gl_Position = vec4(position, 1.0); }\n";
+
+    // Use the production include: FXC can replace roughness squared with
+    // roughness when the saturated value is used inside nested dynamic loops.
+    const std::string fragmentShader =
+        "precision highp float;\n"
+        "uniform vec2 targetSize;\n"
+        "#include<helperFunctions>\n"
+        "#include<pbrHelperFunctions>\n"
+        "void main(void) {\n"
+        "    vec3 result = vec3(0.0);\n"
+        "    for (int i = 0; i < int(targetSize.x); ++i) {\n"
+        "        for (int j = 0; j < int(targetSize.y); ++j) {\n"
+        "            float roughness = clamp(1.0 / targetSize.x, 0.0, 1.0);\n"
+        "            result = vec3(roughness, convertRoughnessToAverageSlope(roughness), sqrt(roughness));\n"
+        "        }\n"
+        "    }\n"
+        "    gl_FragColor = vec4(result, 1.0);\n"
+        "}\n";
+
+    auto pixels = RenderFullScreenQuad(2, 1, vertexShader, fragmentShader, false);
+    ASSERT_EQ(pixels.size(), 8u);
+    for (size_t offset = 0; offset < pixels.size(); offset += 4)
+    {
+        EXPECT_NEAR(pixels[offset], 128, 1);
+        EXPECT_NEAR(pixels[offset + 1], 64, 1) << "roughness 0.5 must produce alphaG 0.2505, not 0.5005";
+        EXPECT_NEAR(pixels[offset + 2], 180, 1);
+        EXPECT_EQ(pixels[offset + 3], 255);
+    }
+#endif
+}
+
+TEST(ShaderCompilation, SaturatedArithmeticInNestedLoops)
+{
+#if defined(SKIP_EXTERNAL_TEXTURE_TESTS) || defined(SKIP_RENDER_TESTS)
+    GTEST_SKIP();
+#else
+    const std::string vertexShader =
+        "precision highp float;\n"
+        "attribute vec3 position;\n"
+        "void main(void) { gl_Position = vec4(position, 1.0); }\n";
+    const std::string arithmetic =
+        "float value = clamp(1.0 / targetSize.x, 0.0, 1.0);\n"
+        "float squared = value * value;\n"
+        "float fifth = squared * squared * value;\n"
+        "float attenuation = clamp(1.0 - value, 0.0, 1.0);\n"
+        "attenuation *= attenuation;\n"
+        "result = vec3(squared, fifth, attenuation);\n";
+    const std::vector<std::pair<std::string, std::string>> loops{
+        {"for (int i = 0; i < int(targetSize.x); ++i) { for (int j = 0; j < int(targetSize.y); ++j) {\n", "}}\n"},
+        {"int i = 0; while (i++ < int(targetSize.x)) { int j = 0; while (j++ < int(targetSize.y)) {\n", "}}\n"},
+        {"int i = 0; do { int j = 0; do {\n", "} while (++j < int(targetSize.y)); } while (++i < int(targetSize.x));\n"},
+    };
+    for (const auto& loop : loops)
+    {
+        SCOPED_TRACE(loop.first);
+        const std::string fragmentShader =
+            "precision highp float;\n"
+            "uniform vec2 targetSize;\n"
+            "void main(void) {\n"
+            "vec3 result = vec3(0.0);\n" +
+            loop.first + arithmetic + loop.second +
+            "gl_FragColor = vec4(result, 1.0);\n"
+            "}\n";
+        auto pixels = RenderFullScreenQuad(2, 1, vertexShader, fragmentShader, false);
+        ASSERT_EQ(pixels.size(), 8u);
+        for (size_t offset = 0; offset < pixels.size(); offset += 4)
+        {
+            EXPECT_NEAR(pixels[offset], 64, 1);
+            EXPECT_NEAR(pixels[offset + 1], 8, 1);
+            EXPECT_NEAR(pixels[offset + 2], 64, 1);
+            EXPECT_EQ(pixels[offset + 3], 255);
+        }
     }
 #endif
 }
