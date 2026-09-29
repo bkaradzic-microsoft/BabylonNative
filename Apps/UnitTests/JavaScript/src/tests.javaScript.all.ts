@@ -10,6 +10,9 @@ import {
   RequestFile,
   NativeEngine,
   RawTexture,
+  ThinNativeEngine,
+  Matrix,
+  VertexData,
   DynamicTexture,
   MeshBuilder,
   DefaultRenderingPipeline,
@@ -350,6 +353,42 @@ describe("ColorParsing", function () {
     }
     expect(incorrectColor).to.throw();
   });
+});
+
+describe("Native engine creation options", function () {
+  for (const [name, EngineType] of [["NativeEngine", NativeEngine], ["ThinNativeEngine", ThinNativeEngine]] as const) {
+    for (const useLargeWorldRendering of [false, true]) {
+      it(`${name} preserves ${useLargeWorldRendering ? "large-world" : "high-precision"} options`, function () {
+        const options = {
+          adaptToDeviceRatio: false,
+          useLargeWorldRendering,
+          useHighPrecisionMatrix: !useLargeWorldRendering
+        };
+        const engine = new EngineType(options);
+        try {
+          expect(engine.getCreationOptions().useLargeWorldRendering).to.equal(useLargeWorldRendering);
+          expect(engine.getCreationOptions().useHighPrecisionMatrix).to.equal(!useLargeWorldRendering);
+          const matrix = Matrix.Translation(1_000_000_001, 0, 999_999_999);
+          expect(matrix.m[12]).to.equal(1_000_000_001);
+          expect(matrix.m[14]).to.equal(999_999_999);
+          const vertices = new VertexData();
+          vertices.positions = new Float32Array([1, 2, 3]);
+          vertices.normals = new Float32Array([1, 0, 0]);
+          vertices.tangents = new Float32Array([1, 0, 0, 1]);
+          vertices.transform(Matrix.Translation(5, 6, 7));
+          expect(Array.from(vertices.positions)).to.deep.equal([6, 8, 10]);
+          expect(Array.from(vertices.normals)).to.deep.equal([1, 0, 0]);
+          expect(Array.from(vertices.tangents)).to.deep.equal([1, 0, 0, 1]);
+          const scene = new Scene(engine);
+          expect(scene.floatingOriginMode).to.equal(useLargeWorldRendering);
+          scene.dispose();
+        } finally {
+          engine.dispose();
+          new EngineType().dispose();
+        }
+      });
+    }
+  }
 });
 
 describe("Native splat matrix storage", function () {
