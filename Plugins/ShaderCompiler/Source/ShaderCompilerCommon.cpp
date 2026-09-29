@@ -1,4 +1,5 @@
 #include "ShaderCompilerCommon.h"
+#include <Babylon/Plugins/ShaderCompiler.h>
 #include <bx/bx.h>
 #include <bgfx/bgfx.h>
 
@@ -10,6 +11,16 @@ namespace bgfx
 {
     uint16_t attribToId(Attrib::Enum _attr);
 }
+
+#ifndef D3D11
+namespace Babylon::Plugins
+{
+    Graphics::BgfxShaderInfo ShaderCompiler::CompileCompute(std::string_view)
+    {
+        throw std::runtime_error{"Compute shader compilation is currently supported only on D3D11"};
+    }
+}
+#endif
 
 namespace Babylon::ShaderCompilerCommon
 {
@@ -312,40 +323,40 @@ namespace Babylon::ShaderCompilerCommon
             default:
                 return resources.separate_samplers;
         }
-    }
+        }
 
-    SamplerResourceSet DefaultSamplerResourceSet()
-    {
+        SamplerResourceSet DefaultSamplerResourceSet()
+        {
 #if __APPLE__
-        // Metal binds images, not samplers.
-        return SamplerResourceSet::SeparateImages;
+            // Metal binds images, not samplers.
+            return SamplerResourceSet::SeparateImages;
 #elif OPENGL
-        return SamplerResourceSet::SampledImages;
+            return SamplerResourceSet::SampledImages;
 #else
-        return SamplerResourceSet::SeparateSamplers;
+            return SamplerResourceSet::SeparateSamplers;
 #endif
+        }
     }
-}
 
-Graphics::BgfxShaderInfo CreateBgfxShader(ShaderInfo vertexShaderInfo, ShaderInfo fragmentShaderInfo, std::map<std::string, uint32_t> builtInInstanceDataSlots)
-{
-    return CreateBgfxShader(
-        std::move(vertexShaderInfo),
-        std::move(fragmentShaderInfo),
-        std::move(builtInInstanceDataSlots),
-        DefaultSamplerResourceSet(),
-        AppendSamplers);
-}
+    Graphics::BgfxShaderInfo CreateBgfxShader(ShaderInfo vertexShaderInfo, ShaderInfo fragmentShaderInfo, std::map<std::string, uint32_t> builtInInstanceDataSlots)
+    {
+        return CreateBgfxShader(
+            std::move(vertexShaderInfo),
+            std::move(fragmentShaderInfo),
+            std::move(builtInInstanceDataSlots),
+            DefaultSamplerResourceSet(),
+            AppendSamplers);
+    }
 
-Graphics::BgfxShaderInfo CreateBgfxShader(
-    ShaderInfo vertexShaderInfo,
-    ShaderInfo fragmentShaderInfo,
-    std::map<std::string, uint32_t> builtInInstanceDataSlots,
-    SamplerResourceSet samplerResources,
-    AppendSamplersFn appendSamplers)
-{
-    Graphics::BgfxShaderInfo bgfxShaderInfo{};
-    bgfxShaderInfo.BuiltInInstanceDataSlots = std::move(builtInInstanceDataSlots);
+    Graphics::BgfxShaderInfo CreateBgfxShader(
+        ShaderInfo vertexShaderInfo,
+        ShaderInfo fragmentShaderInfo,
+        std::map<std::string, uint32_t> builtInInstanceDataSlots,
+        SamplerResourceSet samplerResources,
+        AppendSamplersFn appendSamplers)
+    {
+        Graphics::BgfxShaderInfo bgfxShaderInfo{};
+        bgfxShaderInfo.BuiltInInstanceDataSlots = std::move(builtInInstanceDataSlots);
 
     // Must match BGFX_SHADER_BIN_VERSION in bgfx tools/shaderc/shaderc.cpp.
     // v12 requires raw SRV/UAV binding masks after the in/out hashes, and
@@ -368,15 +379,14 @@ Graphics::BgfxShaderInfo CreateBgfxShader(
         const spirv_cross::SmallVector<spirv_cross::Resource>& samplers{SelectSamplers(resources, samplerResources)};
         size_t numUniforms{uniformsInfo.Uniforms.size() + samplers.size()};
 
-        AppendBytes(vertexBytes, BX_MAKEFOURCC('V', 'S', 'H', BGFX_SHADER_BIN_VERSION));
-        AppendBytes(vertexBytes, vertexOutputsHash);
-        AppendBytes(vertexBytes, fragmentInputsHash);
-        // Raw SRV/UAV masks (bgfx v12). BN runtime shaders don't expose raw buffers here.
-        AppendBytes(vertexBytes, static_cast<uint32_t>(0));
-        AppendBytes(vertexBytes, static_cast<uint32_t>(0));
+            AppendBytes(vertexBytes, BX_MAKEFOURCC('V', 'S', 'H', BGFX_SHADER_BIN_VERSION));
+            AppendBytes(vertexBytes, vertexOutputsHash);
+            AppendBytes(vertexBytes, fragmentInputsHash);
+            AppendBytes(vertexBytes, vertexShaderInfo.RawSrvMask);
+            AppendBytes(vertexBytes, vertexShaderInfo.RawUavMask);
 
-        AppendBytes(vertexBytes, static_cast<uint16_t>(numUniforms));
-        AppendUniformBuffer(vertexBytes, uniformsInfo, false);
+            AppendBytes(vertexBytes, static_cast<uint16_t>(numUniforms));
+            AppendUniformBuffer(vertexBytes, uniformsInfo, false);
         appendSamplers(vertexBytes, compiler, vertexShaderInfo.Parser->get_parsed_ir(), samplers, bgfxShaderInfo.UniformStages);
 
         AppendBytes(vertexBytes, static_cast<uint32_t>(vertexShaderInfo.Bytes.size()));
@@ -426,15 +436,14 @@ Graphics::BgfxShaderInfo CreateBgfxShader(
         const spirv_cross::SmallVector<spirv_cross::Resource>& samplers{SelectSamplers(resources, samplerResources)};
         size_t numUniforms = uniformsInfo.Uniforms.size() + samplers.size();
 
-        AppendBytes(fragmentBytes, BX_MAKEFOURCC('F', 'S', 'H', BGFX_SHADER_BIN_VERSION));
-        AppendBytes(fragmentBytes, vertexOutputsHash);
-        AppendBytes(fragmentBytes, fragmentInputsHash);
-        // Raw SRV/UAV masks (bgfx v12). BN runtime shaders don't expose raw buffers here.
-        AppendBytes(fragmentBytes, static_cast<uint32_t>(0));
-        AppendBytes(fragmentBytes, static_cast<uint32_t>(0));
+            AppendBytes(fragmentBytes, BX_MAKEFOURCC('F', 'S', 'H', BGFX_SHADER_BIN_VERSION));
+            AppendBytes(fragmentBytes, vertexOutputsHash);
+            AppendBytes(fragmentBytes, fragmentInputsHash);
+            AppendBytes(fragmentBytes, fragmentShaderInfo.RawSrvMask);
+            AppendBytes(fragmentBytes, fragmentShaderInfo.RawUavMask);
 
-        AppendBytes(fragmentBytes, static_cast<uint16_t>(numUniforms));
-        AppendUniformBuffer(fragmentBytes, uniformsInfo, true);
+            AppendBytes(fragmentBytes, static_cast<uint16_t>(numUniforms));
+            AppendUniformBuffer(fragmentBytes, uniformsInfo, true);
         appendSamplers(fragmentBytes, compiler, fragmentShaderInfo.Parser->get_parsed_ir(), samplers, bgfxShaderInfo.UniformStages);
 
         AppendBytes(fragmentBytes, static_cast<uint32_t>(fragmentShaderInfo.Bytes.size()));
@@ -447,6 +456,60 @@ Graphics::BgfxShaderInfo CreateBgfxShader(
         AppendBytes(fragmentBytes, static_cast<uint16_t>(uniformsInfo.ByteSize));
     }
 
-    return bgfxShaderInfo;
-}
+        return bgfxShaderInfo;
+    }
+
+    Graphics::BgfxShaderInfo CreateBgfxComputeShader(ShaderInfo computeShaderInfo)
+    {
+        Graphics::BgfxShaderInfo bgfxShaderInfo{};
+
+        // Must match BGFX_SHADER_BIN_VERSION in bgfx tools/shaderc/shaderc.cpp.
+        // bgfx rejects anything older than v12 (isShaderVerLess(magic, 12)).
+        constexpr uint8_t BGFX_SHADER_BIN_VERSION{12};
+
+        // Compute shaders have no vertex-varying interface, so both interface hashes are zero
+        // (bgfx's own shaderc writes 0 for the compute input hash).
+        constexpr uint32_t inputHash{0};
+        constexpr uint32_t outputHash{0};
+
+        std::vector<uint8_t>& computeBytes{bgfxShaderInfo.ComputeBytes};
+
+        const spirv_cross::Compiler& compiler{*computeShaderInfo.Compiler};
+        const spirv_cross::ShaderResources resources{compiler.get_shader_resources()};
+        const auto uniformsInfo{CollectNonSamplerUniforms(*computeShaderInfo.Parser, compiler)};
+#if __APPLE__
+        const spirv_cross::SmallVector<spirv_cross::Resource>& samplers{resources.separate_images};
+#elif OPENGL
+        const spirv_cross::SmallVector<spirv_cross::Resource>& samplers = resources.sampled_images;
+#else
+        // Graphics shaders run SplitSamplersIntoSamplersAndTextures, so separate_samplers is
+        // populated. Compute skips that pass and keeps combined sampled_images; without the
+        // fallback the CSH uniform table has zero samplers and setTexture never binds
+        // randomTexture (GPU particles stay dead). Prefer separate_samplers when present.
+        const spirv_cross::SmallVector<spirv_cross::Resource>& samplers =
+            resources.separate_samplers.empty() ? resources.sampled_images : resources.separate_samplers;
+#endif
+        const size_t numUniforms{uniformsInfo.Uniforms.size() + samplers.size()};
+
+        AppendBytes(computeBytes, BX_MAKEFOURCC('C', 'S', 'H', BGFX_SHADER_BIN_VERSION));
+        AppendBytes(computeBytes, inputHash);
+        AppendBytes(computeBytes, outputHash);
+        AppendBytes(computeBytes, computeShaderInfo.RawSrvMask);
+        AppendBytes(computeBytes, computeShaderInfo.RawUavMask);
+
+        AppendBytes(computeBytes, static_cast<uint16_t>(numUniforms));
+        AppendUniformBuffer(computeBytes, uniformsInfo, false);
+        AppendSamplers(computeBytes, compiler, computeShaderInfo.Parser->get_parsed_ir(), samplers, bgfxShaderInfo.UniformStages);
+
+        AppendBytes(computeBytes, static_cast<uint32_t>(computeShaderInfo.Bytes.size()));
+        AppendBytes(computeBytes, computeShaderInfo.Bytes);
+        AppendBytes(computeBytes, static_cast<uint8_t>(0));
+
+        // Compute shaders have no vertex attributes.
+        AppendBytes(computeBytes, static_cast<uint8_t>(0));
+
+        AppendBytes(computeBytes, static_cast<uint16_t>(uniformsInfo.ByteSize));
+
+        return bgfxShaderInfo;
+    }
 }
