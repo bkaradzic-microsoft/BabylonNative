@@ -104,8 +104,19 @@ namespace Babylon
             }
         }
 
-        // Cached because DrawInternal consults it on every draw.
+        // Cached rather than looked up per draw: DrawInternal consults this on every single draw,
+        // and m_uniformInfos is stable for the lifetime of the program.
         m_fragCoordTargetSizeUniform = GetUniformInfo(Graphics::FRAGCOORD_TARGET_SIZE_UNIFORM_NAME);
+    }
+
+    void Program::InitializeCompute(std::shared_ptr<Graphics::BgfxShaderInfo> shaderInfo)
+    {
+        arcana::trace_region region{"Program::InitializeCompute"};
+
+        auto computeShader = CreateShader(shaderInfo, shaderInfo->ComputeBytes);
+        InitUniformInfos(computeShader, shaderInfo->UniformStages, m_uniformInfos, m_uniformNameToIndex);
+
+        m_handle = bgfx::createProgram(computeShader, true);
     }
 
     void Program::SetSources(std::string vertexSource, std::string fragmentSource)
@@ -209,5 +220,18 @@ namespace Babylon
         }
 
         return &itUniformInfo->second;
+    }
+
+    const UniformInfo* Program::GetSamplerInfoByStage(uint8_t stage) const
+    {
+        for (const auto& [index, info] : m_uniformInfos)
+        {
+            if (info.Type == bgfx::UniformType::Sampler && info.Stage == stage)
+            {
+                return &info;
+            }
+        }
+
+        return nullptr;
     }
 }

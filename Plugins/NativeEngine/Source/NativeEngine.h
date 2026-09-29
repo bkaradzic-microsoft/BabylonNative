@@ -72,6 +72,15 @@ namespace Babylon
         void UpdateDynamicVertexBuffer(const Napi::CallbackInfo& info);
         Napi::Value CreateProgram(const Napi::CallbackInfo& info);
         Napi::Value CreateProgramAsync(const Napi::CallbackInfo& info);
+        Napi::Value CreateComputeProgram(const Napi::CallbackInfo& info);
+        Napi::Value CreateStorageBuffer(const Napi::CallbackInfo& info);
+        void UpdateStorageBuffer(const Napi::CallbackInfo& info);
+                // Deferred SSBO upload ordered with COMMAND_COMPUTEDISPATCH in the command stream.
+                // Immediate updateStorageBuffer races ahead of deferred dispatches (e.g. GPU particle
+                // prewarm), so only the last params blob is visible to every dispatch.
+                void UpdateStorageBufferCommand(NativeDataStream::Reader& data);
+                void DeleteStorageBuffer(NativeDataStream::Reader& data);
+                void ComputeDispatch(NativeDataStream::Reader& data);
         Napi::Value GetUniforms(const Napi::CallbackInfo& info);
         Napi::Value GetAttributes(const Napi::CallbackInfo& info);
         void SetProgram(NativeDataStream::Reader& data);
@@ -156,6 +165,11 @@ namespace Babylon
         bgfx::Encoder* GetEncoder();
         Graphics::FrameBuffer& GetBoundFrameBuffer();
 
+        // One-shot GPU-compute self-test (env-gated by BABYLON_COMPUTE_SELFTEST). Compiles a
+        // trivial GLSL compute shader, dispatches it to write an image, and reads the result
+        // back to verify the ShaderCompiler compute path + bgfx compute wiring end to end.
+        void MaybeRunComputeSelfTest();
+
         std::shared_ptr<arcana::cancellation_source> m_cancellationSource{};
 
         // Tracks in-flight threadpool work that touches graphics resources (bgfx handles,
@@ -233,6 +247,21 @@ namespace Babylon
         Graphics::FrameBuffer m_defaultFrameBuffer;
         Graphics::FrameBuffer* m_boundFrameBuffer{};
         PerFrameValue<bool> m_boundFrameBufferNeedsRebinding;
+
+        // Last material texture binds on the frame encoder. Compute dispatch (and instance
+        // repack) clear encoder bind state; DrawInternal replays these so particle sheet
+        // samplers survive mid-draw compute.
+        struct BoundTexture
+        {
+            bgfx::UniformHandle Handle{bgfx::kInvalidHandle};
+            bgfx::TextureHandle Texture{bgfx::kInvalidHandle};
+            uint32_t Flags{};
+            uint16_t FirstLayer{};
+            uint16_t NumLayers{};
+            uint8_t MaxLod{UINT8_MAX};
+        };
+        std::map<uint8_t, BoundTexture> m_boundTextures{};
+        void RestoreBoundTextures(bgfx::Encoder* encoder);
 
         // TODO: This should be changed to a non-owning ref once multi-update is available.
         NativeDataStream* m_commandStream{};
