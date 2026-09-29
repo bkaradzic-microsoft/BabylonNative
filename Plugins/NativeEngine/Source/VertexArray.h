@@ -21,15 +21,41 @@ namespace Babylon
         void RecordIndexBuffer(IndexBuffer* indexBuffer);
         void RecordVertexBuffer(VertexBuffer* vertexBuffer, uint32_t location, uint32_t byteOffset, uint32_t byteStride, uint32_t numElements, uint32_t type, bool normalized, uint32_t divisor);
 
+        // Records a GPU compute-written storage buffer as a per-instance (divisor==1) source. The
+        // per-instance bytes are packed at byteOffset with byteStride inside the storage buffer;
+        // NativeEngine repacks them into bgfx i_data slots on the GPU (see InstanceRepacker).
+        void RecordStorageBuffer(StorageBuffer* storageBuffer, uint32_t location, uint32_t byteOffset, uint32_t byteStride, uint32_t numElements);
+
         void SetIndexBuffer(bgfx::Encoder* encoder, uint32_t firstIndex, uint32_t numIndices);
+        bool SetExpandedIndexBuffer(bgfx::Encoder* encoder, PrimitiveModeExpansion::Mode mode, uint32_t firstIndex, uint32_t numIndices);
+        bool SetExpandedUnindexedBuffer(bgfx::Encoder* encoder, PrimitiveModeExpansion::Mode mode, uint32_t numVertices);
         void SetVertexBuffers(bgfx::Encoder* encoder, uint32_t startVertex, uint32_t numVertices, uint32_t instanceCount, const VertexBuffer::InstanceDataLayout& instanceDataLayout);
 
         const std::map<uint32_t, VertexBuffer::InstanceInfo>& GetInstances() const { return m_vertexBufferInstances; }
 
+        // True when any recorded instance source is a GPU storage buffer, in which case the CPU
+        // BuildInstanceDataBuffer path is skipped and NativeEngine binds a GPU-repacked buffer.
+        bool HasStorageInstances() const;
+
     private:
+        struct UnindexedExpansionKey final
+        {
+            PrimitiveModeExpansion::Mode Mode{};
+            uint32_t VertexCount{};
+
+            bool operator<(const UnindexedExpansionKey& other) const;
+        };
+
+        struct ExpandedBuffer final
+        {
+            bgfx::IndexBufferHandle Handle{bgfx::kInvalidHandle};
+            uint32_t IndexCount{};
+        };
+
         Graphics::DeviceContext& m_deviceContext;
         const uintptr_t m_deviceId{};
         IndexBuffer* m_indexBuffer{};
+        std::map<UnindexedExpansionKey, ExpandedBuffer> m_unindexedExpandedBuffers{};
 
         struct VertexBufferRecord
         {
