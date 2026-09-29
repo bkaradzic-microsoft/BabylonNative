@@ -6,6 +6,7 @@
 #include <string>
 
 #include "JsConsoleLogger.h"
+#include "StorageBuffer.h"
 
 #include <arcana/threading/task.h>
 #include <arcana/threading/task_schedulers.h>
@@ -1001,6 +1002,9 @@ namespace Babylon
                 StaticValue("COMMAND_DELETEVERTEXARRAY", Napi::FunctionPointer::Create(env, &NativeEngine::DeleteVertexArray)),
                 StaticValue("COMMAND_DELETEINDEXBUFFER", Napi::FunctionPointer::Create(env, &NativeEngine::DeleteIndexBuffer)),
                 StaticValue("COMMAND_DELETEVERTEXBUFFER", Napi::FunctionPointer::Create(env, &NativeEngine::DeleteVertexBuffer)),
+                StaticValue("COMMAND_DELETESTORAGEBUFFER", Napi::FunctionPointer::Create(env, &NativeEngine::DeleteStorageBuffer)),
+                                StaticValue("COMMAND_UPDATESTORAGEBUFFER", Napi::FunctionPointer::Create(env, &NativeEngine::UpdateStorageBufferCommand)),
+                                StaticValue("COMMAND_COMPUTEDISPATCH", Napi::FunctionPointer::Create(env, &NativeEngine::ComputeDispatch)),
                 StaticValue("COMMAND_SETPROGRAM", Napi::FunctionPointer::Create(env, &NativeEngine::SetProgram)),
                 StaticValue("COMMAND_DELETEPROGRAM", Napi::FunctionPointer::Create(env, &NativeEngine::DeleteProgram)),
                 StaticValue("COMMAND_SETMATRICES", Napi::FunctionPointer::Create(env, &NativeEngine::SetMatrices)),
@@ -1067,6 +1071,9 @@ namespace Babylon
 
                 InstanceMethod("createProgram", &NativeEngine::CreateProgram),
                 InstanceMethod("createProgramAsync", &NativeEngine::CreateProgramAsync),
+                InstanceMethod("createComputeProgram", &NativeEngine::CreateComputeProgram),
+                InstanceMethod("createStorageBuffer", &NativeEngine::CreateStorageBuffer),
+                InstanceMethod("updateStorageBuffer", &NativeEngine::UpdateStorageBuffer),
                 InstanceMethod("getUniforms", &NativeEngine::GetUniforms),
                 InstanceMethod("getAttributes", &NativeEngine::GetAttributes),
 
@@ -1417,6 +1424,145 @@ namespace Babylon
 
         return jsProgram;
     }
+
+    // Compiles a GLSL ES 3.10 compute shader into a bgfx compute program (single CSH). Used by the
+    // native compute path (e.g. GPUParticleSystem). Throws (as a JS error) on compile failure so the
+    // JS side can surface it via ComputeEffect's isReady()/error flow.
+    Napi::Value NativeEngine::CreateComputeProgram(const Napi::CallbackInfo& info)
+    {
+        const std::string computeSource = info[0].As<Napi::String>().Utf8Value();
+                Program* program = new Program{m_deviceContext};
+        Napi::Value jsProgram = Napi::Pointer<Program>::Create(info.Env(), program, Napi::NapiPointerDeleter(program));
+        try
+        {
+            program->InitializeCompute(m_shaderProvider.GetCompute(computeSource));
+        }
+        catch (const std::exception& ex)
+        {
+            throw Napi::Error::New(info.Env(), ex.what());
+        }
+        return jsProgram;
+    }
+
+    // Creates a raw (ByteAddressBuffer) compute storage buffer. asVertexBuffer lets the same buffer
+        // double as a vertex stream (particles). computeWrite=false omits BGFX_BUFFER_COMPUTE_WRITE so
+        // CPU-updated readonly params buffers stay dynamic and updates stick on D3D11.
+        Napi::Value NativeEngine::CreateStorageBuffer(const Napi::CallbackInfo& info)
+        {
+            const uint32_t byteLength = ReadUnsignedInteger(info[0], "Storage buffer size", UINT32_MAX, 1);
+            const bool asVertexBuffer = info.Length() > 1 && info[1].As<Napi::Boolean>().Value();
+            const bool computeWrite = info.Length() <= 2 || info[2].As<Napi::Boolean>().Value();
+
+            try
+            {
+                StorageBuffer* storageBuffer = new StorageBuffer{m_deviceContext, byteLength, asVertexBuffer, 16, computeWrite};
+                return Napi::Pointer<StorageBuffer>::Create(info.Env(), storageBuffer, Napi::NapiPointerDeleter(storageBuffer));
+            }
+            catch (const std::exception& ex)
+            {
+                throw Napi::Error::New(info.Env(), ex.what());
+            }
+        }
+
+    void NativeEngine::UpdateStorageBuffer(const Napi::CallbackInfo& info)
+    {
+        StorageBuffer* storageBuffer = info[0].As<Napi::Pointer<StorageBuffer>>().Get();
+        const Napi::ArrayBuffer dataBuffer = info[1].As<Napi::ArrayBuffer>();
+        const uint32_t dataByteOffset = ReadUnsignedInteger(info[2], "Storage source offset", UINT32_MAX);
+        const uint32_t dataByteLength = ReadUnsignedInteger(info[3], "Storage source length", UINT32_MAX);
+        const uint32_t destByteOffset = info.Length() > 4 ? ReadUnsignedInteger(info[4], "Storage destination offset", UINT32_MAX) : 0;
+        if (dataByteOffset > dataBuffer.ByteLength() || dataByteLength > dataBuffer.ByteLength() - dataByteOffset)
+        {
+            throw Napi::RangeError::New(info.Env(), "StorageBuffer source range exceeds the ArrayBuffer");
+        }
+
+        try
+        {
+            storageBuffer->ValidateUpdate(dataByteLength, destByteOffset);
+            if (dataByteLength != 0)
+            {
+                storageBuffer->Update(gsl::make_span(static_cast<uint8_t*>(dataBuffer.Data()) + dataByteOffset, dataByteLength), destByteOffset);
+            }
+        }
+        catch (const std::exception& ex)
+        {
+            throw Napi::Error::New(info.Env(), ex.what());
+        }
+    }
+
+        // Stream layout: StorageBuffer*, destByteOffset, float32[] payload (copied at encode time).
+            // Must run before the matching COMMAND_COMPUTEDISPATCH so each particle prewarm sees its own params.
+            void NativeEngine::UpdateStorageBufferCommand(NativeDataStream::Reader& data)
+            {
+                StorageBuffer* storageBuffer = data.ReadPointer<StorageBuffer>();
+                const uint32_t destByteOffset = data.ReadUint32();
+                const auto floats = data.ReadFloat32Array();
+                const auto bytes = gsl::make_span(reinterpret_cast<const uint8_t*>(floats.data()), floats.size_bytes());
+                storageBuffer->Update(bytes, destByteOffset);
+            }
+
+            void NativeEngine::DeleteStorageBuffer(NativeDataStream::Reader& data)
+            {
+                data.ReadPointer<StorageBuffer>()->Dispose();
+            }
+
+    // Replays a compute dispatch recorded into the command stream. Stream layout:
+        //   program, numX, numY, numZ,
+        //   bufferCount, [stage, StorageBuffer*, access]*,
+        //   textureCount, [stage, Graphics::Texture*]*
+        // access: 0=Read (SRV), 1=Write, 2=ReadWrite (UAV). Readonly params/particlesIn bind SRV;
+        // writeable particlesOut bind UAV (SPIRV-Cross without force_storage_buffer_as_uav).
+        void NativeEngine::ComputeDispatch(NativeDataStream::Reader& data)
+        {
+            Program* program = data.ReadPointer<Program>();
+            const uint32_t numX = data.ReadUint32();
+            const uint32_t numY = data.ReadUint32();
+            const uint32_t numZ = data.ReadUint32();
+
+            // Always use the frame encoder. begin(true) per dispatch exhausts bgfx's encoder
+            // pool (handles are only reset at frame end). Dispatch clears encoder texture binds;
+            // RestoreBoundTextures brings material samplers back for subsequent draws.
+            bgfx::Encoder* encoder = GetEncoder();
+
+            const uint32_t bufferCount = data.ReadUint32();
+            for (uint32_t i = 0; i < bufferCount; ++i)
+            {
+                const uint8_t stage = static_cast<uint8_t>(data.ReadUint32());
+                StorageBuffer* buffer = data.ReadPointer<StorageBuffer>();
+                const uint32_t access = data.ReadUint32();
+                bgfx::Access::Enum bgfxAccess = access == 0 ? bgfx::Access::Read : (access == 1 ? bgfx::Access::Write : bgfx::Access::ReadWrite);
+                // Params SSBO (stage 0): ensure deferred shadow uploads are visible this dispatch.
+                                if (stage == 0)
+                                {
+                                    buffer->FlushShadowToGpu();
+                                }
+                                buffer->SetCompute(encoder, stage, bgfxAccess);
+                            }
+
+                            const uint32_t textureCount = data.ReadUint32();
+                            for (uint32_t i = 0; i < textureCount; ++i)
+                            {
+                                const uint8_t stage = static_cast<uint8_t>(data.ReadUint32());
+                                const Graphics::Texture* texture = data.ReadPointer<Graphics::Texture>();
+                                const UniformInfo* samplerInfo = program->GetSamplerInfoByStage(stage);
+                                if (samplerInfo != nullptr)
+                                {
+                                    encoder->setTexture(samplerInfo->Stage, samplerInfo->Handle, texture->Handle(),
+                                        texture->ViewNumLayers() != 0 ? texture->ViewFirstLayer() : 0,
+                                        texture->ViewNumLayers() != 0 ? texture->ViewNumLayers() : UINT16_MAX,
+                                        0, UINT8_MAX, texture->SamplerFlags(), 0, texture->SamplerMaxLod());
+                                }
+                            }
+
+                            GetBoundFrameBuffer().Compute(*encoder, program->Handle(), numX, numY, numZ);
+
+                            // Particle preWarm issues many ping-pong UAV dispatches in one logical frame.
+                            // Without a mid-frame submit, D3D11/bgfx can leave intermediate Out writes
+                            // invisible to the next In bind — only the last dispatch's particles survive.
+                            // RestoreBoundTextures first: ForceMidFrameFlush ends this encoder.
+                            RestoreBoundTextures(encoder);
+                            m_deviceContext.ForceMidFrameFlush();
+                        }
 
     Napi::Value NativeEngine::GetUniforms(const Napi::CallbackInfo& info)
     {
@@ -2511,24 +2657,50 @@ namespace Babylon
         const Graphics::Texture* texture = data.ReadPointer<Graphics::Texture>();
 
         bgfx::Encoder* encoder = GetEncoder();
-        const uint16_t firstLayer = texture->ViewNumLayers() != 0 ? texture->ViewFirstLayer() : 0;
-        const uint16_t numLayers = texture->ViewNumLayers() != 0 ? texture->ViewNumLayers() : UINT16_MAX;
-        encoder->setTexture(uniformInfo->Stage, uniformInfo->Handle, texture->Handle(),
-            firstLayer, numLayers, 0, UINT8_MAX, texture->SamplerFlags(), 0, texture->SamplerMaxLod());
-    }
 
+        BoundTexture bound{};
+        bound.Handle = uniformInfo->Handle;
+        bound.Texture = texture->Handle();
+        bound.Flags = texture->SamplerFlags();
+        bound.FirstLayer = texture->ViewNumLayers() != 0 ? texture->ViewFirstLayer() : 0;
+        bound.NumLayers = texture->ViewNumLayers() != 0 ? texture->ViewNumLayers() : UINT16_MAX;
+        bound.MaxLod = texture->SamplerMaxLod();
+        m_boundTextures[uniformInfo->Stage] = bound;
+
+        encoder->setTexture(uniformInfo->Stage, bound.Handle, bound.Texture,
+            bound.FirstLayer, bound.NumLayers, 0, UINT8_MAX, bound.Flags, 0, bound.MaxLod);
+    }
     void NativeEngine::UnsetTexture(NativeDataStream::Reader& data)
     {
         const UniformInfo* uniformInfo = data.ReadPointer<UniformInfo>();
 
         bgfx::Encoder* encoder = GetEncoder();
+        m_boundTextures.erase(uniformInfo->Stage);
         encoder->setTexture(uniformInfo->Stage, uniformInfo->Handle, BGFX_INVALID_HANDLE);
     }
 
     void NativeEngine::DiscardAllTextures(NativeDataStream::Reader&)
     {
         bgfx::Encoder* encoder = GetEncoder();
+        m_boundTextures.clear();
         encoder->discard(BGFX_DISCARD_BINDINGS);
+    }
+
+    void NativeEngine::RestoreBoundTextures(bgfx::Encoder* encoder)
+    {
+        if (encoder == nullptr)
+        {
+            return;
+        }
+        for (const auto& [stage, bound] : m_boundTextures)
+        {
+            if (!bgfx::isValid(bound.Handle) || !bgfx::isValid(bound.Texture))
+            {
+                continue;
+            }
+            encoder->setTexture(stage, bound.Handle, bound.Texture,
+                bound.FirstLayer, bound.NumLayers, 0, UINT8_MAX, bound.Flags, 0, bound.MaxLod);
+        }
     }
 
     void NativeEngine::DeleteTexture(const Napi::CallbackInfo& info)
@@ -3220,6 +3392,8 @@ const bool requestDepthStencilTexture = (depthStencilTextureRequest != nullptr);
             }
 
             GetBoundFrameBuffer().Clear(*encoder, flags, r, g, b, a, depth, stencil, colorAttachmentMask);
+            // FrameBuffer::Clear touches its view, discarding bgfx bindings. WebGL clears retain them.
+            RestoreBoundTextures(encoder);
         }
 
     Napi::Value NativeEngine::GetRenderWidth(const Napi::CallbackInfo& info)
@@ -3502,6 +3676,8 @@ const bool requestDepthStencilTexture = (depthStencilTextureRequest != nullptr);
             {
                 std::invoke(reader.ReadPointer<CommandFunctionPointerT>(), this, reader);
             }
+
+            MaybeRunComputeSelfTest();
         }
         catch (const std::exception& exception)
         {
@@ -3729,6 +3905,131 @@ const bool requestDepthStencilTexture = (depthStencilTextureRequest != nullptr);
         bgfx::Encoder* encoder = m_deviceContext.GetActiveEncoder();
         assert(encoder != nullptr);
         return encoder;
+    }
+
+    void NativeEngine::MaybeRunComputeSelfTest()
+    {
+        static const bool enabled = []() {
+#ifdef _WIN32
+            size_t len = 0;
+            char* value = nullptr;
+            if (_dupenv_s(&value, &len, "BABYLON_COMPUTE_SELFTEST") == 0 && value != nullptr)
+            {
+                std::free(value);
+                return true;
+            }
+            return false;
+#else
+            return std::getenv("BABYLON_COMPUTE_SELFTEST") != nullptr;
+#endif
+        }();
+        if (!enabled)
+        {
+            return;
+        }
+
+        // Run exactly once for the lifetime of the process.
+        static std::atomic<bool> started{false};
+        bool expected = false;
+        if (!started.compare_exchange_strong(expected, true))
+        {
+            return;
+        }
+
+        if ((bgfx::getCaps()->supported & BGFX_CAPS_COMPUTE) == 0)
+        {
+            std::fprintf(stderr, "[ComputeSelfTest] SKIP: renderer does not report BGFX_CAPS_COMPUTE\n");
+            return;
+        }
+
+        try
+        {
+            // --- Raw storage-buffer (ByteAddressBuffer) round-trip validation ---
+            // Pass 1 compute writes buf[i] = i (RWByteAddressBuffer.Store via SSBO).
+            // Pass 2 compute reads buf[i] and stores it into an image2D.
+            // This smoke check dispatches both passes; NativeEngineCompute unit tests
+            // read back pixels to verify the upstream bgfx raw-buffer binding path.
+            static const char* writeSource = R"(#version 310 es
+precision highp float;
+precision highp int;
+layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+layout(std430, binding = 0) buffer Buf { uint data[]; };
+void main() {
+    uint i = gl_GlobalInvocationID.x;
+    data[i] = i;
+}
+)";
+
+            static const char* readSource = R"(#version 310 es
+precision highp float;
+precision highp int;
+layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+layout(std430, binding = 1) readonly buffer Buf { uint data[]; };
+layout(rgba8, binding = 0) writeonly uniform highp image2D dest;
+void main() {
+    ivec2 p = ivec2(gl_GlobalInvocationID.xy);
+    uint i = uint(p.y) * 4u + uint(p.x);
+    uint v = data[i];
+    imageStore(dest, p, vec4(float(v) / 15.0, 0.0, 0.0, 1.0));
+}
+)";
+
+            auto writeInfo = m_shaderProvider.GetCompute(writeSource);
+            auto writeProgram = std::make_shared<Program>(m_deviceContext);
+            writeProgram->InitializeCompute(writeInfo);
+
+            auto readInfo = m_shaderProvider.GetCompute(readSource);
+            auto readProgram = std::make_shared<Program>(m_deviceContext);
+            readProgram->InitializeCompute(readInfo);
+
+            if (!bgfx::isValid(writeProgram->Handle()) || !bgfx::isValid(readProgram->Handle()))
+            {
+                std::fprintf(stderr, "[ComputeSelfTest] FAIL: compute program handle is invalid\n");
+                return;
+            }
+
+            constexpr uint16_t kSize = 4;
+            constexpr uint32_t kCount = kSize * kSize;
+
+            // Exercise the StorageBuffer wrapper: seed via Update (CPU shadow), then let the
+            // compute passes overwrite/read it. Creation is lazy on first SetCompute.
+            auto storage = std::make_shared<StorageBuffer>(m_deviceContext, static_cast<uint32_t>(kCount * sizeof(uint32_t)), /*asVertexBuffer*/ true);
+            {
+                std::array<uint32_t, kCount> seed{};
+                for (uint32_t i = 0; i < kCount; ++i)
+                {
+                    seed[i] = 0xFFFFFFFFu; // sentinel; pass 1 overwrites with i
+                }
+                storage->Update(gsl::make_span(reinterpret_cast<const uint8_t*>(seed.data()), seed.size() * sizeof(uint32_t)), 0);
+            }
+
+            const bgfx::TextureHandle texture = bgfx::createTexture2D(
+                kSize, kSize, /*hasMips*/ false, /*numLayers*/ 1, bgfx::TextureFormat::RGBA8,
+                BGFX_TEXTURE_COMPUTE_WRITE | BGFX_TEXTURE_READ_BACK);
+
+            {
+                bgfx::Encoder* encoder = GetEncoder();
+                // Pass 1: fill the raw buffer (buf[i] = i).
+                storage->SetCompute(encoder, 0, bgfx::Access::ReadWrite);
+                encoder->dispatch(0, writeProgram->Handle(), kCount, 1, 1);
+                // Pass 2: read the raw buffer into the image (readonly SSBO → SRV).
+                encoder->setImage(0, texture, 0, bgfx::Access::Write, bgfx::TextureFormat::RGBA8);
+                                storage->SetCompute(encoder, 1, bgfx::Access::Read);
+                encoder->dispatch(0, readProgram->Handle(), kSize, kSize, 1);
+            }
+
+            std::fprintf(stderr, "[ComputeSelfTest] PASS: StorageBuffer raw SSBO round-trip dispatched %ux%u (write CSH %zu, read CSH %zu bytes)\n",
+                kSize, kSize, writeInfo->ComputeBytes.size(), readInfo->ComputeBytes.size());
+
+            bgfx::destroy(texture);
+            storage->Dispose();
+            (void)writeProgram;
+            (void)readProgram;
+        }
+        catch (const std::exception& ex)
+        {
+            std::fprintf(stderr, "[ComputeSelfTest] FAIL (exception): %s\n", ex.what());
+        }
     }
 
 #ifdef BABYLON_NATIVE_NATIVEENGINE_TEST_HOOKS

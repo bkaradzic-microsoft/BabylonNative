@@ -48,6 +48,7 @@ set(SOURCES
     "Source/Tests.JavaScript.cpp"
     "Source/Tests.NativeEngine.InstanceData.cpp"
     "Source/Tests.NativeEngine.ImageFormats.cpp"
+    "Source/Tests.NativeEngine.StorageBuffer.cpp"
     "Source/Tests.NativeEngine.Mipmaps.cpp"
     "Source/Tests.NativeEngine.DepthTextures.cpp"
     "Source/Tests.NativeEngine.Msaa.cpp"
