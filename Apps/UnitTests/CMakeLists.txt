@@ -46,6 +46,7 @@ set(SOURCES
     "Source/Tests.NativeEngine.ImageFormats.cpp"
     "Source/Tests.NativeEngine.StorageBuffer.cpp"
     "Source/Tests.NativeEngine.Mipmaps.cpp"
+    "Source/Tests.NativeEngine.PrimitiveModeExpansion.cpp"
     "Source/Tests.NativeEngine.DepthTextures.cpp"
     "Source/Tests.NativeEngine.CubeRenderTargets.cpp"
     "Source/Tests.NativeEngine.Msaa.cpp"
