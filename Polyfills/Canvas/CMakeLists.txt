@@ -28,6 +28,7 @@ set(SOURCES
     "Source/Font.cpp"
     "Source/Font.h"
     "Source/nanosvg.h"
+    "Source/nanosvgrast.h"
     "Source/nanovg/nanovg.cpp"
     "Source/nanovg/nanovg.h"
     "Source/nanovg/nanovg_babylon.cpp"
@@ -59,7 +60,8 @@ if(BABYLON_NATIVE_PLUGIN_NATIVEENGINE_LOAD_IMAGES)
     target_compile_definitions(Canvas
         PRIVATE BABYLON_NATIVE_PLUGIN_NATIVEENGINE_LOAD_IMAGES)
     target_link_libraries(Canvas
-        PRIVATE bimg)
+        PRIVATE bimg
+        PRIVATE bimg_encode)
 endif()
 
 if(SHADERC_PATH AND NOT IOS AND NOT VISIONOS AND NOT ANDROID)
