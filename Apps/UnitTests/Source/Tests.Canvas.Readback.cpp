@@ -3,6 +3,8 @@
 #include <Babylon/AppRuntime.h>
 #include <Babylon/Graphics/Device.h>
 #include <Babylon/Polyfills/Canvas.h>
+#include <bimg/decode.h>
+#include <bx/allocator.h>
 #include "../../../Polyfills/Canvas/Source/Canvas.h"
 #include "../../../Polyfills/Canvas/Source/Context.h"
 #include "../../../Polyfills/Canvas/Source/nanovg/nanovg.h"
@@ -14,6 +16,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 extern Babylon::Graphics::Configuration g_deviceConfig;
@@ -60,6 +63,64 @@ namespace
         device.FinishRenderingCurrentFrame();
     }
 }
+
+#ifdef HAS_NATIVE_IMAGE_LOADING
+TEST(CanvasImages, SvgUsesBimgParserAndRgbaPixels)
+{
+    bx::DefaultAllocator allocator;
+    constexpr std::string_view svg{R"(<svg xmlns="http://www.w3.org/2000/svg" width="4" height="2"><rect width="2" height="2" fill="red"/></svg>)"};
+    const std::unique_ptr<bimg::ImageContainer, decltype(&bimg::imageFree)> image{
+        bimg::imageParse(&allocator, svg.data(), static_cast<uint32_t>(svg.size())), bimg::imageFree};
+    ASSERT_NE(image, nullptr);
+    EXPECT_EQ(image->m_parser, bimg::ImageParser::Svg);
+    EXPECT_EQ(image->m_format, bimg::TextureFormat::RGBA8);
+    EXPECT_EQ(image->m_width, 4);
+    EXPECT_EQ(image->m_height, 2);
+    ASSERT_EQ(image->m_size, 32);
+    EXPECT_TRUE(image->m_hasAlpha);
+    const auto* pixels = static_cast<const uint8_t*>(image->m_data);
+    EXPECT_EQ(pixels[0], 255);
+    EXPECT_EQ(pixels[1], 0);
+    EXPECT_EQ(pixels[2], 0);
+    EXPECT_EQ(pixels[3], 255);
+    EXPECT_EQ(pixels[15], 0);
+}
+
+TEST(CanvasImages, SvgUsesBimgDimensionPolicy)
+{
+    bx::DefaultAllocator allocator;
+    struct Fixture
+    {
+        const char* dimensions;
+        uint32_t width;
+        uint32_t height;
+    };
+    for (const auto& fixture : std::array<Fixture, 4>{{
+             {"width=\"4.25\" height=\"2.25\"", 4, 2},
+             {"width=\"4.5\" height=\"2.5\"", 5, 3},
+             {"width=\"64.0005\" height=\"64.0007\"", 64, 64},
+             {"width=\"8192\" height=\"2\"", 4096, 1},
+         }})
+    {
+        const std::string svg = std::string{"<svg xmlns=\"http://www.w3.org/2000/svg\" "} + fixture.dimensions + "></svg>";
+        const std::unique_ptr<bimg::ImageContainer, decltype(&bimg::imageFree)> image{
+            bimg::imageParse(&allocator, svg.data(), static_cast<uint32_t>(svg.size())), bimg::imageFree};
+        ASSERT_NE(image, nullptr) << fixture.dimensions;
+        EXPECT_EQ(image->m_parser, bimg::ImageParser::Svg);
+        EXPECT_EQ(image->m_width, fixture.width);
+        EXPECT_EQ(image->m_height, fixture.height);
+    }
+}
+
+TEST(CanvasImages, SvgRejectsInvalidDimensions)
+{
+    bx::DefaultAllocator allocator;
+    constexpr std::string_view svg{R"(<svg xmlns="http://www.w3.org/2000/svg" width="0" height="2"></svg>)"};
+    const std::unique_ptr<bimg::ImageContainer, decltype(&bimg::imageFree)> image{
+        bimg::imageParse(&allocator, svg.data(), static_cast<uint32_t>(svg.size())), bimg::imageFree};
+    EXPECT_EQ(image, nullptr);
+}
+#endif
 
 TEST(CanvasGradients, InterpolatesStraightColorAndAlpha)
 {
