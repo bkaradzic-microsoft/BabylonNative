@@ -1,3 +1,28 @@
+// ES2019 language polyfills for the (older Chakra) JS engine hosted by Babylon
+// Native. These built-ins are absent at runtime, so playground snippets and
+// Babylon core that use them throw "Object doesn't support property or method".
+// Defined non-enumerable to avoid leaking into for-in enumeration.
+(function () {
+    function define(proto, name, fn) {
+        if (!proto[name]) {
+            Object.defineProperty(proto, name, { value: fn, writable: true, configurable: true, enumerable: false });
+        }
+    }
+    define(String.prototype, "trimStart", function () { return this.replace(/^[\s\uFEFF\xA0]+/, ""); });
+    define(String.prototype, "trimEnd", function () { return this.replace(/[\s\uFEFF\xA0]+$/, ""); });
+    define(Array.prototype, "flat", function (depth) {
+        var d = depth === undefined ? 1 : Math.floor(depth);
+        if (isNaN(d) || d < 1) { return Array.prototype.slice.call(this); }
+        return Array.prototype.reduce.call(this, function (acc, cur) {
+            if (Array.isArray(cur)) { acc.push.apply(acc, cur.flat(d - 1)); } else { acc.push(cur); }
+            return acc;
+        }, []);
+    });
+    define(Array.prototype, "flatMap", function (cb, thisArg) {
+        return Array.prototype.map.call(this, cb, thisArg).flat();
+    });
+})();
+
 (function () {
     let currentScene;
     let config;
@@ -6,6 +31,8 @@
     const saveResult = (typeof opts.saveResults === "boolean") ? opts.saveResults : true;
     const testWidth = 600;
     const testHeight = 400;
+    // Browser visualization tests create their engine with antialias=false.
+    TestUtils.setMSAASamples(0);
     const generateReferences = !!opts.generateReferences;
     const breakOnFail = !!opts.breakOnFail;
     const stopOnFirstFailure = !!opts.stopOnFirstFailure;
@@ -32,6 +59,30 @@
         utilityLayerOwners.set(this.utilityLayerScene, this.originalScene);
         return result;
     };
+    let havokInitializationPromise;
+
+    function initializeHavokAsync() {
+        if (typeof HK !== "undefined") {
+            return Promise.resolve();
+        }
+
+        if (!havokInitializationPromise) {
+            havokInitializationPromise = Promise.all([
+                BABYLON.Tools.LoadFileAsync("app:///Scripts/HavokPhysics_umd.js", false),
+                BABYLON.Tools.LoadFileAsync("app:///Scripts/HavokPhysics.wasm", true)
+            ]).then(function (sources) {
+                (0, eval)(sources[0]);
+                if (typeof HavokPhysics !== "function") {
+                    throw new Error("HavokPhysics_umd.js did not register HavokPhysics");
+                }
+                return HavokPhysics({ wasmBinary: new Uint8Array(sources[1]) });
+            }).then(function (instance) {
+                globalThis.HK = instance;
+            });
+        }
+
+        return havokInitializationPromise;
+    }
 
     function shouldRunTest(test, index) {
         if (testIndices.length > 0 && testIndices.indexOf(index) === -1) {
@@ -128,7 +179,9 @@
             }
             finished = true;
             try {
-                engine.stopRenderLoop();
+                if (engine) {
+                    engine.stopRenderLoop();
+                }
             } catch (e) {
                 console.error(e);
             }
@@ -199,9 +252,30 @@
         }
     }
 
-    const engine = new BABYLON.NativeEngine();
-    globalThis.engine = engine;
-    engine.getCaps().parallelShaderCompile = undefined;
+    let engine;
+    let useHighPrecisionMatrices = false;
+
+    function createEngine(useLargeWorldRendering) {
+        const nativeEngine = new BABYLON.NativeEngine({
+            useLargeWorldRendering,
+            useHighPrecisionMatrix: useHighPrecisionMatrices
+        });
+        nativeEngine.getCaps().parallelShaderCompile = undefined;
+        nativeEngine.getRenderingCanvas = function () { return window; };
+        nativeEngine.getInputElement = function () { return 0; };
+        if (!window.screen) {
+            window.screen = {
+                width: nativeEngine.getRenderWidth(),
+                height: nativeEngine.getRenderHeight(),
+                availWidth: nativeEngine.getRenderWidth(),
+                availHeight: nativeEngine.getRenderHeight(),
+                colorDepth: 24,
+                pixelDepth: 24,
+                orientation: { angle: 0, type: "landscape-primary" }
+            };
+        }
+        return nativeEngine;
+    }
 
     // Broaden Babylon's default retry strategy for the test framework: in addition to
     // network drops (status 0, the default trigger), also retry transient HTTP errors
@@ -224,13 +298,92 @@
         return -1;
     };
 
-    engine.getRenderingCanvas = function () {
-        return window;
+    // getRenderingCanvas() hands out the window object as the "canvas", so playgrounds that
+    // reach for HTMLCanvasElement members find them missing and throw. Add the element-ish surface
+    // they actually use (style for CSS tweaks, focus/blur for input tests) on window itself rather
+    // than returning a wrapper, since input handling elsewhere compares against window by identity.
+    if (!window.style) {
+        window.style = {};
     }
+    if (typeof window.focus !== "function") {
+        window.focus = function () { };
+    }
+    if (typeof window.blur !== "function") {
+        window.blur = function () { };
+    }
+    // Native drives input through NativeDeviceInputSystem, which polls _native rather than
+    // subscribing to DOM events, so a dispatched pointer event would reach nothing. Playgrounds
+    // that drive picking synthetically (canvas.dispatchEvent(new PointerEvent(...))) therefore
+    // need the harness to hand the event to the same InputManager entry points the
+    // WebDeviceInputSystem would drive. Going through _onPointerDown/Move/Up rather than the
+    // public simulatePointer* matters: those take a caller-supplied PickingInfo and so bypass
+    // scene.skipPointerDownPicking / skipPointerUpPicking / skipPointerMovePicking, which is
+    // exactly what several of these tests exist to exercise.
+    const POINTER_INPUT_MOVE = 12;
+    const domListeners = new Map();
+    window.addEventListener = function (type, listener) {
+        if (typeof listener !== "function") {
+            return;
+        }
+        if (!domListeners.has(type)) {
+            domListeners.set(type, []);
+        }
+        domListeners.get(type).push(listener);
+    };
+    window.removeEventListener = function (type, listener) {
+        const list = domListeners.get(type);
+        if (list) {
+            const at = list.indexOf(listener);
+            if (at !== -1) {
+                list.splice(at, 1);
+            }
+        }
+    };
+    window.dispatchEvent = function (evt) {
+        if (!evt) {
+            return true;
+        }
 
-    engine.getInputElement = function () {
-        return 0;
-    }
+        if (evt.target === null || evt.target === undefined) {
+            evt.target = window;
+        }
+
+        const list = domListeners.get(evt.type);
+        if (list) {
+            for (const listener of list.slice()) {
+                listener.call(window, evt);
+            }
+        }
+
+        const inputManager = currentScene && currentScene._inputManager;
+        if (inputManager) {
+            if (evt.button === undefined) {
+                evt.button = 0;
+            }
+            switch (evt.type) {
+                case "pointermove":
+                    evt.inputIndex = POINTER_INPUT_MOVE;
+                    inputManager._onPointerMove(evt);
+                    break;
+                case "pointerdown":
+                    evt.inputIndex = evt.button + 2;
+                    inputManager._onPointerDown(evt);
+                    break;
+                case "pointerup":
+                    evt.inputIndex = evt.button + 2;
+                    inputManager._onPointerUp(evt);
+                    break;
+                case "keydown":
+                    inputManager._onKeyDown(evt);
+                    break;
+                case "keyup":
+                    inputManager._onKeyUp(evt);
+                    break;
+            }
+        }
+
+        return !evt.defaultPrevented;
+    };
 
     const canvas = window;
     globalThis.canvas = canvas;
@@ -300,11 +453,54 @@
         return false; // no error
     }
 
+    // The reference images are captured in a browser where the canvas is styled
+    // `background: greenyellow !important` (packages/tools/babylonServer/public/empty.html), so a
+    // scene that clears to a translucent color is composited over greenyellow by the page before
+    // the screenshot is taken. Native reads the framebuffer back directly and never sees that
+    // backdrop, so every such test differed by its whole background. Replicate the browser's
+    // compositing here: straight (non-premultiplied) source-over against the configured canvas
+    // background, defaulting to greenyellow. Translucent CSS backgrounds sit over the white page.
+    //
+    // FrameGraph owns its clears independently of scene.clearColor, and may copy transparent
+    // attachments to an otherwise opaque output. Always composite its final framebuffer.
+    // For legacy rendering, retain the clearColor-alpha gate: some Native particle and post-process
+    // paths write unexpected alpha after opaque clears. Compositing those exposed separate alpha
+    // defects and tinted previously matching images green.
+    const CANVAS_BACKGROUND = [173, 255, 47];
+
+    function compositeOverCanvasBackground(data, canvasBackgroundColor) {
+        let background = CANVAS_BACKGROUND;
+        if (canvasBackgroundColor) {
+            const rgba = _native.Canvas.parseColor(canvasBackgroundColor);
+            const alpha = (rgba >>> 24) / 255;
+            background = [rgba & 255, (rgba >>> 8) & 255, (rgba >>> 16) & 255]
+                .map(channel => channel * alpha + 255 * (1 - alpha));
+        }
+        for (let index = 0; index < data.length; index += 4) {
+            const alpha = data[index + 3];
+            if (alpha === 255) {
+                continue;
+            }
+            const src = alpha / 255;
+            const dst = 1 - src;
+            data[index] = Math.round(data[index] * src + background[0] * dst);
+            data[index + 1] = Math.round(data[index + 1] * src + background[1] * dst);
+            data[index + 2] = Math.round(data[index + 2] * src + background[2] * dst);
+            data[index + 3] = 255;
+        }
+        return data;
+    }
+
     function evaluateScreenshot(test, screenshot, referenceImage, done, compareFunction) {
         let testRes = true;
 
+        if (test.canvasBackgroundColor || (currentScene && (currentScene.frameGraph || (currentScene.clearColor && currentScene.clearColor.a < 1)))) {
+            compositeOverCanvasBackground(screenshot, test.canvasBackgroundColor);
+        }
+
         if (!test.onlyVisual) {
 
+            // Historical baseline; lower per-test exceptions as rendering fixes reach this target.
             const defaultErrorRatio = 2.5;
 
             if (compareFunction(test, screenshot, referenceImage, test.threshold || 25, test.errorRatio || defaultErrorRatio)) {
@@ -419,6 +615,10 @@
         let readinessReconcileTimer = null;
         let readinessTimeoutTimer = null;
         let waitingForReadiness = true;
+        // Classic EffectLayer RTTs (e.g. SelectionOutline mask) need one submitted
+        // frame before the compose pass can sample non-black content on Native/bgfx.
+        // Prime once after readiness so renderCount=1 still captures outlines.
+        let effectLayerPrimed = false;
 
         const runEvaluation = function (screenshot) {
             if (evaluated) {
@@ -486,6 +686,13 @@
                         }
                         return;
                     }
+
+                    if (!effectLayerPrimed && currentScene.effectLayers && currentScene.effectLayers.length > 0) {
+                        effectLayerPrimed = true;
+                        currentScene.render();
+                        return;
+                    }
+
                     frameIndex++;
 
                     if (captureFrame > 0 && frameIndex === captureFrame && TestUtils.captureNextFrame) {
@@ -748,8 +955,13 @@
                                 // eslint-disable-next-line no-unused-vars
                                 var name = ""; // see the note on the scriptToRun eval below
                                 try {
-                                    // Runs before the first await, so the eval still happens at the
-                                    // shallow stack depth this setTimeout exists to provide.
+                                    if (test.requiresHavok) {
+                                        await initializeHavokAsync();
+                                        if (finished) {
+                                            return;
+                                        }
+                                    }
+
                                     let createdScene = eval(pgCode);
 
                                     if (createdScene && createdScene.then) {
@@ -789,6 +1001,8 @@
                                             clearTimeout(createSceneTimeoutId);
                                             rejectSceneCreation = undefined;
                                         }
+                                    } else {
+                                        currentScene = createdScene;
                                     }
 
                                     if (finished) {
@@ -917,6 +1131,23 @@
         console.log(testInfo);
         TestUtils.setTitle(testInfo);
 
+        try {
+            const useLargeWorldRendering = !!test.useLargeWorldRendering;
+            if (!engine || !!engine.getCreationOptions().useLargeWorldRendering !== useLargeWorldRendering) {
+                if (engine) {
+                    engine.dispose();
+                    engine = undefined;
+                    globalThis.engine = undefined;
+                }
+                engine = createEngine(useLargeWorldRendering);
+                globalThis.engine = engine;
+            }
+        } catch (e) {
+            console.error(e);
+            failTest(done);
+            return;
+        }
+
         seed = 1;
         Math.random = seededRandom;
 
@@ -977,10 +1208,68 @@
         };
     }
 
+    // The Canvas polyfill registers its Image implementation on `_native` rather than as a global,
+    // but DOM code constructs it by its standard name - Particles/flowMap.ts FromUrlAsync does
+    // `new Image()` - so expose it under that name too.
+    if (typeof globalThis.Image === "undefined" && typeof _native !== "undefined" && _native.Image) {
+        globalThis.Image = _native.Image;
+    }
+
+    if (typeof globalThis.KeyboardEvent === "undefined") {
+        // Same rationale as PointerEvent below: the input manager only reads plain state
+        // (key, code, keyCode, modifier flags) off keyboard events.
+        globalThis.KeyboardEvent = function (type, init) {
+            this.type = type;
+            for (const key in (init || {})) {
+                this[key] = init[key];
+            }
+            if (this.key === undefined) { this.key = ""; }
+            if (this.code === undefined) { this.code = ""; }
+            if (this.keyCode === undefined) { this.keyCode = 0; }
+            if (this.ctrlKey === undefined) { this.ctrlKey = false; }
+            if (this.altKey === undefined) { this.altKey = false; }
+            if (this.shiftKey === undefined) { this.shiftKey = false; }
+            if (this.metaKey === undefined) { this.metaKey = false; }
+            if (this.repeat === undefined) { this.repeat = false; }
+            this.target = null;
+            this.defaultPrevented = false;
+            this.preventDefault = function () { this.defaultPrevented = true; };
+            this.stopPropagation = function () { };
+            this.stopImmediatePropagation = function () { };
+        };
+    }
+
+    // Babylon builds PointerEvents itself for Scene.simulatePointerDown/Move/Up. There is no DOM
+    // here, and the input manager only ever reads plain state off the event (pointerId, button,
+    // client coords, ...) and assigns inputIndex to it, so a data-holder is sufficient.
+    if (typeof globalThis.PointerEvent === "undefined") {
+        globalThis.PointerEvent = function (type, init) {
+            this.type = type;
+            for (const key in (init || {})) {
+                this[key] = init[key];
+            }
+            if (this.pointerId === undefined) { this.pointerId = 1; }
+            if (this.pointerType === undefined) { this.pointerType = "mouse"; }
+            if (this.button === undefined) { this.button = 0; }
+            if (this.buttons === undefined) { this.buttons = 0; }
+            if (this.clientX === undefined) { this.clientX = 0; }
+            if (this.clientY === undefined) { this.clientY = 0; }
+            if (this.movementX === undefined) { this.movementX = 0; }
+            if (this.movementY === undefined) { this.movementY = 0; }
+            this.target = null;
+            this.defaultPrevented = false;
+            this.preventDefault = function () { this.defaultPrevented = true; };
+            this.stopPropagation = function () { };
+        };
+    }
+
     document = {
         createElement: function (type) {
             if (type === "canvas") {
-                return new OffscreenCanvas(64, 64);
+                // Hand back a real Canvas polyfill instance rather than the stub above: callers
+                // such as FlowMap.FromUrlAsync need a 2D context that actually implements
+                // drawImage/getImageData, which the stub does not.
+                return engine.createCanvas(64, 64);
             }
             return {};
         },
@@ -1003,10 +1292,14 @@
                     const reason = getExclusionReason(t) || "";
                     console.log(i + "\t" + (t.title || "") + "\t" + (t.referenceImage || "") + "\t" + reason);
                 }
-                engine.dispose();
                 TestUtils.exit(0);
                 return;
             }
+
+            const runnableTests = config.tests.filter((test, index) => shouldRunTest(test, index) && getSkipReason(test) === null);
+            const selectedTests = justOnce ? runnableTests.slice(0, 1) : runnableTests;
+            // Precision is global, and cached matrices can only be promoted before the first engine.
+            useHighPrecisionMatrices = selectedTests.some(test => test.useLargeWorldRendering || test.useHighPrecisionMatrix);
 
             // Run tests
             const recursiveRunTest = function (i) {
@@ -1036,7 +1329,9 @@
                 }
                 if (i >= config.tests.length) {
                     logRunSummary();
-                    engine.dispose();
+                    if (engine) {
+                        engine.dispose();
+                    }
                     TestUtils.exit(failedCount > 0 ? -1 : 0);
                     return;
                 }
@@ -1059,7 +1354,9 @@
                     i++;
                     if (justOnce || i >= config.tests.length) {
                         logRunSummary();
-                        engine.dispose();
+                        if (engine) {
+                            engine.dispose();
+                        }
                         TestUtils.exit(failedCount > 0 ? -1 : 0);
                         return;
                     }
@@ -1074,13 +1371,40 @@
     }, false);
 
 
-    BABYLON.Tools.LoadFile("https://raw.githubusercontent.com/CedricGuillemet/dump/master/droidsans.ttf", (data) => {
-        _native.Canvas.loadTTFAsync("droidsans", data).then(function () {
-            _native.RootUrl = "https://playground.babylonjs.com";
-            console.log("Starting");
-            TestUtils.setTitle("Starting Native Validation Tests");
-            TestUtils.updateSize(testWidth, testHeight);
-            xhr.send();
+    function loadFontAssetAsync(url) {
+        return new Promise(function (resolve, reject) {
+            const request = new XMLHttpRequest();
+            request.open("GET", url);
+            request.responseType = "arraybuffer";
+            request.addEventListener("load", function () {
+                if (request.status >= 200 && request.status < 300 && request.response && request.response.byteLength > 0) {
+                    resolve(request.response);
+                } else {
+                    reject(new Error("Invalid font response from " + url + " (status " + request.status + ")"));
+                }
+            });
+            request.addEventListener("error", function () {
+                reject(new Error("Unable to load " + url + ": " + request.errorDetail));
+            });
+            request.send();
         });
-    }, undefined, undefined, true);
+    }
+
+    Promise.all([
+        loadFontAssetAsync("app:///Scripts/DroidSans.ttf"),
+        loadFontAssetAsync("app:///Scripts/Arimo-Regular.ttf")
+    ]).then(function (fonts) {
+        _native.Canvas.loadTTF("droidsans", fonts[0]);
+        _native.Canvas.loadTTF("monospace", fonts[0]);
+        return _native.Canvas.loadTTFAsync("Arial", fonts[1]);
+    }).then(function () {
+        _native.RootUrl = "https://playground.babylonjs.com";
+        console.log("Starting");
+        TestUtils.setTitle("Starting Native Validation Tests");
+        TestUtils.updateSize(testWidth, testHeight);
+        xhr.send();
+    }).catch(function (error) {
+        console.error("Failed to initialize validation fonts: " + error);
+        TestUtils.exit(1);
+    });
 })();

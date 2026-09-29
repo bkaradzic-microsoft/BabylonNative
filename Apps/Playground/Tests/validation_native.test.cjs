@@ -37,8 +37,14 @@ function makeScene(engine) {
     return scene;
 }
 
-function createRunner(options = {}) {
+async function createRunner(options = {}) {
     const state = { scenes: [], callbacks: [], timers: new Map(), errors: [], logs: [], exits: [], reads: [], readbacks: [], captures: [], sceneLoads: [] };
+    let initialized;
+    let initializationFailed;
+    const initialization = new Promise((resolve, reject) => {
+        initialized = resolve;
+        initializationFailed = reject;
+    });
     let nextTimerId = 0;
     let now = 0;
     let math;
@@ -63,7 +69,9 @@ function createRunner(options = {}) {
         return scene;
     }
     class Engine {
-        constructor() {
+        constructor(options = {}) {
+            state.engine = this;
+            this.creationOptions = options;
             this.scenes = [];
             this._virtualScenes = [];
             this.currentRenderPassId = 91;
@@ -83,9 +91,12 @@ function createRunner(options = {}) {
             }
         }
         getCaps() { return {}; }
+        getCreationOptions() { return this.creationOptions; }
         runRenderLoop(callback) { this.loop = callback; state.callbacks.push(callback); }
         stopRenderLoop() { this.loop = null; }
         getHardwareScalingLevel() { return 1; }
+        getRenderWidth() { return 600; }
+        getRenderHeight() { return 400; }
         setHardwareScalingLevel() {}
         setStencilBuffer() {}
         disableScissor() {}
@@ -107,25 +118,41 @@ function createRunner(options = {}) {
             return id;
         },
         clearTimeout: id => state.timers.delete(id),
-        _native: { Canvas: { loadTTFAsync: () => ({ then: callback => callback() }) } },
+        _native: {
+            Canvas: {
+                loadTTF() {},
+                loadTTFAsync: () => Promise.resolve(),
+                parseColor(color) {
+                    const colors = { greenyellow: 0xff2fffad, white: 0xffffffff };
+                    assert.ok(Object.hasOwn(colors, color), `Unexpected background color: ${color}`);
+                    return colors[color];
+                },
+            },
+        },
         TestUtils: {
             setTitle() {},
             updateSize() {},
+            setMSAASamples() {},
             getGraphicsApiName: () => "D3D11",
             getOutputDirectory: () => "unused",
             decodeImage: () => new Uint8Array([0, 0, 0, 255]),
             getImageData: image => image,
             getFrameBufferData(callback) {
-                state.reads.push(context.engine.rendered);
+                state.reads.push(state.engine.rendered);
                 if (options.deferReadback) {
                     state.readbacks.push(callback);
                 } else {
                     callback(new Uint8Array([0, 0, 0, 255]));
                 }
             },
-            captureNextFrame: () => state.captures.push(context.engine.rendered + 1),
+            captureNextFrame: () => state.captures.push(state.engine.rendered + 1),
             writePNG() { throw new Error("Unexpected image write"); },
-            exit: code => state.exits.push(code),
+            exit(code) {
+                state.exits.push(code);
+                if (code === 1) {
+                    initializationFailed(new Error(state.errors.join("\n")));
+                }
+            },
         },
         BABYLON: {
             NativeEngine: Engine,
@@ -154,10 +181,16 @@ function createRunner(options = {}) {
             },
         },
         XMLHttpRequest: class {
-            open() {}
-            addEventListener(name, callback) { this.ready = callback; }
+            listeners = {};
+            open(method, url) { this.url = url; }
+            addEventListener(name, callback) { this.listeners[name] = callback; }
             send() {
                 this.status = 200;
+                if (this.url.endsWith(".ttf")) {
+                    this.response = new ArrayBuffer(4);
+                    this.listeners.load();
+                    return;
+                }
                 this.responseText = JSON.stringify({
                     root: "",
                     tests: definitions.map(value => ({
@@ -165,18 +198,20 @@ function createRunner(options = {}) {
                         referenceImage: "reference.png", ...value,
                     })),
                 });
-                this.ready();
+                this.listeners.readystatechange();
+                initialized();
             }
         },
     });
     math = vm.runInContext("Math", context);
     vm.runInContext(source, context, { filename: "validation_native.js" });
+    await initialization;
     return {
         ...state,
-        engine: context.engine,
+        engine: state.engine,
         tick() {
-            if (context.engine.loop) {
-                context.engine.loop();
+            if (state.engine.loop) {
+                state.engine.loop();
             }
         },
         flushTimers() {
@@ -197,8 +232,9 @@ function createRunner(options = {}) {
     };
 }
 
-test("already-ready scenes keep their exact render count", () => {
-    const runner = createRunner({ renderCount: 3 });
+test("already-ready scenes keep their exact render count", async () => {
+    const runner = await createRunner({ renderCount: 3 });
+    assert.equal(runner.scenes.length, 1, runner.errors.join("\n"));
     runner.tick();
     runner.tick();
     assert.deepEqual(runner.reads, []);
@@ -212,7 +248,7 @@ test("already-ready scenes keep their exact render count", () => {
 
 for (const synchronous of [false, true]) {
     test(`terminal shader errors reject pending creation and cancel its timer (synchronous=${synchronous})`, async () => {
-        const runner = createRunner({
+        const runner = await createRunner({
             tests: [{ title: "failed shader", playgroundId: "#TEST#0" }],
             playgroundCode: `function createScene(engine) {
                 new BABYLON.Scene(engine);
@@ -237,8 +273,8 @@ for (const synchronous of [false, true]) {
     });
 }
 
-test("shader fallbacks, retained ready pipelines, and disposed effects do not fail validation", () => {
-    const runner = createRunner();
+test("shader fallbacks, retained ready pipelines, and disposed effects do not fail validation", async () => {
+    const runner = await createRunner();
     runner.engine.emitEffectError({ terminal: false });
     runner.engine.emitEffectError({ ready: true });
     runner.engine.emitEffectError({ disposed: true });
@@ -253,8 +289,8 @@ test("shader fallbacks, retained ready pipelines, and disposed effects do not fa
 });
 
 for (const phase of ["initial readiness", "convergence", "screenshot"]) {
-    test(`shader failures cancel ${phase} callbacks and continue exactly once`, () => {
-        const runner = createRunner({
+    test(`shader failures cancel ${phase} callbacks and continue exactly once`, async () => {
+        const runner = await createRunner({
             tests: [{ title: "failed shader" }, { title: "next scene" }],
             deferReadback: true,
             createScene(engine, index) {
@@ -297,8 +333,8 @@ for (const phase of ["initial readiness", "convergence", "screenshot"]) {
     });
 }
 
-test("a shader failure cannot become a pass when a screenshot completes before the deferred failure", () => {
-    const runner = createRunner({ deferReadback: true });
+test("a shader failure cannot become a pass when a screenshot completes before the deferred failure", async () => {
+    const runner = await createRunner({ deferReadback: true });
     runner.tick();
     runner.engine.emitEffectError();
     runner.readbacks[0](new Uint8Array([0, 0, 0, 255]));
@@ -309,7 +345,7 @@ test("a shader failure cannot become a pass when a screenshot completes before t
 });
 
 test("a scene promise resolving after shader failure cannot replace the next scene", async () => {
-    const runner = createRunner({
+    const runner = await createRunner({
         tests: [{ title: "failed shader", playgroundId: "#TEST#0" }, { title: "next scene" }],
         playgroundCode: `function createScene(engine) {
             return new Promise(resolve => { engine.resolveLateScene = resolve; });
@@ -332,8 +368,8 @@ test("a scene promise resolving after shader failure cannot replace the next sce
     assert.equal(runner.timers.size, 0);
 });
 
-test("failed snippet loading removes its effect observer", () => {
-    const runner = createRunner({
+test("failed snippet loading removes its effect observer", async () => {
+    const runner = await createRunner({
         tests: [{ title: "missing snippet", playgroundId: "#TEST#0" }],
         snippetLoadError: true,
     });
@@ -344,8 +380,8 @@ test("failed snippet loading removes its effect observer", () => {
     assert.deepEqual(runner.exits, [-1]);
 });
 
-test("a scene-file load delivered after shader failure is disposed without rendering", () => {
-    const runner = createRunner({ deferSceneLoad: true });
+test("a scene-file load delivered after shader failure is disposed without rendering", async () => {
+    const runner = await createRunner({ deferSceneLoad: true });
     runner.engine.emitEffectError();
     runner.flushTimers();
     runner.sceneLoads[0]();
@@ -358,7 +394,7 @@ test("a scene-file load delivered after shader failure is disposed without rende
 
 for (const deferred of [false, true]) {
     test(`playground scene promises cancel their timeout (deferred=${deferred})`, async () => {
-        const runner = createRunner({
+        const runner = await createRunner({
             tests: [{ title: "promised scene", playgroundId: "#TEST#0", renderCount: 2 }],
             playgroundCode: `function createScene(engine) {
                 const scene = new BABYLON.Scene(engine);
@@ -388,11 +424,11 @@ for (const deferred of [false, true]) {
     });
 }
 
-test("GUI images, dirty defines, and pending effects do not consume rendered frames", () => {
+test("GUI images, dirty defines, and pending effects do not consume rendered frames", async () => {
     let guiReady = false;
     let dirty = true;
     let effectReady = false;
-    const runner = createRunner({
+    const runner = await createRunner({
         renderCount: 2,
         createScene(engine) {
             const scene = makeScene(engine);
@@ -423,8 +459,8 @@ test("GUI images, dirty defines, and pending effects do not consume rendered fra
     assert.deepEqual(runner.exits, [0]);
 });
 
-test("scene readiness is rechecked after executeWhenReady", () => {
-    const runner = createRunner();
+test("scene readiness is rechecked after executeWhenReady", async () => {
+    const runner = await createRunner();
     runner.scenes[0].ready = false;
     runner.tick();
     assert.equal(runner.scenes[0].rendered, 0);
@@ -442,9 +478,9 @@ for (const { name, hasCamera = true, cameraPass, expectedPass } of [
     { name: "undefined camera pass", cameraPass: undefined, expectedPass: 91 },
     { name: "null camera pass", cameraPass: null, expectedPass: 91 },
 ]) {
-    test(`material inspection selects and restores the render pass (${name})`, () => {
+    test(`material inspection selects and restores the render pass (${name})`, async () => {
         const inspected = [];
-        const runner = createRunner({
+        const runner = await createRunner({
             createScene(engine) {
                 const scene = makeScene(engine);
                 if (!hasCamera) {
@@ -472,8 +508,8 @@ for (const { name, hasCamera = true, cameraPass, expectedPass } of [
     });
 }
 
-test("readiness exceptions restore the render pass and stop stale callbacks", () => {
-    const runner = createRunner({
+test("readiness exceptions restore the render pass and stop stale callbacks", async () => {
+    const runner = await createRunner({
         createScene(engine) {
             const scene = makeScene(engine);
             scene.meshes.push({
@@ -496,8 +532,8 @@ test("readiness exceptions restore the render pass and stop stale callbacks", ()
 });
 
 for (const hook of ["scene", "GUI"]) {
-    test(`${hook} readiness exceptions restore the render pass before cleanup`, () => {
-        const runner = createRunner({
+    test(`${hook} readiness exceptions restore the render pass before cleanup`, async () => {
+        const runner = await createRunner({
             createScene(engine) {
                 const scene = makeScene(engine);
                 const throwFromReadiness = () => {
@@ -525,8 +561,8 @@ for (const hook of ["scene", "GUI"]) {
 }
 
 for (const failure of ["render", "readiness", "convergence"]) {
-    test(`a pending screenshot cannot evaluate after ${failure} failure`, () => {
-        const runner = createRunner({
+    test(`a pending screenshot cannot evaluate after ${failure} failure`, async () => {
+        const runner = await createRunner({
             tests: [{ title: "fails after compare frame" }, { title: "next scene" }],
             captureFrame: 3,
             deferReadback: true,
@@ -562,8 +598,8 @@ for (const failure of ["render", "readiness", "convergence"]) {
     });
 }
 
-test("a stale initial readiness timeout cannot invalidate a pending screenshot", () => {
-    const runner = createRunner({ deferReadback: true, captureFrame: 3 });
+test("a stale initial readiness timeout cannot invalidate a pending screenshot", async () => {
+    const runner = await createRunner({ deferReadback: true, captureFrame: 3 });
     runner.tick();
     assert.equal(runner.readbacks.length, 1);
     runner.scenes[0].readyTimeout();
@@ -577,8 +613,8 @@ test("a stale initial readiness timeout cannot invalidate a pending screenshot",
     assert.deepEqual(runner.exits, [0]);
 });
 
-test("a delayed screenshot still evaluates after normal rendering completion", () => {
-    const runner = createRunner({ deferReadback: true, captureFrame: 3 });
+test("a delayed screenshot still evaluates after normal rendering completion", async () => {
+    const runner = await createRunner({ deferReadback: true, captureFrame: 3 });
     for (let index = 0; index < 8; ++index) {
         runner.tick();
     }
@@ -593,11 +629,11 @@ test("a delayed screenshot still evaluates after normal rendering completion", (
     assert.deepEqual(runner.exits, [0]);
 });
 
-test("only associated utility scenes participate in convergence", () => {
+test("only associated utility scenes participate in convergence", async () => {
     let guiReady = false;
     let utility;
     let unrelated;
-    const runner = createRunner({
+    const runner = await createRunner({
         createScene(engine) {
             const scene = makeScene(engine);
             utility = makeScene(engine);
@@ -620,10 +656,10 @@ test("only associated utility scenes participate in convergence", () => {
     assert.deepEqual(runner.exits, [0]);
 });
 
-test("a utility layer created before the main camera participates in readiness", () => {
+test("a utility layer created before the main camera participates in readiness", async () => {
     let utility;
     let unrelated;
-    const runner = createRunner({
+    const runner = await createRunner({
         createScene(engine, index, math, UtilityLayerRenderer) {
             const scene = makeScene(engine);
             scene.activeCamera = null;
@@ -647,11 +683,11 @@ test("a utility layer created before the main camera participates in readiness",
     assert.deepEqual(runner.exits, [0]);
 });
 
-test("utility scenes attached during convergence participate in later ticks", () => {
+test("utility scenes attached during convergence participate in later ticks", async () => {
     let mainReady = false;
     let utilityReady = false;
     let utility;
-    const runner = createRunner({
+    const runner = await createRunner({
         createScene(engine) {
             const scene = makeScene(engine);
             scene.textures.push({ guiIsReady: () => mainReady });
@@ -676,8 +712,8 @@ test("utility scenes attached during convergence participate in later ticks", ()
     assert.deepEqual(runner.exits, [0]);
 });
 
-test("convergence expires after 240 waiting ticks and the suite continues once", () => {
-    const runner = createRunner({
+test("convergence expires after 240 waiting ticks and the suite continues once", async () => {
+    const runner = await createRunner({
         tests: [{ title: "never ready" }, { title: "ready" }],
         createScene(engine, index) {
             const scene = makeScene(engine);
@@ -707,10 +743,10 @@ test("convergence expires after 240 waiting ticks and the suite continues once",
     assert.ok(runner.logs.some(line => /ran=2 passed=1 failed=1/.test(line)));
 });
 
-test("each test restores both the seeded random function and its sequence", () => {
+test("each test restores both the seeded random function and its sequence", async () => {
     const sequences = [];
     const functions = [];
-    const runner = createRunner({
+    const runner = await createRunner({
         tests: [{ title: "replaces Math.random" }, { title: "next test" }],
         createScene(engine, index, math) {
             functions.push(math.random);
@@ -730,9 +766,9 @@ test("each test restores both the seeded random function and its sequence", () =
     assert.deepEqual(runner.exits, [0]);
 });
 
-test("convergence does not shift screenshot or RenderDoc capture frames", () => {
+test("convergence does not shift screenshot or RenderDoc capture frames", async () => {
     let ready = false;
-    const runner = createRunner({
+    const runner = await createRunner({
         renderCount: 2,
         captureFrame: 5,
         createScene(engine) {
@@ -755,8 +791,8 @@ test("convergence does not shift screenshot or RenderDoc capture frames", () => 
     assert.deepEqual(runner.exits, [0]);
 });
 
-test("an initial readiness timeout prevents a late callback from starting rendering", () => {
-    const runner = createRunner({
+test("an initial readiness timeout prevents a late callback from starting rendering", async () => {
+    const runner = await createRunner({
         createScene(engine) {
             const scene = makeScene(engine);
             scene.deferReady = true;
@@ -771,9 +807,9 @@ test("an initial readiness timeout prevents a late callback from starting render
 });
 
 for (const firstReady of ["main", "utility"]) {
-    test(`initial readiness waits for main and utility resources (${firstReady} first)`, () => {
+    test(`initial readiness waits for main and utility resources (${firstReady} first)`, async () => {
         let utility;
-        const runner = createRunner({
+        const runner = await createRunner({
             createScene(engine) {
                 const scene = makeScene(engine);
                 scene.deferReady = true;
@@ -805,9 +841,9 @@ for (const firstReady of ["main", "utility"]) {
 }
 
 for (const removal of ["disposed", "detached"]) {
-    test(`initial readiness drops a ${removal} utility scene`, () => {
+    test(`initial readiness drops a ${removal} utility scene`, async () => {
         let utility;
-        const runner = createRunner({
+        const runner = await createRunner({
             createScene(engine) {
                 const scene = makeScene(engine);
                 utility = makeScene(engine);
@@ -836,8 +872,8 @@ for (const removal of ["disposed", "detached"]) {
     });
 }
 
-test("initial readiness enrolls a utility scene attached while waiting", () => {
-    const runner = createRunner({
+test("initial readiness enrolls a utility scene attached while waiting", async () => {
+    const runner = await createRunner({
         createScene(engine) {
             const scene = makeScene(engine);
             scene.deferReady = true;
@@ -861,8 +897,8 @@ test("initial readiness enrolls a utility scene attached while waiting", () => {
     assert.deepEqual(runner.exits, [0]);
 });
 
-test("the runner owns the initial readiness timeout", () => {
-    const runner = createRunner({
+test("the runner owns the initial readiness timeout", async () => {
+    const runner = await createRunner({
         createScene(engine) {
             const scene = makeScene(engine);
             scene.deferReady = true;
@@ -878,9 +914,9 @@ test("the runner owns the initial readiness timeout", () => {
     assert.deepEqual(runner.exits, [-1]);
 });
 
-test("an initial utility readiness timeout stops all late callbacks", () => {
+test("an initial utility readiness timeout stops all late callbacks", async () => {
     let utility;
-    const runner = createRunner({
+    const runner = await createRunner({
         createScene(engine) {
             const scene = makeScene(engine);
             scene.deferReady = true;
