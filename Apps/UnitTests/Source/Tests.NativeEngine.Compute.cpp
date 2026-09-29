@@ -1,4 +1,5 @@
 #ifdef HAS_SHADER_COMPILER
+#include "StorageBuffer.h"
 
 #include <Babylon/AppRuntime.h>
 #include <Babylon/Graphics/Device.h>
@@ -70,6 +71,35 @@ void main() {
         return program;
     }
 
+    struct ComputeResources
+    {
+        std::unique_ptr<Babylon::StorageBuffer> Source;
+        std::unique_ptr<Babylon::StorageBuffer> Destination;
+        bgfx::ProgramHandle WriteProgram{bgfx::kInvalidHandle};
+        bgfx::ProgramHandle ReadProgram{bgfx::kInvalidHandle};
+        bgfx::TextureHandle Texture{bgfx::kInvalidHandle};
+        bgfx::TextureHandle Readback{bgfx::kInvalidHandle};
+
+        ~ComputeResources()
+        {
+            if (bgfx::isValid(WriteProgram))
+            {
+                bgfx::destroy(WriteProgram);
+            }
+            if (bgfx::isValid(ReadProgram))
+            {
+                bgfx::destroy(ReadProgram);
+            }
+            if (bgfx::isValid(Texture))
+            {
+                bgfx::destroy(Texture);
+            }
+            if (bgfx::isValid(Readback))
+            {
+                bgfx::destroy(Readback);
+            }
+        }
+    };
 }
 
 TEST(NativeEngineCompute, PackagesRawBindingMasks)
@@ -138,4 +168,102 @@ TEST(NativeEngineCompute, GraphicsStagesKeepEmptyRawMasks)
     EXPECT_EQ(ReadRawMasks(shader.FragmentBytes), (std::array<uint32_t, 2>{0u, 0u}));
 }
 
+TEST(NativeEngineCompute, RawStorageBufferRoundTrip)
+{
+    Babylon::Graphics::Device device{g_deviceConfig};
+    device.StartRenderingCurrentFrame();
+    ASSERT_NE(bgfx::getCaps()->supported & BGFX_CAPS_COMPUTE, 0u);
+    std::array<uint8_t, 4 * 4 * 4> pixels{};
+    std::promise<void> completed;
+    auto completion = completed.get_future();
+    {
+        Babylon::AppRuntime runtime;
+        ComputeResources resources;
+        runtime.Dispatch([&](Napi::Env env) {
+            try
+            {
+                device.AddToJavaScript(env);
+                auto& context = Babylon::Graphics::DeviceContext::GetFromJavaScript(env);
+                auto scope = context.AcquireFrameCompletionScope();
+                Babylon::Plugins::ShaderCompiler compiler;
+                resources.WriteProgram = CreateComputeProgram(compiler.CompileCompute(WriteSource));
+                resources.ReadProgram = CreateComputeProgram(compiler.CompileCompute(ReadSource));
+
+                resources.Source = std::make_unique<Babylon::StorageBuffer>(context, 64, true, 16, false);
+                resources.Destination = std::make_unique<Babylon::StorageBuffer>(context, 64, true);
+                std::array<uint32_t, 16> source{};
+                resources.Source->Update(gsl::make_span(reinterpret_cast<const uint8_t*>(source.data()), sizeof(source)), 0);
+                for (uint32_t i = 0; i < source.size(); ++i)
+                {
+                    source[i] = 3u * i + 1u;
+                }
+                resources.Source->Update(gsl::make_span(reinterpret_cast<const uint8_t*>(source.data()), sizeof(source)), 0);
+
+                resources.Texture = bgfx::createTexture2D(4, 4, false, 1, bgfx::TextureFormat::RGBA8,
+                    BGFX_TEXTURE_COMPUTE_WRITE);
+                resources.Readback = bgfx::createTexture2D(4, 4, false, 1, bgfx::TextureFormat::RGBA8,
+                    BGFX_TEXTURE_BLIT_DST | BGFX_TEXTURE_READ_BACK);
+                if (!bgfx::isValid(resources.Texture) || !bgfx::isValid(resources.Readback))
+                {
+                    throw std::runtime_error{"Failed to create compute readback texture"};
+                }
+
+                auto* encoder = context.GetActiveEncoder();
+                if (encoder == nullptr)
+                {
+                    throw std::runtime_error{"Expected an active compute encoder"};
+                }
+                resources.Source->SetCompute(encoder, 3, bgfx::Access::Read);
+                resources.Destination->SetCompute(encoder, 5, bgfx::Access::ReadWrite);
+                encoder->dispatch(context.AcquireNewViewId(), resources.WriteProgram, 16);
+                resources.Destination->SetCompute(encoder, 6, bgfx::Access::Read);
+                encoder->setImage(0, resources.Texture, 0, bgfx::Access::Write, bgfx::TextureFormat::RGBA8);
+                encoder->dispatch(context.AcquireNewViewId(), resources.ReadProgram, 4, 4);
+                bgfx::TextureRegion destinationRegion{};
+                destinationRegion.init(resources.Readback);
+                bgfx::TextureRegion sourceRegion{};
+                sourceRegion.init(resources.Texture);
+                encoder->blit(context.AcquireNewViewId(), destinationRegion, sourceRegion);
+
+                context.ReadTextureAsync(resources.Readback, pixels)
+                    .then(arcana::inline_scheduler, arcana::cancellation::none(),
+                        [&completed](const arcana::expected<void, std::exception_ptr>& result) {
+                            if (result.has_error())
+                            {
+                                completed.set_exception(result.error());
+                            }
+                            else
+                            {
+                                completed.set_value();
+                            }
+                        });
+            }
+            catch (...)
+            {
+                completed.set_exception(std::current_exception());
+            }
+        });
+
+        const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds{30};
+        while (completion.wait_for(std::chrono::milliseconds{1}) != std::future_status::ready)
+        {
+            if (std::chrono::steady_clock::now() >= deadline)
+            {
+                std::cerr << "Timed out waiting for raw storage-buffer GPU readback" << std::endl;
+                std::quick_exit(1);
+            }
+            device.FinishRenderingCurrentFrame();
+            device.StartRenderingCurrentFrame();
+        }
+    }
+    device.FinishRenderingCurrentFrame();
+    ASSERT_NO_THROW(completion.get());
+    for (uint32_t i = 0; i < 16; ++i)
+    {
+        EXPECT_EQ(pixels[i * 4], 6u * i + 7u) << "pixel " << i;
+        EXPECT_EQ(pixels[i * 4 + 1], i) << "pixel " << i;
+        EXPECT_EQ(pixels[i * 4 + 2], 0u) << "pixel " << i;
+        EXPECT_EQ(pixels[i * 4 + 3], 255u) << "pixel " << i;
+    }
+}
 #endif
