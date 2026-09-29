@@ -9,10 +9,48 @@
 #include <spirv_parser.hpp>
 #include <spirv_hlsl.hpp>
 #include <d3dcompiler.h>
+#include <d3d11shader.h>
 #include <wrl/client.h>
 
 namespace
 {
+    void ReflectRawBindings(Babylon::ShaderCompilerCommon::ShaderInfo& shaderInfo)
+    {
+        Microsoft::WRL::ComPtr<ID3D11ShaderReflection> reflection;
+        if (FAILED(D3DReflect(shaderInfo.Bytes.data(), shaderInfo.Bytes.size(), IID_PPV_ARGS(&reflection))))
+        {
+            throw std::runtime_error{"D3DReflect failed while reading raw buffer bindings"};
+        }
+
+        D3D11_SHADER_DESC shaderDesc{};
+        if (FAILED(reflection->GetDesc(&shaderDesc)))
+        {
+            throw std::runtime_error{"Failed to read compiled shader description"};
+        }
+
+        for (UINT i = 0; i < shaderDesc.BoundResources; ++i)
+        {
+            D3D11_SHADER_INPUT_BIND_DESC binding{};
+            if (FAILED(reflection->GetResourceBindingDesc(i, &binding)))
+            {
+                throw std::runtime_error{"Failed to read compiled shader resource binding"};
+            }
+            if (binding.Type != D3D_SIT_BYTEADDRESS && binding.Type != D3D_SIT_UAV_RWBYTEADDRESS)
+            {
+                continue;
+            }
+            if (binding.BindPoint >= 32 || binding.BindCount == 0 || binding.BindCount > 32 - binding.BindPoint)
+            {
+                throw std::runtime_error{"Raw buffer binding exceeds bgfx's 32-bit shader mask"};
+            }
+            auto& mask = binding.Type == D3D_SIT_BYTEADDRESS ? shaderInfo.RawSrvMask : shaderInfo.RawUavMask;
+            for (UINT slot = binding.BindPoint; slot < binding.BindPoint + binding.BindCount; ++slot)
+            {
+                mask |= uint32_t{1} << slot;
+            }
+        }
+    }
+
     void AddShader(glslang::TProgram& program, glslang::TShader& shader, std::string_view source)
     {
         const std::array<const char*, 1> sources{source.data()};
@@ -177,6 +215,7 @@ namespace Babylon::Plugins
             std::move(vertexCompiler),
             gsl::make_span(static_cast<uint8_t*>(vertexBlob->GetBufferPointer()), vertexBlob->GetBufferSize()),
             std::move(vertexAttributeRenaming)};
+        ReflectRawBindings(vertexShaderInfo);
 
         Microsoft::WRL::ComPtr<ID3DBlob> fragmentBlob;
         auto [fragmentParser, fragmentCompiler] = CompileShader(program, EShLangFragment, {}, &fragmentBlob);
@@ -185,6 +224,7 @@ namespace Babylon::Plugins
             std::move(fragmentCompiler),
             gsl::make_span(static_cast<uint8_t*>(fragmentBlob->GetBufferPointer()), fragmentBlob->GetBufferSize()),
             {}};
+        ReflectRawBindings(fragmentShaderInfo);
 
         return CreateBgfxShader(std::move(vertexShaderInfo), std::move(fragmentShaderInfo), std::move(builtInInstanceDataSlots));
             }
@@ -242,6 +282,7 @@ namespace Babylon::Plugins
                     std::move(compiler),
                     gsl::make_span(static_cast<uint8_t*>(computeBlob->GetBufferPointer()), computeBlob->GetBufferSize()),
                     {}};
+                ReflectRawBindings(computeShaderInfo);
 
                 return CreateBgfxComputeShader(std::move(computeShaderInfo));
             }

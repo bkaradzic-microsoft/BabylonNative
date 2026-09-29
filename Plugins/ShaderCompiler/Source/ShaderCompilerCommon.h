@@ -97,6 +97,8 @@ namespace Babylon::ShaderCompilerCommon
         std::unique_ptr<const spirv_cross::Compiler> Compiler;
         gsl::span<uint8_t> Bytes;
         std::map<std::string, std::string> AttributeRenaming;
+        uint32_t RawSrvMask{};
+        uint32_t RawUavMask{};
     };
 
 // Backend-default packaging (D3D separate_samplers / GL sampled_images / Metal separate_images).
@@ -112,7 +114,7 @@ namespace Babylon::ShaderCompilerCommon
 
     /// Assembles a bgfx CSH (compute) shader binary from a compiled compute shader. The binary
     /// layout mirrors the per-shader block of CreateBgfxShader (fourcc 'CSH' + hashes + uniform
-    /// table + samplers + blob) but with zero vertex attributes. Storage buffers are intentionally
-    /// absent from the binary; they bind at dispatch via bgfx::setBuffer(stage,...).
+    /// table + samplers + blob) but with zero vertex attributes. Raw-buffer masks select the
+    /// views used when storage buffers are bound at dispatch via bgfx::setBuffer(stage,...).
     Graphics::BgfxShaderInfo CreateBgfxComputeShader(ShaderInfo computeShaderInfo);
 }

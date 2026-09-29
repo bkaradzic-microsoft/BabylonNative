@@ -11,8 +11,8 @@ namespace Babylon
         class DeviceContext;
     }
 
-    // Wraps a bgfx compute storage buffer backed by a raw (ByteAddressBuffer) UAV/SRV
-    // (BGFX_BUFFER_COMPUTE_RAW), mirroring the web StorageBuffer used by the compute path
+    // Wraps a bgfx compute storage buffer whose raw (ByteAddressBuffer) UAV/SRV is
+    // selected by the shader's binding masks, mirroring the web StorageBuffer used by the compute path
     // (e.g. GPUParticleSystem). The buffer is created lazily on first use, seeded with the
     // CPU-side shadow bytes, so a create-then-update sequence works even though a compute
     // (UAV) buffer is USAGE_DEFAULT and cannot be Map-updated.

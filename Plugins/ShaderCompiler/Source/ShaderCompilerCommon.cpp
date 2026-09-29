@@ -377,9 +377,8 @@ namespace Babylon::ShaderCompilerCommon
         AppendBytes(vertexBytes, BX_MAKEFOURCC('V', 'S', 'H', BGFX_SHADER_BIN_VERSION));
         AppendBytes(vertexBytes, vertexOutputsHash);
         AppendBytes(vertexBytes, fragmentInputsHash);
-        // Raw SRV/UAV masks (bgfx v12). BN runtime shaders don't expose raw buffers here.
-        AppendBytes(vertexBytes, static_cast<uint32_t>(0));
-        AppendBytes(vertexBytes, static_cast<uint32_t>(0));
+        AppendBytes(vertexBytes, vertexShaderInfo.RawSrvMask);
+        AppendBytes(vertexBytes, vertexShaderInfo.RawUavMask);
 
         AppendBytes(vertexBytes, static_cast<uint16_t>(numUniforms));
         AppendUniformBuffer(vertexBytes, uniformsInfo, false);
@@ -435,9 +434,8 @@ namespace Babylon::ShaderCompilerCommon
         AppendBytes(fragmentBytes, BX_MAKEFOURCC('F', 'S', 'H', BGFX_SHADER_BIN_VERSION));
         AppendBytes(fragmentBytes, vertexOutputsHash);
         AppendBytes(fragmentBytes, fragmentInputsHash);
-        // Raw SRV/UAV masks (bgfx v12). BN runtime shaders don't expose raw buffers here.
-        AppendBytes(fragmentBytes, static_cast<uint32_t>(0));
-        AppendBytes(fragmentBytes, static_cast<uint32_t>(0));
+        AppendBytes(fragmentBytes, fragmentShaderInfo.RawSrvMask);
+        AppendBytes(fragmentBytes, fragmentShaderInfo.RawUavMask);
 
         AppendBytes(fragmentBytes, static_cast<uint16_t>(numUniforms));
         AppendUniformBuffer(fragmentBytes, uniformsInfo, true);
@@ -491,9 +489,8 @@ namespace Babylon::ShaderCompilerCommon
             AppendBytes(computeBytes, BX_MAKEFOURCC('C', 'S', 'H', BGFX_SHADER_BIN_VERSION));
             AppendBytes(computeBytes, inputHash);
             AppendBytes(computeBytes, outputHash);
-            // Raw SRV/UAV masks (bgfx v12). Storage buffers bind at dispatch via setBuffer, not via these masks.
-            AppendBytes(computeBytes, static_cast<uint32_t>(0));
-            AppendBytes(computeBytes, static_cast<uint32_t>(0));
+            AppendBytes(computeBytes, computeShaderInfo.RawSrvMask);
+            AppendBytes(computeBytes, computeShaderInfo.RawUavMask);
 
             AppendBytes(computeBytes, static_cast<uint16_t>(numUniforms));
             AppendUniformBuffer(computeBytes, uniformsInfo, false);

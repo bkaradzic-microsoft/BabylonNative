@@ -90,7 +90,7 @@ namespace Babylon
                 // them dynamic and CPU updates via bgfx::update actually stick on D3D11.
                 // Read-write particle outputs keep COMPUTE_WRITE for UAV stores.
                 const uint16_t flags = static_cast<uint16_t>(
-                    (m_computeWrite ? BGFX_BUFFER_COMPUTE_READ_WRITE : BGFX_BUFFER_COMPUTE_READ) | BGFX_BUFFER_COMPUTE_RAW);
+                    m_computeWrite ? BGFX_BUFFER_COMPUTE_READ_WRITE : BGFX_BUFFER_COMPUTE_READ);
 
                 // COMPUTE_WRITE buffers cannot be initialized from CPU memory via createDynamicVertexBuffer(mem).
                 // Create empty, then seed with Update (staging copy) so initial particle data is present.

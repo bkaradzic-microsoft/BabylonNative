@@ -4039,8 +4039,8 @@ bgfx::DynamicVertexBufferHandle NativeEngine::RepackStorageInstances(bgfx::Encod
             // --- Raw storage-buffer (ByteAddressBuffer) round-trip validation ---
             // Pass 1 compute writes buf[i] = i (RWByteAddressBuffer.Store via SSBO).
             // Pass 2 compute reads buf[i] and stores it into an image2D.
-            // The image is read back and verified, proving raw SSBO Store + Load on the
-            // patched bgfx-D3D11 compute-buffer path (BGFX_BUFFER_COMPUTE_RAW).
+            // This smoke check dispatches both passes; NativeEngineCompute unit tests
+            // read back pixels to verify the upstream bgfx raw-buffer binding path.
             static const char* writeSource = R"(#version 310 es
 precision highp float;
 precision highp int;
