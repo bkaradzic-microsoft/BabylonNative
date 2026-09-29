@@ -32,6 +32,11 @@ file. Essentially, this allows for externally-defined JS files to control
 the behavior of the Playground app as an alternative to experience.js --
 at runtime and without the need to recompile or redeploy.
 
+On Win32, use `--headless` for automated runs without a visible window.
+This also disables the JavaScript debugger listener, avoiding Windows
+Firewall access prompts during validation. Interactive runs still enable
+the JavaScript debugger; native debugger attachment is unaffected.
+
 The Playground app also features a "hot reload" capability on certain
 platforms (Win32 and UWP, for now). The current implementation is that 
 pressing a button (`R` at present, likely to be remapped to `F5` in the 
