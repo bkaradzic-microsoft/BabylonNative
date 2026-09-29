@@ -29166,6 +29166,129 @@ describe("Canvas2D", function () {
     (0,chai__WEBPACK_IMPORTED_MODULE_4__.expect)(ctx.strokeStyle).to.equal("#00ff00");
   });
 
+  it("rejects a prototype-spoofed object in place of a Path2D", function () {
+    // instanceof only walks the prototype chain, and a prototype is assignable, so an
+    // InstanceOf gate accepted any object wearing Path2D.prototype and then unwrapped it.
+    // Handing fill() a CanvasGradient this way was an access violation, not a wrong answer.
+    // Object.create(Path2D.prototype) is the same hole with no native wrap behind it at all.
+    var ctx = createContext();
+    var spoofedGradient = ctx.createLinearGradient(0, 0, 10, 10);
+    Object.setPrototypeOf(spoofedGradient, Path2D.prototype);
+    (0,chai__WEBPACK_IMPORTED_MODULE_4__.expect)(spoofedGradient instanceof Path2D).to.equal(true);
+
+    var bare = Object.create(Path2D.prototype);
+    (0,chai__WEBPACK_IMPORTED_MODULE_4__.expect)(bare instanceof Path2D).to.equal(true);
+
+    var realPath = new Path2D();var _loop2 = function _loop2()
+    {var impostor = _arr1[_i1];
+      (0,chai__WEBPACK_IMPORTED_MODULE_4__.expect)(function () {ctx.fill(impostor);}).to.throw();
+      (0,chai__WEBPACK_IMPORTED_MODULE_4__.expect)(function () {ctx.stroke(impostor);}).to.throw();
+      (0,chai__WEBPACK_IMPORTED_MODULE_4__.expect)(function () {realPath.addPath(impostor);}).to.throw();
+      // The Path2D() argument is a (Path2D or DOMString) union, so a non-Path2D is string
+      // data rather than an error. It must not be unwrapped on the way there.
+      (0,chai__WEBPACK_IMPORTED_MODULE_4__.expect)(function () {new Path2D(impostor);}).to.not.throw();
+    };for (var _i1 = 0, _arr1 = [spoofedGradient, bare]; _i1 < _arr1.length; _i1++) {_loop2();}
+  });
+
+  it("ignores a prototype-spoofed object assigned to fillStyle or strokeStyle", function () {
+    // Same defect on the gradient side: the assignment gate accepted anything wearing the
+    // gradient prototype and stored it, and the next fill unwrapped it as a CanvasGradient.
+    var ctx = createContext();
+    var gradient = ctx.createLinearGradient(0, 0, 10, 10);
+    var spoofedPath = new Path2D();
+    Object.setPrototypeOf(spoofedPath, Object.getPrototypeOf(gradient));
+
+    ctx.fillStyle = "#ff0000";
+    ctx.strokeStyle = "#00ff00";
+    ctx.fillStyle = spoofedPath;
+    ctx.strokeStyle = spoofedPath;
+
+    // Per spec an unusable assignment leaves the previous value in place.
+    (0,chai__WEBPACK_IMPORTED_MODULE_4__.expect)(ctx.fillStyle).to.equal("#ff0000");
+    (0,chai__WEBPACK_IMPORTED_MODULE_4__.expect)(ctx.strokeStyle).to.equal("#00ff00");
+
+    // The drawing path must stay usable rather than unwrapping the impostor.
+    (0,chai__WEBPACK_IMPORTED_MODULE_4__.expect)(function () {ctx.fillRect(0, 0, 10, 10);}).to.not.throw();
+    (0,chai__WEBPACK_IMPORTED_MODULE_4__.expect)(function () {ctx.strokeRect(0, 0, 10, 10);}).to.not.throw();
+  });
+
+  it("rejects a non-Path2D argument to fill and stroke", function () {
+    // Neither call type-checked the argument before handing it to ObjectWrap::Unwrap,
+    // which does no checking of its own, so an unrelated object was reinterpreted as a
+    // NativeCanvasPath2D. stroke() was the worse of the two: it had no gate at all, so
+    // even a string got there.
+    // The thrown type is deliberately not asserted: a C++ Napi::TypeError surfaces as a
+    // JS TypeError on some engines and as an InternalError on the QuickJS Node-API port,
+    // so only the fact that it throws is portable. Every other throw test here does the same.
+    var ctx = createContext();
+    (0,chai__WEBPACK_IMPORTED_MODULE_4__.expect)(function () {ctx.stroke("x");}).to.throw();
+    (0,chai__WEBPACK_IMPORTED_MODULE_4__.expect)(function () {ctx.stroke({});}).to.throw();
+    (0,chai__WEBPACK_IMPORTED_MODULE_4__.expect)(function () {ctx.stroke(5);}).to.throw();
+    (0,chai__WEBPACK_IMPORTED_MODULE_4__.expect)(function () {ctx.fill({});}).to.throw();
+    (0,chai__WEBPACK_IMPORTED_MODULE_4__.expect)(function () {ctx.fill(5);}).to.throw();
+  });
+
+  it("still accepts the valid fill and stroke argument forms", function () {
+    var ctx = createContext();
+    var path = new Path2D("M0 0 L10 10");
+    (0,chai__WEBPACK_IMPORTED_MODULE_4__.expect)(function () {ctx.fill();}).to.not.throw();
+    (0,chai__WEBPACK_IMPORTED_MODULE_4__.expect)(function () {ctx.stroke();}).to.not.throw();
+    // undefined selects the no-argument overload rather than being a bad Path2D.
+    (0,chai__WEBPACK_IMPORTED_MODULE_4__.expect)(function () {ctx.fill(undefined);}).to.not.throw();
+    (0,chai__WEBPACK_IMPORTED_MODULE_4__.expect)(function () {ctx.stroke(undefined);}).to.not.throw();
+    // fill() also takes a fill rule string.
+    (0,chai__WEBPACK_IMPORTED_MODULE_4__.expect)(function () {ctx.fill("evenodd");}).to.not.throw();
+    (0,chai__WEBPACK_IMPORTED_MODULE_4__.expect)(function () {ctx.fill(new String("evenodd"));}).to.not.throw();
+    (0,chai__WEBPACK_IMPORTED_MODULE_4__.expect)(function () {
+      ctx.fill({ toString: function toString() {return "nonzero";} });
+    }).to.not.throw();
+    (0,chai__WEBPACK_IMPORTED_MODULE_4__.expect)(function () {ctx.fill(path);}).to.not.throw();
+    (0,chai__WEBPACK_IMPORTED_MODULE_4__.expect)(function () {ctx.fill(path, "nonzero");}).to.not.throw();
+    (0,chai__WEBPACK_IMPORTED_MODULE_4__.expect)(function () {ctx.fill(path, new String("evenodd"));}).to.not.throw();
+    (0,chai__WEBPACK_IMPORTED_MODULE_4__.expect)(function () {ctx.stroke(path);}).to.not.throw();
+    (0,chai__WEBPACK_IMPORTED_MODULE_4__.expect)(function () {ctx.fill("invalid");}).to.throw();
+    (0,chai__WEBPACK_IMPORTED_MODULE_4__.expect)(function () {ctx.fill(path, "invalid");}).to.throw();
+  });
+
+  it("rejects a non-Path2D argument to Path2D.addPath", function () {
+    // addPath had neither a type check nor an arity check, so addPath() unwrapped a
+    // missing argument and addPath("x") unwrapped a string. See above for why the
+    // thrown type is not asserted.
+    var path = new Path2D();
+    (0,chai__WEBPACK_IMPORTED_MODULE_4__.expect)(function () {path.addPath();}).to.throw();
+    (0,chai__WEBPACK_IMPORTED_MODULE_4__.expect)(function () {path.addPath("x");}).to.throw();
+    (0,chai__WEBPACK_IMPORTED_MODULE_4__.expect)(function () {path.addPath({});}).to.throw();
+    (0,chai__WEBPACK_IMPORTED_MODULE_4__.expect)(function () {path.addPath(new Path2D("M0 0 L5 5"));}).to.not.throw();
+  });
+
+  it("rejects an invalid native source argument to drawImage", function () {
+    // Native-looking impostors must throw, not AV via an unchecked Unwrap.
+    var ctx = createContext();
+    var realCanvas = new _native.Canvas();
+    var spoofedCanvas = Object.create(Object.getPrototypeOf(realCanvas));
+    (0,chai__WEBPACK_IMPORTED_MODULE_4__.expect)(spoofedCanvas instanceof _native.Canvas).to.equal(true);
+    (0,chai__WEBPACK_IMPORTED_MODULE_4__.expect)(function () {ctx.drawImage({}, 0, 0);}).to.throw();
+    (0,chai__WEBPACK_IMPORTED_MODULE_4__.expect)(function () {ctx.drawImage(new Path2D(), 0, 0);}).to.throw();
+    (0,chai__WEBPACK_IMPORTED_MODULE_4__.expect)(function () {ctx.drawImage(spoofedCanvas, 0, 0);}).to.throw();
+    realCanvas.dispose();
+  });
+
+  it("treats a non-Path2D Path2D() argument as path data", function () {
+    // The constructor routed on IsObject(), so any object was unwrapped as a Path2D.
+    // Per the (Path2D or DOMString) union a non-Path2D is stringified instead.
+    (0,chai__WEBPACK_IMPORTED_MODULE_4__.expect)(function () {new Path2D({});}).to.not.throw();
+    (0,chai__WEBPACK_IMPORTED_MODULE_4__.expect)(function () {new Path2D(5);}).to.not.throw();
+    (0,chai__WEBPACK_IMPORTED_MODULE_4__.expect)(function () {new Path2D();}).to.not.throw();
+    // A copy of a real Path2D still copies, and an object that stringifies to path
+    // data is still parsed as such.
+    var source = new Path2D("M0 0 L10 10");
+    var ctx = createContext();
+    (0,chai__WEBPACK_IMPORTED_MODULE_4__.expect)(function () {ctx.fill(new Path2D(source));}).to.not.throw();
+    (0,chai__WEBPACK_IMPORTED_MODULE_4__.expect)(function () {
+      ctx.fill(new Path2D({ toString: function toString() {return "M0 0 L10 10";} }));
+    }).to.not.throw();
+  });
+
   it("accepts a CanvasGradient as fillStyle", function () {
     var ctx = createContext();
     var gradient = ctx.createLinearGradient(0, 0, 64, 64);
@@ -30723,12 +30846,12 @@ describe("Canvas image reloads", function () {
   this.timeout(5000);
   var test = hasNativeImageLoading ? it : it.skip;
   var url = "app:///Assets/image-reload.png";
-  var dataUrl = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAMAAAABCAAAAAA+i0toAAAADElEQVR42mNgqP8PAAIBAX+LG2RhAAAAAElFTkSuQmCC";var _loop2 = function _loop2()
+  var dataUrl = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAMAAAABCAAAAAA+i0toAAAADElEQVR42mNgqP8PAAIBAX+LG2RhAAAAAElFTkSuQmCC";var _loop3 = function _loop3()
 
-  {var sources = _arr1[_i1];
-    test("loads the same image again (".concat(sources.map(function (source) {return source === url ? "URL" : "data";}).join(" to "), ")"), /*#__PURE__*/(0,_babel_runtime_helpers_asyncToGenerator__WEBPACK_IMPORTED_MODULE_1__["default"])(/*#__PURE__*/_babel_runtime_regenerator__WEBPACK_IMPORTED_MODULE_2___default().mark(function _callee0() {var image, _iterator2, _step2, _loop3, _t3;return _babel_runtime_regenerator__WEBPACK_IMPORTED_MODULE_2___default().wrap(function (_context10) {while (1) switch (_context10.prev = _context10.next) {case 0:
+  {var sources = _arr10[_i10];
+    test("loads the same image again (".concat(sources.map(function (source) {return source === url ? "URL" : "data";}).join(" to "), ")"), /*#__PURE__*/(0,_babel_runtime_helpers_asyncToGenerator__WEBPACK_IMPORTED_MODULE_1__["default"])(/*#__PURE__*/_babel_runtime_regenerator__WEBPACK_IMPORTED_MODULE_2___default().mark(function _callee0() {var image, _iterator2, _step2, _loop4, _t3;return _babel_runtime_regenerator__WEBPACK_IMPORTED_MODULE_2___default().wrap(function (_context10) {while (1) switch (_context10.prev = _context10.next) {case 0:
             image = new _native.Image();_iterator2 = _createForOfIteratorHelper(
-              sources);_context10.prev = 1;_loop3 = /*#__PURE__*/_babel_runtime_regenerator__WEBPACK_IMPORTED_MODULE_2___default().mark(function _loop3() {var source;return _babel_runtime_regenerator__WEBPACK_IMPORTED_MODULE_2___default().wrap(function (_context1) {while (1) switch (_context1.prev = _context1.next) {case 0:source = _step2.value;_context1.next = 1;return (
+              sources);_context10.prev = 1;_loop4 = /*#__PURE__*/_babel_runtime_regenerator__WEBPACK_IMPORTED_MODULE_2___default().mark(function _loop4() {var source;return _babel_runtime_regenerator__WEBPACK_IMPORTED_MODULE_2___default().wrap(function (_context1) {while (1) switch (_context1.prev = _context1.next) {case 0:source = _step2.value;_context1.next = 1;return (
                       new Promise(function (resolve, reject) {
                         image.onload = resolve;
                         image.onerror = reject;
@@ -30737,10 +30860,10 @@ describe("Canvas image reloads", function () {
                     (0,chai__WEBPACK_IMPORTED_MODULE_4__.expect)(image.width).to.equal(source === url ? 2 : 3);
                     (0,chai__WEBPACK_IMPORTED_MODULE_4__.expect)(image.naturalWidth).to.equal(image.width);
                     (0,chai__WEBPACK_IMPORTED_MODULE_4__.expect)(image.height).to.equal(1);
-                    (0,chai__WEBPACK_IMPORTED_MODULE_4__.expect)(image.naturalHeight).to.equal(1);case 2:case "end":return _context1.stop();}}, _loop3);});_iterator2.s();case 2:if ((_step2 = _iterator2.n()).done) {_context10.next = 4;break;}return _context10.delegateYield(_loop3(), "t0", 3);case 3:_context10.next = 2;break;case 4:_context10.next = 6;break;case 5:_context10.prev = 5;_t3 = _context10["catch"](1);_iterator2.e(_t3);case 6:_context10.prev = 6;_iterator2.f();return _context10.finish(6);case 7:case "end":return _context10.stop();}}, _callee0, null, [[1, 5, 6, 7]]);}))
+                    (0,chai__WEBPACK_IMPORTED_MODULE_4__.expect)(image.naturalHeight).to.equal(1);case 2:case "end":return _context1.stop();}}, _loop4);});_iterator2.s();case 2:if ((_step2 = _iterator2.n()).done) {_context10.next = 4;break;}return _context10.delegateYield(_loop4(), "t0", 3);case 3:_context10.next = 2;break;case 4:_context10.next = 6;break;case 5:_context10.prev = 5;_t3 = _context10["catch"](1);_iterator2.e(_t3);case 6:_context10.prev = 6;_iterator2.f();return _context10.finish(6);case 7:case "end":return _context10.stop();}}, _callee0, null, [[1, 5, 6, 7]]);}))
 
     );
-  };for (var _i1 = 0, _arr1 = [[url, url], [url, dataUrl], [dataUrl, url], [dataUrl, dataUrl]]; _i1 < _arr1.length; _i1++) {_loop2();}
+  };for (var _i10 = 0, _arr10 = [[url, url], [url, dataUrl], [dataUrl, url], [dataUrl, dataUrl]]; _i10 < _arr10.length; _i10++) {_loop3();}
 
   test("reflects the assigned src immediately", /*#__PURE__*/(0,_babel_runtime_helpers_asyncToGenerator__WEBPACK_IMPORTED_MODULE_1__["default"])(/*#__PURE__*/_babel_runtime_regenerator__WEBPACK_IMPORTED_MODULE_2___default().mark(function _callee1() {var image;return _babel_runtime_regenerator__WEBPACK_IMPORTED_MODULE_2___default().wrap(function (_context11) {while (1) switch (_context11.prev = _context11.next) {case 0:
           image = new _native.Image();_context11.next = 1;return (
@@ -30751,9 +30874,9 @@ describe("Canvas image reloads", function () {
               (0,chai__WEBPACK_IMPORTED_MODULE_4__.expect)(image.src).to.equal(dataUrl);
             }));case 1:
           (0,chai__WEBPACK_IMPORTED_MODULE_4__.expect)(image.src).to.equal(dataUrl);case 2:case "end":return _context11.stop();}}, _callee1);}))
-  );var _loop4 = function _loop4()
+  );var _loop5 = function _loop5()
 
-  {var fromUrl = _arr10[_i10];
+  {var fromUrl = _arr11[_i11];
     test("only delivers the latest assignment after a pending ".concat(fromUrl ? "URL" : "data", " load"), /*#__PURE__*/(0,_babel_runtime_helpers_asyncToGenerator__WEBPACK_IMPORTED_MODULE_1__["default"])(/*#__PURE__*/_babel_runtime_regenerator__WEBPACK_IMPORTED_MODULE_2___default().mark(function _callee10() {var image, barrier, loaded, errors;return _babel_runtime_regenerator__WEBPACK_IMPORTED_MODULE_2___default().wrap(function (_context12) {while (1) switch (_context12.prev = _context12.next) {case 0:
             setImageReloadTestResponse(buffer__WEBPACK_IMPORTED_MODULE_5__.Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAIAAAABCAYAAAD0In+KAAAADklEQVR4nGP4z8AAQv8BD/kD/YURmXYAAAAASUVORK5CYII=", "base64"));
             image = new _native.Image();
@@ -30777,9 +30900,9 @@ describe("Canvas image reloads", function () {
             (0,chai__WEBPACK_IMPORTED_MODULE_4__.expect)(image.width).to.equal(3);
             (0,chai__WEBPACK_IMPORTED_MODULE_4__.expect)(barrier.width).to.equal(3);case 2:case "end":return _context12.stop();}}, _callee10);}))
     );
-  };for (var _i10 = 0, _arr10 = [true, false]; _i10 < _arr10.length; _i10++) {_loop4();}
+  };for (var _i11 = 0, _arr11 = [true, false]; _i11 < _arr11.length; _i11++) {_loop5();}
 
-  test("reports load errors and can recover with data and URL loads", /*#__PURE__*/(0,_babel_runtime_helpers_asyncToGenerator__WEBPACK_IMPORTED_MODULE_1__["default"])(/*#__PURE__*/_babel_runtime_regenerator__WEBPACK_IMPORTED_MODULE_2___default().mark(function _callee11() {var image, errorCount, _loop5, _i11, _arr11;return _babel_runtime_regenerator__WEBPACK_IMPORTED_MODULE_2___default().wrap(function (_context14) {while (1) switch (_context14.prev = _context14.next) {case 0:
+  test("reports load errors and can recover with data and URL loads", /*#__PURE__*/(0,_babel_runtime_helpers_asyncToGenerator__WEBPACK_IMPORTED_MODULE_1__["default"])(/*#__PURE__*/_babel_runtime_regenerator__WEBPACK_IMPORTED_MODULE_2___default().mark(function _callee11() {var image, errorCount, _loop6, _i12, _arr12;return _babel_runtime_regenerator__WEBPACK_IMPORTED_MODULE_2___default().wrap(function (_context14) {while (1) switch (_context14.prev = _context14.next) {case 0:
           image = new _native.Image();
           errorCount = 0;_context14.next = 1;return (
             new Promise(function (resolve, reject) {
@@ -30787,15 +30910,15 @@ describe("Canvas image reloads", function () {
               image.onerror = function () {++errorCount;resolve();};
               image.src = "app:///Assets/nonexistent-image-reload.png";
             }));case 1:
-          (0,chai__WEBPACK_IMPORTED_MODULE_4__.expect)(errorCount).to.equal(1);_loop5 = /*#__PURE__*/_babel_runtime_regenerator__WEBPACK_IMPORTED_MODULE_2___default().mark(function _loop5() {var source;return _babel_runtime_regenerator__WEBPACK_IMPORTED_MODULE_2___default().wrap(function (_context13) {while (1) switch (_context13.prev = _context13.next) {case 0:
-                  source = _arr11[_i11];_context13.next = 1;return (
+          (0,chai__WEBPACK_IMPORTED_MODULE_4__.expect)(errorCount).to.equal(1);_loop6 = /*#__PURE__*/_babel_runtime_regenerator__WEBPACK_IMPORTED_MODULE_2___default().mark(function _loop6() {var source;return _babel_runtime_regenerator__WEBPACK_IMPORTED_MODULE_2___default().wrap(function (_context13) {while (1) switch (_context13.prev = _context13.next) {case 0:
+                  source = _arr12[_i12];_context13.next = 1;return (
                     new Promise(function (resolve, reject) {
                       image.onload = resolve;
                       image.onerror = reject;
                       image.src = source;
                     }));case 1:
                   (0,chai__WEBPACK_IMPORTED_MODULE_4__.expect)(image.src).to.equal(source);
-                  (0,chai__WEBPACK_IMPORTED_MODULE_4__.expect)(image.width).to.equal(source === url ? 2 : 3);case 2:case "end":return _context13.stop();}}, _loop5);});_i11 = 0, _arr11 = [dataUrl, url];case 2:if (!(_i11 < _arr11.length)) {_context14.next = 4;break;}return _context14.delegateYield(_loop5(), "t0", 3);case 3:_i11++;_context14.next = 2;break;case 4:case "end":return _context14.stop();}}, _callee11);}))
+                  (0,chai__WEBPACK_IMPORTED_MODULE_4__.expect)(image.width).to.equal(source === url ? 2 : 3);case 2:case "end":return _context13.stop();}}, _loop6);});_i12 = 0, _arr12 = [dataUrl, url];case 2:if (!(_i12 < _arr12.length)) {_context14.next = 4;break;}return _context14.delegateYield(_loop6(), "t0", 3);case 3:_i12++;_context14.next = 2;break;case 4:case "end":return _context14.stop();}}, _callee11);}))
 
   );
 });
