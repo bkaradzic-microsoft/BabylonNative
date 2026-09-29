@@ -698,6 +698,176 @@ TEST(NativeEngineClear, ProceduralTextureRetainsBothInputs)
 #endif
 }
 
+TEST(NativeEngineTextureSampling, NoMipSamplingPreservesFiltersAndModeChanges)
+{
+#if defined(SKIP_EXTERNAL_TEXTURE_TESTS) || defined(SKIP_RENDER_TESTS)
+    GTEST_SKIP();
+#else
+    const std::string vertexShader =
+        "precision highp float;\n"
+        "attribute vec3 position;\n"
+        "attribute vec2 uv;\n"
+        "varying vec2 vUV;\n"
+        "void main(void) { vUV = uv; gl_Position = vec4(position, 1.0); }\n";
+    struct SamplingCase
+    {
+        int Mode;
+        int Anisotropy;
+        int Red;
+        int Green;
+        int MagnifiedRed;
+    };
+    const SamplingCase cases[] = {
+        {1, 1, 0, 0, 255},   // Nearest, no mips.
+        {2, 1, 128, 0, 191}, // Linear, no mips.
+        {7, 1, 128, 0, 255}, // Nearest mag, linear min, no mips.
+        {12, 1, 0, 0, 191},  // Linear mag, nearest min, no mips.
+        {2, 4, 255, 0, 255}, // Anisotropic, constant-color base mip.
+        {3, 1, 0, 255, 191}, // Linear mip filtering restored.
+        {4, 1, 0, 255, 255}, // Point mip filtering restored.
+    };
+    for (const auto& sample : cases)
+    {
+        SCOPED_TRACE(::testing::Message() << "mode=" << sample.Mode << ", anisotropy=" << sample.Anisotropy);
+        const std::string setupScript = R"(
+            var requestedMode = )" + std::to_string(sample.Mode) + R"(;
+            var anisotropy = )" + std::to_string(sample.Anisotropy) + R"(;
+            // Distinct lower mips separate mip selection from spatial filtering.
+            var sampled;
+            for (var mip = 0, size = 8; size >= 1; mip++, size /= 2) {
+                var pixels = new Uint8Array(size * size * 4);
+                var offset = 0;
+                for (var y = 0; y < size; y++) {
+                    for (var x = 0; x < size; x++) {
+                        pixels[offset++] = mip === 0 && (anisotropy > 1 || x % 2 === 0) ? 255 : 0;
+                        pixels[offset++] = mip === 0 ? 0 : 255;
+                        pixels[offset++] = 0;
+                        pixels[offset++] = 255;
+                    }
+                }
+                if (mip === 0) {
+                    sampled = BABYLON.RawTexture.CreateRGBATexture(pixels, size, size, scene, true, false, 1);
+                } else {
+                    engine.updateTextureData(sampled.getInternalTexture(), pixels, 0, 0, size, size, 0, mip);
+                }
+            }
+            sampled.anisotropicFilteringLevel = anisotropy;
+            sampled.updateSamplingMode(4);
+            sampled.updateSamplingMode(requestedMode);
+            material.setTexture("inputSampler", sampled);
+        )";
+        for (const bool magnify : {false, true})
+        {
+            SCOPED_TRACE(::testing::Message() << "magnify=" << magnify);
+            const std::string fragmentShader =
+                "precision highp float;\n"
+                "uniform sampler2D inputSampler;\n"
+                "varying vec2 vUV;\n"
+                "void main(void) { gl_FragColor = texture2D(inputSampler, vUV * " +
+                std::string{magnify ? "0.125" : "0.5"} + " + 0.25); }\n";
+            const auto pixels = RenderFullScreenQuad(2, 2, vertexShader, fragmentShader, true, setupScript);
+            ASSERT_EQ(pixels.size(), 16u);
+            for (size_t offset = 0; offset < pixels.size(); offset += 4)
+            {
+                EXPECT_NEAR(pixels[offset], magnify ? sample.MagnifiedRed : sample.Red, 1);
+                EXPECT_NEAR(pixels[offset + 1], magnify ? 0 : sample.Green, 1);
+                EXPECT_EQ(pixels[offset + 2], 0);
+                EXPECT_EQ(pixels[offset + 3], 255);
+            }
+        }
+    }
+#endif
+}
+
+TEST(NativeEngineTextureSampling, VolumeCoordinatesMatchRawAndRenderedTextures)
+{
+#if defined(SKIP_EXTERNAL_TEXTURE_TESTS) || defined(SKIP_RENDER_TESTS)
+    GTEST_SKIP();
+#else
+    constexpr uint32_t SIZE = 4;
+    constexpr uint32_t WIDTH = SIZE * SIZE;
+    const std::string vertexShader =
+        "precision highp float;\n"
+        "attribute vec3 position;\n"
+        "void main(void) { gl_Position = vec4(position, 1.0); }\n";
+    const std::string fragmentShader = R"(
+        precision highp float;
+        precision highp int;
+        precision highp sampler3D;
+        uniform sampler3D inputSampler;
+        void main(void) {
+            ivec3 coord = ivec3(int(gl_FragCoord.x) % 4, int(gl_FragCoord.y), int(gl_FragCoord.x) / 4);
+            vec3 uv = (vec3(coord) + 0.5) / vec3(textureSize(inputSampler, 0));
+            gl_FragColor = vec4(
+                texture(inputSampler, uv).r,
+                textureLod(inputSampler, uv, 0.0).g,
+                texelFetch(inputSampler, coord, 0).b,
+                1.0);
+        }
+    )";
+    for (int mode = 0; mode < 3; ++mode)
+    {
+        SCOPED_TRACE(::testing::Message() << "volume source: " << mode);
+        const std::string setupScript = R"(
+            var mode = )" + std::to_string(mode) + R"(;
+            var source;
+            if (mode === 2) {
+                source = new BABYLON.ProceduralTexture("volume", { width: 4, height: 4, depth: 4 }, {
+                    fragmentSource:
+                        "precision highp float; uniform int layerNum;" +
+                        "void main(void) {" +
+                        "float value = (16.0 + floor(gl_FragCoord.x) + 4.0 * floor(gl_FragCoord.y) + 16.0 * float(layerNum)) / 255.0;" +
+                        "gl_FragColor = vec4(vec3(value), 1.0); }"
+                }, scene, {
+                    generateMipMaps: false,
+                    generateDepthBuffer: false,
+                    samplingMode: BABYLON.Texture.NEAREST_SAMPLINGMODE
+                }, false);
+            } else {
+                var backing = new Uint8Array(4 * 4 * 4 * 4 + 16);
+                backing.fill(211);
+                var data = new Uint8Array(backing.buffer, 8, 4 * 4 * 4 * 4);
+                for (var z = 0; z < 4; ++z) {
+                    for (var y = 0; y < 4; ++y) {
+                        for (var x = 0; x < 4; ++x) {
+                            var offset = ((z * 4 + y) * 4 + x) * 4;
+                            data[offset] = data[offset + 1] = data[offset + 2] = 16 + x + 4 * y + 16 * z;
+                            data[offset + 3] = 255;
+                        }
+                    }
+                }
+                var expected = backing.slice();
+                source = new BABYLON.RawTexture3D(
+                    mode === 0 ? data : new Uint8Array(data.length),
+                    4, 4, 4, BABYLON.Constants.TEXTUREFORMAT_RGBA, scene, false, false,
+                    BABYLON.Texture.NEAREST_SAMPLINGMODE);
+                if (mode === 1) source.update(data);
+                for (var index = 0; index < backing.length; ++index) {
+                    if (backing[index] !== expected[index]) throw new Error("Volume upload modified caller data");
+                }
+            }
+            material.setTexture("inputSampler", source);
+        )";
+        const auto pixels = RenderFullScreenQuad(WIDTH, SIZE, vertexShader, fragmentShader, false, setupScript);
+        ASSERT_EQ(pixels.size(), WIDTH * SIZE * 4);
+        for (uint32_t row = 0; row < SIZE; ++row)
+        {
+            for (uint32_t column = 0; column < WIDTH; ++column)
+            {
+                const auto expected = 16 + column % SIZE + 4 * (SIZE - 1 - row) + 16 * (column / SIZE);
+                const size_t offset = (row * WIDTH + column) * 4;
+                for (size_t channel = 0; channel < 3; ++channel)
+                {
+                    EXPECT_NEAR(pixels[offset + channel], expected, 1)
+                        << "row " << row << ", column " << column << ", sampling method " << channel;
+                }
+                EXPECT_EQ(pixels[offset + 3], 255);
+            }
+        }
+    }
+#endif
+}
+
 TEST(NativeEngineInstanceData, QueuedDrawRetainsDataBeforeUpdate)
 {
 #if defined(SKIP_EXTERNAL_TEXTURE_TESTS) || defined(SKIP_RENDER_TESTS)
