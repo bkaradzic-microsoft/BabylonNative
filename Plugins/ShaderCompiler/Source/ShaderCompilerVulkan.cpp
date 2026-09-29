@@ -390,7 +390,8 @@ namespace Babylon::Plugins
         ShaderCompilerTraversers::IdGenerator ids{};
         // Flip 2D texture sample coordinates (replaces the former ProcessSamplerFlip texture() macro).
         ShaderCompilerTraversers::FlipSamplerCoordinates(program);
-        // Must precede the uniform struct move, which collects the uniform this declares.
+        // Present gl_FragCoord in OpenGL's bottom-left-origin space. Must precede the uniform
+        // struct move so the target-size uniform it declares is collected with the others.
         ShaderCompilerTraversers::FlipFragCoordY(program, ids);
         auto cutScope = ShaderCompilerTraversers::ChangeUniformTypes(program, ids);
         auto utstScope = ShaderCompilerTraversers::MoveNonSamplerUniformsIntoStruct(program, ids);
