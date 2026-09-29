@@ -226,9 +226,34 @@ namespace Babylon::Polyfills::Internal
         {
             float X, Y, Width, Height;
             float PatternX, PatternY, PatternWidth, PatternHeight;
+            float SourceX, SourceY, SourceWidth, SourceHeight;
         };
         static std::optional<DrawImageRectangles> ParseDrawImageRectangles(std::span<const double> arguments, uint32_t srcWidth, uint32_t srcHeight);
-        void DrawImageCommon(int imageIndex, const DrawImageRectangles& rectangles);
+        void DrawImageCommon(
+            int imageIndex,
+            const DrawImageRectangles& rectangles,
+            const uint8_t* srcPixels = nullptr,
+            uint32_t srcWidth = 0,
+            uint32_t srcHeight = 0);
+
+        // Keep the pixel-backed mirror used by the pre-readback implementation in sync.
+        // GPU readback remains authoritative for getImageData/toDataURL and canvas sources.
+        std::vector<uint8_t> m_cpuPixels;
+        uint32_t m_cpuWidth{0};
+        uint32_t m_cpuHeight{0};
+        void EnsureCpuBuffer();
+        void BlitPixelsToCpu(
+            const uint8_t* src,
+            uint32_t srcWidth,
+            uint32_t srcHeight,
+            int32_t sx,
+            int32_t sy,
+            uint32_t sw,
+            uint32_t sh,
+            int32_t dx,
+            int32_t dy,
+            uint32_t dw,
+            uint32_t dh);
 
         friend class Canvas;
     };
