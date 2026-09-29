@@ -758,8 +758,12 @@ namespace Babylon::Polyfills::Internal
     {
         std::string text{info[0].As<Napi::String>()};
 
-        // Measure against the same face FillText will bind.
+        // Bind the face FillText will use before measuring: nvgTextBounds/nvgTextMetrics read the
+        // font bound on the nanovg state, and SetFont only sets the size + remembers the face id,
+        // so otherwise the measurement is taken against whatever face a previous FillText happened
+        // to leave bound (or none at all, yielding zeros).
         const bool fontBound = SetFontFaceId();
+
         // No face available: synthesize Arial-ish metrics so callers still get a finite width.
         if (!fontBound && m_state.font.Size() > 0.f)
         {
