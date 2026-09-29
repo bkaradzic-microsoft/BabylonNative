@@ -53,6 +53,10 @@ namespace Babylon
         ~Program();
 
         void Initialize(std::shared_ptr<Graphics::BgfxShaderInfo> shaderInfo);
+
+        // Creates a bgfx compute program (single CSH shader) from shaderInfo->ComputeBytes.
+        void InitializeCompute(std::shared_ptr<Graphics::BgfxShaderInfo> shaderInfo);
+
         void Dispose();
 
         // Stores the original GLSL sources so divisor-driven instanced variants can be
@@ -66,10 +70,16 @@ namespace Babylon
 
         void SetUniform(bgfx::UniformHandle handle, gsl::span<const float> data, size_t elementLength = 1);
         const UniformInfo* GetUniformInfo(const std::string& name) const;
+        // Finds a sampler uniform whose bind stage matches (used by the compute-dispatch path to
+        // bind a texture to a given group/binding slot without knowing the sampler's name).
+        const UniformInfo* GetSamplerInfoByStage(uint8_t stage) const;
         bgfx::ProgramHandle Handle() const { return m_handle; }
         const std::map<uint16_t, UniformValue>& Uniforms() const { return m_uniforms; }
         const std::map<std::string, uint32_t>& VertexAttributeLocations() const { return m_vertexAttributeLocations; }
-        // Null for shaders that never read gl_FragCoord; the compiler omits the uniform there.
+        // The uniform the shader compiler declares in fragment shaders that read gl_FragCoord, so
+        // the Y flip can be resolved against the bound framebuffer's size. Null for the shaders
+        // that never read gl_FragCoord (the compiler omits it there). Resolved once at
+        // initialization because it is consulted on every draw.
         const UniformInfo* FragCoordTargetSizeUniform() const { return m_fragCoordTargetSizeUniform; }
 
         // Compiler-assigned i_data slot for each built-in attribute location.
@@ -83,9 +93,9 @@ namespace Babylon
         std::map<std::string, uint16_t> m_uniformNameToIndex;
         std::map<uint16_t, UniformInfo> m_uniformInfos;
         std::map<std::string, uint32_t> m_vertexAttributeLocations;
-        std::map<uint32_t, uint32_t> m_builtInInstanceDataSlots;
-        const UniformInfo* m_fragCoordTargetSizeUniform{nullptr};
-        std::string m_vertexSource;
+                const UniformInfo* m_fragCoordTargetSizeUniform{nullptr};
+                std::map<uint32_t, uint32_t> m_builtInInstanceDataSlots;
+                std::string m_vertexSource;
         std::string m_fragmentSource;
         std::map<std::map<std::string, uint32_t>, bgfx::ProgramHandle> m_instancedVariants;
     };

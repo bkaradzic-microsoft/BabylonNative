@@ -19,6 +19,9 @@ namespace Babylon::Polyfills::Internal
     public:
         static void Initialize(Napi::Env env);
 
+        // Safe brand check — never use ObjectWrap::Unwrap on an unchecked JS value.
+        static NativeCanvasImage* TryUnwrap(Napi::Env env, const Napi::Value& value);
+
         explicit NativeCanvasImage(const Napi::CallbackInfo& info);
         virtual ~NativeCanvasImage();
 
@@ -27,6 +30,8 @@ namespace Babylon::Polyfills::Internal
         uint32_t GetWidth() const { return m_width; }
         uint32_t GetHeight() const { return m_height; }
 
+        // Returns the decoded RGBA8 pixels (width*height*4 bytes), or nullptr if not loaded.
+        const uint8_t* GetPixels() const;
     private:
         Napi::Value GetWidth(const Napi::CallbackInfo&);
         Napi::Value GetHeight(const Napi::CallbackInfo&);

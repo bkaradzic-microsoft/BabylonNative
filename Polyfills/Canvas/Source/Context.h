@@ -142,8 +142,10 @@ namespace Babylon::Polyfills::Internal
         //
         // The current path is deliberately not here: per the spec save() does not save it, so
         // the path-tracking members below stay outside the stack.
+        struct ClipMask;
         struct State
         {
+            std::shared_ptr<ClipMask> clipMask;
             std::variant<std::string, GradientStyle> fillStyle{};
             std::variant<std::string, GradientStyle> strokeStyle{};
             // These four mirror state nanovg also holds. Their initial values must match what
@@ -168,7 +170,7 @@ namespace Babylon::Polyfills::Internal
             std::string direction{"ltr"}; // 'ltr', 'rtl'
             float miterLimit{10.f};
             float lineWidth{1.f};
-            double globalAlpha{1.0};
+            float globalAlpha{1.f};
             float letterSpacing{0.f};
 
             // font is worse than the getter-only cases above: currentFontId is what the text
@@ -193,8 +195,9 @@ namespace Babylon::Polyfills::Internal
 
         // Set once the current path contains anything nvgScissor cannot express.
         bool m_pathHasNonRect{false};
-        // Set when clip() had such a path and had to fall back to path emulation.
-        bool m_isClipped{false};
+        uint32_t m_pathRectangleCount{};
+        std::vector<std::shared_ptr<ClipMask>> m_clipMasks;
+        void ReleaseClipMasksAfterFlush();
 
         std::shared_ptr<arcana::cancellation_source> m_cancellationSource{};
         JsRuntimeScheduler m_runtimeScheduler;
@@ -209,21 +212,41 @@ namespace Babylon::Polyfills::Internal
         void PlayPath2D(const NativeCanvasPath2D* path);
         void SetFilterStack();
 
-        // Start a fresh nanovg path and drop the clip state that described the old one.
-        // clip() emulates a non-rectangular path by leaving it current and letting the next
-        // fill draw it, so any operation that resets the path invalidates that emulation:
-        // leaving m_isClipped set makes FillRect skip its own nvgBeginPath and append to a
-        // path that no longer exists, and leaving m_pathHasNonRect set makes a later clip()
-        // take the emulated branch on what is now a plain rect.
+        // The current path is independent of the saved clipping region.
         void ResetPathState();
 
         struct DrawImageRectangles
         {
             float X, Y, Width, Height;
             float PatternX, PatternY, PatternWidth, PatternHeight;
+            float SourceX, SourceY, SourceWidth, SourceHeight;
         };
         static std::optional<DrawImageRectangles> ParseDrawImageRectangles(std::span<const double> arguments, uint32_t srcWidth, uint32_t srcHeight);
-        void DrawImageCommon(int imageIndex, const DrawImageRectangles& rectangles);
+        void DrawImageCommon(
+            int imageIndex,
+            const DrawImageRectangles& rectangles,
+            const uint8_t* srcPixels = nullptr,
+            uint32_t srcWidth = 0,
+            uint32_t srcHeight = 0);
+
+        // Keep the pixel-backed mirror used by the pre-readback implementation in sync.
+        // GPU readback remains authoritative for getImageData/toDataURL and canvas sources.
+        std::vector<uint8_t> m_cpuPixels;
+        uint32_t m_cpuWidth{0};
+        uint32_t m_cpuHeight{0};
+        void EnsureCpuBuffer();
+        void BlitPixelsToCpu(
+            const uint8_t* src,
+            uint32_t srcWidth,
+            uint32_t srcHeight,
+            int32_t sx,
+            int32_t sy,
+            uint32_t sw,
+            uint32_t sh,
+            int32_t dx,
+            int32_t dy,
+            uint32_t dw,
+            uint32_t dh);
 
         friend class Canvas;
     };

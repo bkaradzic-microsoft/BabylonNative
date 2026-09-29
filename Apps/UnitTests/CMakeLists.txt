@@ -19,6 +19,10 @@ set(TEST_ASSETS
     "JavaScript/dist/tests.shaderCache.basicScene.js"
     "JavaScript/dist/tests.shaderCompilation.comprehensiveGLSL.js")
 
+set(TEST_FONT_ASSETS
+    "../Dependencies/Arimo-Regular.ttf"
+    "../Dependencies/Arimo-OFL.txt"
+    "../Dependencies/Arimo-PROVENANCE.txt")
 set(PACKAGED_TEST_ASSETS
     "Assets/droidsans.ttf"
     "Assets/droidsans.LICENSE.txt")
@@ -43,6 +47,8 @@ set(SOURCES
     "Source/Tests.JavaScript.cpp"
     "Source/Tests.NativeEngine.InstanceData.cpp"
     "Source/Tests.NativeEngine.ImageFormats.cpp"
+    "Source/Tests.NativeEngine.Mipmaps.cpp"
+    "Source/Tests.NativeEngine.PrimitiveModeExpansion.cpp"
     "Source/Tests.NativeEngine.DepthTextures.cpp"
     "Source/Tests.NativeEngine.Teardown.cpp"
     "Source/Tests.NativeEngine.TextureFormats.cpp"
@@ -60,6 +66,7 @@ endif()
 
 if(GRAPHICS_API STREQUAL "D3D11")
     set(SOURCES ${SOURCES}
+        "Source/Tests.NativeEngine.Compute.cpp"
         "Source/Tests.Device.${GRAPHICS_API}.cpp"
         "Source/Tests.Device.D3D11.ExternalBackBuffer.cpp")
 endif()
@@ -83,7 +90,7 @@ elseif(WIN32)
     set(ADDITIONAL_COMPILE_DEFINITIONS ${ADDITIONAL_COMPILE_DEFINITIONS} PRIVATE HAS_RENDERDOC)
 endif()
 
-add_executable(UnitTests ${BABYLONJS_ASSETS} ${BABYLONJS_MATERIALS_ASSETS} ${TEST_ASSETS} ${PACKAGED_TEST_ASSETS} ${TEST_SCRIPTS} ${SOURCES})
+add_executable(UnitTests ${BABYLONJS_ASSETS} ${BABYLONJS_MATERIALS_ASSETS} ${TEST_ASSETS} ${TEST_FONT_ASSETS} ${PACKAGED_TEST_ASSETS} ${TEST_SCRIPTS} ${SOURCES})
 if(BABYLON_NATIVE_PLUGIN_NATIVEENGINE_LOAD_IMAGES)
     target_compile_definitions(UnitTests PRIVATE HAS_NATIVE_IMAGE_LOADING)
 endif()
@@ -104,6 +111,8 @@ target_link_libraries(UnitTests
     PRIVATE Window
     PRIVATE XMLHttpRequest
     PRIVATE gtest_main
+    PRIVATE bimg_decode
+    PRIVATE bimg_encode
     PRIVATE bimg
     ${ADDITIONAL_LIBRARIES})
 
@@ -124,6 +133,16 @@ endif()
 if(BABYLON_NATIVE_PLUGIN_NATIVEMESHOPT)
     target_link_libraries(UnitTests PRIVATE NativeMeshopt)
     target_compile_definitions(UnitTests PRIVATE HAS_NATIVE_MESHOPT)
+endif()
+
+if(BABYLON_NATIVE_PLUGIN_NATIVEOPTIMIZATIONS)
+    target_link_libraries(UnitTests PRIVATE NativeOptimizations)
+    target_compile_definitions(UnitTests PRIVATE HAS_NATIVE_OPTIMIZATIONS)
+endif()
+
+if(BABYLON_NATIVE_PLUGIN_TESTUTILS)
+    target_link_libraries(UnitTests PRIVATE TestUtils)
+    target_compile_definitions(UnitTests PRIVATE HAS_TEST_UTILS)
 endif()
 
 if(GRAPHICS_API STREQUAL "D3D12")
@@ -170,7 +189,7 @@ if(ANGLE_LIBEGL)
     )
 endif()
 
-foreach(ASSET ${BABYLONJS_ASSETS} ${BABYLONJS_MATERIALS_ASSETS} ${TEST_ASSETS} ${PACKAGED_TEST_ASSETS})
+foreach(ASSET ${BABYLONJS_ASSETS} ${BABYLONJS_MATERIALS_ASSETS} ${TEST_ASSETS} ${TEST_FONT_ASSETS} ${PACKAGED_TEST_ASSETS})
     get_filename_component(ASSET_NAME "${ASSET}" NAME)
     add_custom_command(
         OUTPUT "${CMAKE_CFG_INTDIR}/Assets/${ASSET_NAME}"
@@ -184,5 +203,6 @@ source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${SOURCES})
 source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR}/../node_modules/babylonjs PREFIX Assets FILES ${BABYLONJS_ASSETS})
 source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR}/../node_modules/babylonjs-materials PREFIX Assets FILES ${BABYLONJS_MATERIALS_ASSETS})
 source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR}/JavaScript/dist PREFIX Assets FILES ${TEST_ASSETS})
+source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR}/../Dependencies PREFIX Assets FILES ${TEST_FONT_ASSETS})
 source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR}/Assets PREFIX Assets FILES ${PACKAGED_TEST_ASSETS})
 source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR}/JavaScript/src PREFIX TypeScript FILES ${TEST_SCRIPTS})

@@ -37,6 +37,8 @@ namespace Babylon
         class Texture;
     }
 
+    class InstanceRepacker;
+
     class NativeEngine final : public Napi::ObjectWrap<NativeEngine>
     {
         static constexpr auto JS_CLASS_NAME = "_NativeEngine";
@@ -69,9 +71,19 @@ namespace Babylon
         Napi::Value CreateVertexBuffer(const Napi::CallbackInfo& info);
         void DeleteVertexBuffer(NativeDataStream::Reader& data);
         void RecordVertexBuffer(const Napi::CallbackInfo& info);
+        void RecordStorageBuffer(const Napi::CallbackInfo& info);
         void UpdateDynamicVertexBuffer(const Napi::CallbackInfo& info);
         Napi::Value CreateProgram(const Napi::CallbackInfo& info);
         Napi::Value CreateProgramAsync(const Napi::CallbackInfo& info);
+        Napi::Value CreateComputeProgram(const Napi::CallbackInfo& info);
+        Napi::Value CreateStorageBuffer(const Napi::CallbackInfo& info);
+        void UpdateStorageBuffer(const Napi::CallbackInfo& info);
+                // Deferred SSBO upload ordered with COMMAND_COMPUTEDISPATCH in the command stream.
+                // Immediate updateStorageBuffer races ahead of deferred dispatches (e.g. GPU particle
+                // prewarm), so only the last params blob is visible to every dispatch.
+                void UpdateStorageBufferCommand(NativeDataStream::Reader& data);
+                void DeleteStorageBuffer(NativeDataStream::Reader& data);
+                void ComputeDispatch(NativeDataStream::Reader& data);
         Napi::Value GetUniforms(const Napi::CallbackInfo& info);
         Napi::Value GetAttributes(const Napi::CallbackInfo& info);
         void SetProgram(NativeDataStream::Reader& data);
@@ -83,6 +95,7 @@ namespace Babylon
         void SetDepthWrite(NativeDataStream::Reader& data);
         void SetColorWrite(NativeDataStream::Reader& data);
         void SetBlendMode(NativeDataStream::Reader& data);
+        void SetBlendEquation(NativeDataStream::Reader& data);
         void SetMatrix(NativeDataStream::Reader& data);
         void SetInt(NativeDataStream::Reader& data);
         void SetIntArray(NativeDataStream::Reader& data);
@@ -116,6 +129,7 @@ namespace Babylon
         void SetTextureSampling(NativeDataStream::Reader& data);
         void SetTextureWrapMode(NativeDataStream::Reader& data);
         void SetTextureAnisotropicLevel(NativeDataStream::Reader& data);
+        void SetTextureComparisonFunction(const Napi::CallbackInfo& info);
         void SetTexture(NativeDataStream::Reader& data);
         void UnsetTexture(NativeDataStream::Reader& data);
         void DiscardAllTextures(NativeDataStream::Reader& data);
@@ -123,7 +137,7 @@ namespace Babylon
         Napi::Value ReadTexture(const Napi::CallbackInfo& info);
         Napi::Value CreateFrameBuffer(const Napi::CallbackInfo& info);
         Napi::Value CreateMultiFrameBuffer(const Napi::CallbackInfo& info);
-        Napi::Value CreateFrameBufferImpl(Napi::Env env, gsl::span<Graphics::Texture* const> colorTextures, uint16_t width, uint16_t height, bool generateStencilBuffer, bool generateDepth, uint32_t samples, Graphics::Texture* depthStencilTexture = nullptr);
+        Napi::Value CreateFrameBufferImpl(Napi::Env env, gsl::span<Graphics::Texture* const> colorTextures, uint16_t width, uint16_t height, bool generateStencilBuffer, bool generateDepth, uint32_t samples, uint16_t layer = 0, uint16_t mip = 0, gsl::span<const uint16_t> perAttachmentLayers = {}, Graphics::Texture* explicitDepthTexture = nullptr, bool autoGenerateMips = true, Graphics::Texture* depthStencilTexture = nullptr);
         void DeleteFrameBuffer(NativeDataStream::Reader& data);
         void BindFrameBuffer(NativeDataStream::Reader& data);
         void UnbindFrameBuffer(NativeDataStream::Reader& data);
@@ -151,8 +165,19 @@ namespace Babylon
         void EndFrame(const Napi::CallbackInfo&);
         void DrawInternal(bgfx::Encoder* encoder, uint32_t fillMode, const VertexBuffer::InstanceDataLayout& instanceDataLayout);
 
+        // Dispatches the GPU instance-data repack for a vertex array whose per-instance sources are
+        // GPU storage buffers, returning the dynamic vertex buffer to bind as instance data (or an
+        // invalid handle when there is nothing to repack). Must be called before the draw bindings
+        // are set, since dispatch resets the encoder's pending draw state.
+        bgfx::DynamicVertexBufferHandle RepackStorageInstances(bgfx::Encoder* encoder, VertexArray* vertexArray, uint32_t instanceCount);
+
         bgfx::Encoder* GetEncoder();
         Graphics::FrameBuffer& GetBoundFrameBuffer();
+
+        // One-shot GPU-compute self-test (env-gated by BABYLON_COMPUTE_SELFTEST). Compiles a
+        // trivial GLSL compute shader, dispatches it to write an image, and reads the result
+        // back to verify the ShaderCompiler compute path + bgfx compute wiring end to end.
+        void MaybeRunComputeSelfTest();
 
         std::shared_ptr<arcana::cancellation_source> m_cancellationSource{};
 
@@ -228,9 +253,25 @@ namespace Babylon
         std::vector<Napi::FunctionReference> m_requestAnimationFrameCallbacks{};
 
         VertexArray* m_boundVertexArray{};
+        std::unique_ptr<InstanceRepacker> m_instanceRepacker{};
         Graphics::FrameBuffer m_defaultFrameBuffer;
         Graphics::FrameBuffer* m_boundFrameBuffer{};
         PerFrameValue<bool> m_boundFrameBufferNeedsRebinding;
+
+        // Last material texture binds on the frame encoder. Compute dispatch (and instance
+        // repack) clear encoder bind state; DrawInternal replays these so particle sheet
+        // samplers survive mid-draw compute.
+        struct BoundTexture
+        {
+            bgfx::UniformHandle Handle{bgfx::kInvalidHandle};
+            bgfx::TextureHandle Texture{bgfx::kInvalidHandle};
+            uint32_t Flags{};
+            uint16_t FirstLayer{};
+            uint16_t NumLayers{};
+            uint8_t MaxLod{UINT8_MAX};
+        };
+        std::map<uint8_t, BoundTexture> m_boundTextures{};
+        void RestoreBoundTextures(bgfx::Encoder* encoder);
 
         // TODO: This should be changed to a non-owning ref once multi-update is available.
         NativeDataStream* m_commandStream{};

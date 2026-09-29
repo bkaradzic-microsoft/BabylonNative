@@ -20,7 +20,7 @@ namespace Babylon::Graphics
     class FrameBuffer final
     {
     public:
-        FrameBuffer(DeviceContext& context, bgfx::FrameBufferHandle handle, uint16_t width, uint16_t height, bool defaultBackBuffer, bool hasDepth, bool hasStencil, int8_t depthStencilAttachmentIndex = -1);
+        FrameBuffer(DeviceContext& context, bgfx::FrameBufferHandle handle, uint16_t width, uint16_t height, bool defaultBackBuffer, bool hasDepth, bool hasStencil, int8_t depthStencilAttachmentIndex = -1, bool isMultisampled = true);
         ~FrameBuffer();
 
         FrameBuffer(const FrameBuffer&) = delete;
@@ -32,14 +32,18 @@ namespace Babylon::Graphics
         uint16_t Width() const;
         uint16_t Height() const;
         bool DefaultBackBuffer() const;
+        bool IsMultisampled() const;
 
         void Bind();
         void Unbind();
 
-        void Clear(bgfx::Encoder& encoder, uint16_t flags, uint32_t rgba, float depth, uint8_t stencil);
+        // Color is floating-point so float/half MRT clears (e.g. OIT depth peel -99999) are not
+        // quantized through an 8-bit packed rgba. Backends honour these via bgfx's clear palette.
+        void Clear(bgfx::Encoder& encoder, uint16_t flags, float r, float g, float b, float a, float depth, uint8_t stencil, uint8_t colorAttachmentMask = UINT8_MAX);
         void SetViewPort(float x, float y, float width, float height);
         void SetScissor(float x, float y, float width, float height);
         void Submit(bgfx::Encoder& encoder, bgfx::ProgramHandle programHandle, uint8_t flags);
+        void Compute(bgfx::Encoder& encoder, bgfx::ProgramHandle programHandle, uint32_t numX, uint32_t numY, uint32_t numZ);
         void SetStencil(bgfx::Encoder& encoder, uint32_t stencilState);
         void Blit(bgfx::Encoder& encoder, bgfx::TextureHandle dst, uint16_t dstX, uint16_t dstY, bgfx::TextureHandle src, uint16_t srcX = 0, uint16_t srcY = 0, uint16_t width = UINT16_MAX, uint16_t height = UINT16_MAX);
 
@@ -60,6 +64,7 @@ namespace Babylon::Graphics
         const bool m_useDeviceBackBuffer{};
         const bool m_hasDepth{};
         const bool m_hasStencil{};
+        const bool m_isMultisampled{};
 
         std::optional<bgfx::ViewId> m_viewId{};
 

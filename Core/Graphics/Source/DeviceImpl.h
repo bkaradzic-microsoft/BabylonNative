@@ -46,6 +46,7 @@ namespace Babylon::Graphics
         void UpdateDevice(DeviceT device);
         void UpdateSize(size_t width, size_t height);
         void UpdateMSAA(uint8_t value);
+        uint8_t GetMSAASamples() const;
         void UpdateAlphaPremultiplied(bool enabled);
 
 #ifdef GRAPHICS_BACK_BUFFER_SUPPORT
@@ -110,10 +111,8 @@ namespace Babylon::Graphics
         // draw/clear operation boundaries where no encoder work is pending.
         void FlushViewsIfNeeded();
 
-        // Unconditionally request a mid-frame bgfx flush when a FrameCompletionScope
-        // is active (same handshake as FlushViewsIfNeeded). Used by Canvas GPU
-        // readback so bgfx::readTexture can complete without waiting for the end of
-        // the logical frame. Returns false when the render thread cannot service it.
+        // Flush pending compute writes or readbacks while a FrameCompletionScope is
+        // held. Returns false when the render thread cannot service the request.
         bool ForceMidFrameFlush();
 
         // Frame completion scope support

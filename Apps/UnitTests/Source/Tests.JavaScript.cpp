@@ -15,6 +15,9 @@
 #ifdef HAS_NATIVE_MESHOPT
 #include <Babylon/Plugins/NativeMeshopt.h>
 #endif
+#ifdef HAS_NATIVE_OPTIMIZATIONS
+#include <Babylon/Plugins/NativeOptimizations.h>
+#endif
 #include <Babylon/ScriptLoader.h>
 
 #include <cstdlib>
@@ -79,15 +82,12 @@ TEST(JavaScript, All)
 #else
         env.Global().Set("hasNativeImageLoading", false);
 #endif
-#ifdef USE_NOOP_METAL_DEVICE
-        env.Global().Set("hasGpuRendering", false);
-#else
-        env.Global().Set("hasGpuRendering", true);
-#endif
 #if defined(SKIP_RENDER_TESTS) || defined(SKIP_EXTERNAL_TEXTURE_TESTS)
         env.Global().Set("skipCanvasGpuTests", true);
+        env.Global().Set("hasGpuRendering", false);
 #else
         env.Global().Set("skipCanvasGpuTests", false);
+        env.Global().Set("hasGpuRendering", true);
 #endif
 
         Babylon::Polyfills::XMLHttpRequest::Initialize(env);
@@ -104,6 +104,9 @@ TEST(JavaScript, All)
 #endif
 #ifdef HAS_NATIVE_MESHOPT
         Babylon::Plugins::NativeMeshopt::Initialize(env);
+#endif
+#ifdef HAS_NATIVE_OPTIMIZATIONS
+        Babylon::Plugins::NativeOptimizations::Initialize(env);
 #endif
 
         auto setExitCodeCallback = Napi::Function::New(
