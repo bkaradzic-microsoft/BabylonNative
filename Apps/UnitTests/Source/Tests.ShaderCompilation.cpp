@@ -14,13 +14,13 @@
 #include <cstdlib>
 #include <future>
 #include <iostream>
+#include <stdexcept>
 #include <string>
 
 #if defined(BABYLON_NATIVE_GRAPHICS_API_VULKAN)
 #include <Babylon/Plugins/ShaderCompiler.h>
 #include <spirv_cross.hpp>
 #include <cstring>
-#include <stdexcept>
 #endif
 
 using namespace std::chrono_literals;
@@ -28,6 +28,18 @@ using namespace std::chrono_literals;
 extern Babylon::Graphics::Configuration g_deviceConfig;
 
 #ifdef HAS_SHADER_COMPILER
+#if defined(BABYLON_NATIVE_GRAPHICS_API_D3D12) || defined(BABYLON_NATIVE_GRAPHICS_API_VULKAN)
+TEST(ShaderCompilation, UnsupportedComputeBackendReportsError)
+{
+    Babylon::Plugins::ShaderCompiler compiler{};
+    EXPECT_THROW(compiler.CompileCompute(R"(
+        #version 310 es
+        layout(local_size_x = 1) in;
+        void main() {}
+    )"), std::runtime_error);
+}
+#endif
+
 TEST(ShaderCompilation, NativeCompilerAcceptsExistingVec4UniformArray)
 {
     Babylon::Plugins::ShaderCompiler compiler{};
