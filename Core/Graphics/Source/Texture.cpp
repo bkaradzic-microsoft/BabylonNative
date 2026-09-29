@@ -157,16 +157,15 @@ namespace Babylon::Graphics
         bgfx::updateTextureCube(m_handle, layer, side, mip, x, y, width, height, mem, pitch);
     }
 
-    void Texture::Attach(bgfx::TextureHandle handle, uint16_t width, uint16_t height, bool hasMips, uint16_t numLayers, bgfx::TextureFormat::Enum format, uint64_t flags)
+    void Texture::Attach(bgfx::TextureHandle handle, bool ownsHandle, uint16_t width, uint16_t height, bool hasMips, uint16_t numLayers, bgfx::TextureFormat::Enum format, uint64_t flags)
     {
         Dispose();
 
         assert(bgfx::isValid(handle));
-        m_handle = handle;
-
-        m_ownsHandle = false;
-        SetMetadata(width, height, 0, hasMips, false, false, numLayers, format, flags);
-    }
+                m_handle = handle;
+                m_ownsHandle = ownsHandle;
+                SetMetadata(width, height, 0, hasMips, false, false, numLayers, format, flags);
+            }
 
     bgfx::TextureHandle Texture::Handle() const
     {
