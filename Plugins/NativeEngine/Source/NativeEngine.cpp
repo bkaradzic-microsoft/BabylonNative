@@ -65,7 +65,9 @@ namespace Babylon
             constexpr uint32_t SAMPLER_MIN_LINEAR = 0;
             constexpr uint32_t SAMPLER_MIP_POINT = BGFX_SAMPLER_MIP_POINT;
             constexpr uint32_t SAMPLER_MIP_LINEAR = 0;
-            constexpr uint32_t SAMPLER_MIP_IGNORE = BGFX_SAMPLER_NO_MIPS;
+            // Native command-stream marker, stripped before passing sampler flags to bgfx.
+            constexpr uint32_t SAMPLER_MIP_IGNORE = 0x00000800;
+            static_assert((SAMPLER_MIP_IGNORE & BGFX_SAMPLER_BITS_MASK) == 0);
 
             // clang-format off
             // Names, as in constants.ts are MAG_MIN(_MIP?)     MAG                     MIN                         MIP
@@ -1546,7 +1548,10 @@ namespace Babylon
                                 const UniformInfo* samplerInfo = program->GetSamplerInfoByStage(stage);
                                 if (samplerInfo != nullptr)
                                 {
-                                    encoder->setTexture(samplerInfo->Stage, samplerInfo->Handle, texture->Handle(), texture->SamplerFlags());
+                                    encoder->setTexture(samplerInfo->Stage, samplerInfo->Handle, texture->Handle(),
+                                        texture->ViewNumLayers() != 0 ? texture->ViewFirstLayer() : 0,
+                                        texture->ViewNumLayers() != 0 ? texture->ViewNumLayers() : UINT16_MAX,
+                                        0, UINT8_MAX, texture->SamplerFlags(), 0, texture->SamplerMaxLod());
                                 }
                             }
 
@@ -2556,8 +2561,9 @@ namespace Babylon
 
         uint32_t flags = texture.SamplerFlags();
 
-        flags &= ~(BGFX_SAMPLER_MIN_POINT | BGFX_SAMPLER_MAG_POINT | BGFX_SAMPLER_MIP_POINT | BGFX_SAMPLER_NO_MIPS);
-        flags |= value;
+        flags &= ~(BGFX_SAMPLER_MIN_POINT | BGFX_SAMPLER_MAG_POINT | BGFX_SAMPLER_MIP_POINT);
+        flags |= value & ~TextureSampling::SAMPLER_MIP_IGNORE;
+        texture.SamplerMaxLod((value & TextureSampling::SAMPLER_MIP_IGNORE) != 0 ? 0 : UINT8_MAX);
 
         // Disable anisotropy if either min/mag are point.
         if ((flags & BGFX_SAMPLER_MIN_POINT) != 0 || (flags & BGFX_SAMPLER_MAG_POINT) != 0)
@@ -2663,21 +2669,13 @@ namespace Babylon
         bound.Handle = uniformInfo->Handle;
         bound.Texture = texture->Handle();
         bound.Flags = texture->SamplerFlags();
-        bound.FirstLayer = texture->ViewFirstLayer();
-        bound.NumLayers = texture->ViewNumLayers();
+        bound.FirstLayer = texture->ViewNumLayers() != 0 ? texture->ViewFirstLayer() : 0;
+        bound.NumLayers = texture->ViewNumLayers() != 0 ? texture->ViewNumLayers() : UINT16_MAX;
+        bound.MaxLod = texture->SamplerMaxLod();
         m_boundTextures[uniformInfo->Stage] = bound;
 
-        const uint16_t numLayers = bound.NumLayers;
-        if (numLayers != 0)
-        {
-            // Select a single array slice of a multi-layer texture at bind time (e.g. NV12 decoder
-            // frame-pool slice). The texture itself stays a full TEXTURE2DARRAY.
-            encoder->setTexture(uniformInfo->Stage, uniformInfo->Handle, texture->Handle(), bound.FirstLayer, numLayers, 0, UINT8_MAX, bound.Flags);
-        }
-        else
-        {
-            encoder->setTexture(uniformInfo->Stage, uniformInfo->Handle, texture->Handle(), bound.Flags);
-        }
+        encoder->setTexture(uniformInfo->Stage, bound.Handle, bound.Texture,
+            bound.FirstLayer, bound.NumLayers, 0, UINT8_MAX, bound.Flags, 0, bound.MaxLod);
     }
     void NativeEngine::UnsetTexture(NativeDataStream::Reader& data)
     {
@@ -2707,14 +2705,8 @@ namespace Babylon
             {
                 continue;
             }
-            if (bound.NumLayers != 0)
-            {
-                encoder->setTexture(stage, bound.Handle, bound.Texture, bound.FirstLayer, bound.NumLayers, 0, UINT8_MAX, bound.Flags);
-            }
-            else
-            {
-                encoder->setTexture(stage, bound.Handle, bound.Texture, bound.Flags);
-            }
+            encoder->setTexture(stage, bound.Handle, bound.Texture,
+                bound.FirstLayer, bound.NumLayers, 0, UINT8_MAX, bound.Flags, 0, bound.MaxLod);
         }
     }
 

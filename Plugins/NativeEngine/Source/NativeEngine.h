@@ -268,6 +268,7 @@ namespace Babylon
             uint32_t Flags{};
             uint16_t FirstLayer{};
             uint16_t NumLayers{};
+            uint8_t MaxLod{UINT8_MAX};
         };
         std::map<uint8_t, BoundTexture> m_boundTextures{};
         void RestoreBoundTextures(bgfx::Encoder* encoder);

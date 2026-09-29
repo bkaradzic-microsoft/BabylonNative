@@ -199,3 +199,58 @@ TEST(NativeEngineTextureFormats, RejectedInitializationPreservesExistingTexture)
         }
     });
 }
+
+TEST(NativeEngineTextureFormats, SamplingModesSeparateLodClampFromFilterFlags)
+{
+    RunTextureTest([](Napi::Object engine, Napi::Value value) {
+        auto* texture = value.As<Napi::Pointer<Babylon::Graphics::Texture>>().Get();
+        EXPECT_EQ(texture->SamplerMaxLod(), UINT8_MAX);
+        constexpr uint32_t preservedFlags = BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_COMPARE_LESS;
+        texture->SamplerFlags(preservedFlags);
+
+        auto setSampling = Napi::Eval(engine.Env(), R"(
+            (function(engine, texture) {
+                const stream = new _native.NativeDataStream(function() {});
+                engine.setCommandDataStream({_nativeDataStream: stream});
+                return function(mode) {
+                    const command = _native.Engine.COMMAND_SETTEXTURESAMPLING;
+                    const words = new Uint32Array(command.length + texture.length + 1);
+                    words.set(command);
+                    words.set(texture, command.length);
+                    words[words.length - 1] = _native.Engine[mode];
+                    stream.writeBuffer(words.buffer, words.length);
+                    engine.submitCommands();
+                };
+            })
+        )", "native-texture-sampling-test.js").As<Napi::Function>()
+            .Call({engine, value}).As<Napi::Function>();
+
+        struct SamplingCase
+        {
+            const char* Name;
+            uint32_t Flags;
+            uint8_t MaxLod;
+        };
+        const SamplingCase cases[]{
+            {"TEXTURE_NEAREST_NEAREST", BGFX_SAMPLER_MAG_POINT | BGFX_SAMPLER_MIN_POINT, 0},
+            {"TEXTURE_NEAREST_NEAREST_MIPNEAREST", BGFX_SAMPLER_MAG_POINT | BGFX_SAMPLER_MIN_POINT | BGFX_SAMPLER_MIP_POINT, UINT8_MAX},
+            {"TEXTURE_LINEAR_LINEAR", 0, 0},
+            {"TEXTURE_LINEAR_LINEAR_MIPLINEAR", 0, UINT8_MAX},
+            {"TEXTURE_NEAREST_LINEAR", BGFX_SAMPLER_MAG_POINT, 0},
+            {"TEXTURE_NEAREST_LINEAR_MIPNEAREST", BGFX_SAMPLER_MAG_POINT | BGFX_SAMPLER_MIP_POINT, UINT8_MAX},
+            {"TEXTURE_LINEAR_NEAREST", BGFX_SAMPLER_MIN_POINT, 0},
+            {"TEXTURE_LINEAR_NEAREST_MIPNEAREST", BGFX_SAMPLER_MIN_POINT | BGFX_SAMPLER_MIP_POINT, UINT8_MAX},
+            {"TEXTURE_NEAREST_LINEAR_MIPLINEAR", BGFX_SAMPLER_MAG_POINT, UINT8_MAX},
+            {"TEXTURE_NEAREST_NEAREST_MIPLINEAR", BGFX_SAMPLER_MAG_POINT | BGFX_SAMPLER_MIN_POINT, UINT8_MAX},
+            {"TEXTURE_LINEAR_NEAREST_MIPLINEAR", BGFX_SAMPLER_MIN_POINT, UINT8_MAX},
+            {"TEXTURE_LINEAR_LINEAR_MIPNEAREST", BGFX_SAMPLER_MIP_POINT, UINT8_MAX},
+        };
+        for (const auto& test : cases)
+        {
+            SCOPED_TRACE(test.Name);
+            setSampling.Call({Napi::String::New(engine.Env(), test.Name)});
+            EXPECT_EQ(texture->SamplerFlags(), preservedFlags | test.Flags);
+            EXPECT_EQ(texture->SamplerMaxLod(), test.MaxLod);
+        }
+    });
+}
