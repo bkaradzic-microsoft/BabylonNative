@@ -4,14 +4,14 @@
 
 The NativeDraco plugin provides native [Draco](https://github.com/google/draco) geometry compression and decompression to Babylon, so `KHR_draco_mesh_compression` glTF assets can be decoded — and meshes encoded — without shipping and instantiating the Draco WebAssembly modules.
 
-The plugin is **off by default**. Enable it with `-D BABYLON_NATIVE_PLUGIN_NATIVEDRACO=ON`.
+The shotgun support branch enables the plugin by default. Upstream remains opt-in with `-D BABYLON_NATIVE_PLUGIN_NATIVEDRACO=ON`.
 
 Codec-only builds skip Draco's unused third-party submodules. Setting `DRACO_TRANSCODER_SUPPORTED=ON` also fetches the transcoder's Eigen, filesystem, and tinygltf dependencies.
 
 ## Limitations
 
-- **glTF bitstream subset.** Draco is built with `DRACO_GLTF_BITSTREAM=ON`. NativeDraco is intended to produce and consume glTF-compatible Draco data (Babylon.js defaults to the glTF-only decoder). The subset still supports mesh encoding, normals, and standard Edgebreaker; it constrains the output rather than disabling encoding, and avoids features outside the glTF profile (e.g. predictive valence at slower speeds) that the default decoder may reject. Attribute deduplication may be compiled out of the subset; `Encode` guards those passes on the feature macros Draco publishes.
-- **Pinned Babylon.js release.** The repository's stock `babylonjs` 9.21.2 bundle does not probe a native Draco API. NativeDraco's unit tests therefore exercise both export forms directly without replacing or overriding the pinned package.
+- **Full bitstream.** The support branch uses `DRACO_GLTF_BITSTREAM=OFF` for older and non-glTF validation streams. This increases binary size and can emit encoded features unsupported by a glTF-only decoder. The code-only branch retains upstream's glTF subset.
+- **Paired Babylon.js runtime.** The full shotgun catalog uses the matching protocol-10 Babylon.js fork, including its native codec probes. NativeDraco's unit tests also exercise both export forms directly.
 
 ## Design
 
