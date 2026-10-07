@@ -2,10 +2,12 @@
 
 #include <bgfx/bgfx.h>
 #include <optional>
+#include <memory>
 
 namespace Babylon::Graphics
 {
     class DeviceContext;
+    struct MultisampledDepthState;
 
     struct Rect
     {
@@ -20,7 +22,7 @@ namespace Babylon::Graphics
     class FrameBuffer final
     {
     public:
-        FrameBuffer(DeviceContext& context, bgfx::FrameBufferHandle handle, uint16_t width, uint16_t height, bool defaultBackBuffer, bool hasDepth, bool hasStencil, int8_t depthStencilAttachmentIndex = -1, bool isMultisampled = false, uint8_t depthOneVolumeAttachmentMask = 0);
+        FrameBuffer(DeviceContext& context, bgfx::FrameBufferHandle handle, uint16_t width, uint16_t height, bool defaultBackBuffer, bool hasDepth, bool hasStencil, int8_t depthStencilAttachmentIndex = -1, bool isMultisampled = false, uint8_t depthOneVolumeAttachmentMask = 0, std::shared_ptr<MultisampledDepthState> multisampledDepth = {});
         ~FrameBuffer();
 
         FrameBuffer(const FrameBuffer&) = delete;
@@ -42,7 +44,7 @@ namespace Babylon::Graphics
         void Clear(bgfx::Encoder& encoder, uint16_t flags, float r, float g, float b, float a, float depth, uint8_t stencil, uint8_t colorAttachmentMask = UINT8_MAX);
         void SetViewPort(float x, float y, float width, float height);
         void SetScissor(float x, float y, float width, float height);
-        void Submit(bgfx::Encoder& encoder, bgfx::ProgramHandle programHandle, uint8_t flags);
+        void Submit(bgfx::Encoder& encoder, bgfx::ProgramHandle programHandle, uint8_t flags, bool depthWrite = true);
         void SetStencil(bgfx::Encoder& encoder, uint32_t stencilState);
         void Blit(bgfx::Encoder& encoder, bgfx::TextureHandle dst, uint16_t dstX, uint16_t dstY, bgfx::TextureHandle src, uint16_t srcX = 0, uint16_t srcY = 0, uint16_t width = UINT16_MAX, uint16_t height = UINT16_MAX);
 
@@ -81,5 +83,6 @@ namespace Babylon::Graphics
 
         bool m_disposed{};
         int8_t m_depthStencilAttachmentIndex{-1};
+        std::shared_ptr<MultisampledDepthState> m_multisampledDepth{};
     };
 }

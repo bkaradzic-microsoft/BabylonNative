@@ -75,6 +75,7 @@ namespace Babylon::Graphics
         std::map<std::string, uint32_t> VertexAttributeLocations{};
         std::map<std::string, uint32_t> BuiltInInstanceDataSlots{};
         std::map<std::string, uint8_t> UniformStages{};
+        std::map<std::string, bool> MultisampledSamplers{};
         std::map<std::string, std::string> UniformNames{};
     };
 }

@@ -2403,7 +2403,6 @@ namespace Babylon::ShaderCompilerTraversers
                 // The coordinate and LOD are captured symbols, not the original expressions.
                 // Clone repeated operands so each AST node retains one parent.
                 TIntermTyped* samplerClone{CloneExpression(sampler)};
-                TIntermTyped* lodClone{CloneExpression(lod)};
                 TIntermTyped* coordinateClone{CloneExpression(coordinate)};
                 const int vecSize = coordinate->getType().getVectorSize();
                 TIntermTyped* coordinateZClone = vecSize == 3 ? CloneExpression(coordinate) : nullptr;
@@ -2413,7 +2412,11 @@ namespace Babylon::ShaderCompilerTraversers
 
                 // textureSize(sampler, lod) has the same dimensions as the coordinate.
                 TIntermAggregate* sizeArgs{m_intermediate->makeAggregate(samplerClone, loc)};
-                sizeArgs = m_intermediate->growAggregate(sizeArgs, lodClone, loc);
+                // MS texelFetch selects a sample, and its textureSize overload has no LOD.
+                if (!sampler->getType().getSampler().isMultiSample())
+                {
+                    sizeArgs = m_intermediate->growAggregate(sizeArgs, CloneExpression(lod), loc);
+                }
                 TIntermTyped* size{m_intermediate->addBuiltInFunctionCall(loc, EOpTextureQuerySize, false, sizeArgs, vectorType)};
 
                 // textureSize(sampler, lod).y - 1

@@ -17,11 +17,12 @@ namespace Babylon
 {
     struct UniformInfo final
     {
-        UniformInfo(uint8_t stage, bgfx::UniformHandle handle, bgfx::UniformType::Enum type, size_t maxElementLength)
+        UniformInfo(uint8_t stage, bgfx::UniformHandle handle, bgfx::UniformType::Enum type, size_t maxElementLength, bool multisampled = false)
             : Stage{stage}
             , Handle{handle}
             , Type{type}
             , MaxElementLength{maxElementLength}
+            , Multisampled{multisampled}
         {
         }
 
@@ -29,6 +30,7 @@ namespace Babylon
         bgfx::UniformHandle Handle{bgfx::kInvalidHandle};
         bgfx::UniformType::Enum Type{bgfx::UniformType::Count};
         size_t MaxElementLength{};
+        bool Multisampled{};
     };
 
     struct UniformValue
@@ -66,6 +68,8 @@ namespace Babylon
 
         void SetUniform(bgfx::UniformHandle handle, gsl::span<const float> data, size_t elementLength = 1);
         const UniformInfo* GetUniformInfo(const std::string& name) const;
+        // Finds the sampler uniform bound at the given texture stage.
+        const UniformInfo* GetSamplerInfoByStage(uint8_t stage) const;
         bgfx::ProgramHandle Handle() const { return m_handle; }
         const std::map<uint16_t, UniformValue>& Uniforms() const { return m_uniforms; }
         const std::map<std::string, uint32_t>& VertexAttributeLocations() const { return m_vertexAttributeLocations; }

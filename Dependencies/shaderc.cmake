@@ -1,3 +1,12 @@
+include_guard(GLOBAL)
+
+if(NOT IOS AND NOT VISIONOS AND NOT ANDROID)
+    set(SHADERC_PATH "" CACHE FILEPATH "Optional full path to shaderc built from bgfx.")
+    if(SHADERC_PATH AND NOT EXISTS "${SHADERC_PATH}")
+        message(FATAL_ERROR "'${SHADERC_PATH}' does not exist.")
+    endif()
+endif()
+
 # Copy of bgfx _bgfx_shaderc_parse function adapted for Babylon Native
 # Function is not guarded behind BGFX_TOOLS_SHADERC and shaderx path is set by SHADERC_PATH variable.
 # Usage:
@@ -181,6 +190,7 @@ function(_bn_shaderc_parse ARG_OUT)
 endfunction()
 
 function(add_bgfx_shader FILE FOLDER)
+    cmake_parse_arguments(ARG "" "ESSL_PROFILE;METAL_PROFILE" "" ${ARGN})
     get_filename_component(FILENAME "${FILE}" NAME_WE)
     string(SUBSTRING "${FILENAME}" 0 2 TYPE)
     if("${TYPE}" STREQUAL "fs")
@@ -228,14 +238,20 @@ function(add_bgfx_shader FILE FOLDER)
 
         # metal
         set(METAL_OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/Source/Shaders/metal/${FILENAME}.h)
-        _bn_shaderc_parse(METAL ${COMMON} OSX PROFILE metal OUTPUT ${METAL_OUTPUT} BIN2C "${FILENAME}_mtl")
+        if(NOT ARG_METAL_PROFILE)
+            set(ARG_METAL_PROFILE metal)
+        endif()
+        _bn_shaderc_parse(METAL ${COMMON} OSX PROFILE ${ARG_METAL_PROFILE} OUTPUT ${METAL_OUTPUT} BIN2C "${FILENAME}_mtl")
         list(APPEND OUTPUTS "METAL")
         set(OUTPUTS_PRETTY "${OUTPUTS_PRETTY}Metal, ")
 
         # essl
         if(NOT "${TYPE}" STREQUAL "COMPUTE")
+            if(NOT ARG_ESSL_PROFILE)
+                set(ARG_ESSL_PROFILE 300_es)
+            endif()
             set(ESSL_OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/Source/Shaders/essl/${FILENAME}.h)
-            _bn_shaderc_parse(ESSL ${COMMON} ANDROID PROFILE 300_es OUTPUT ${ESSL_OUTPUT} BIN2C "${FILENAME}_essl")
+            _bn_shaderc_parse(ESSL ${COMMON} ANDROID PROFILE ${ARG_ESSL_PROFILE} OUTPUT ${ESSL_OUTPUT} BIN2C "${FILENAME}_essl")
             list(APPEND OUTPUTS "ESSL")
             set(OUTPUTS_PRETTY "${OUTPUTS_PRETTY}ESSL, ")
         endif()
@@ -270,7 +286,9 @@ function(add_bgfx_shader FILE FOLDER)
         file(RELATIVE_PATH PRINT_NAME ${CMAKE_CURRENT_SOURCE_DIR}/Source/Shaders ${FILE})
         add_custom_command(
             MAIN_DEPENDENCY ${FILE} OUTPUT ${OUTPUT_FILES} ${COMMANDS}
+            DEPENDS "${BGFX_DIR}/src/bgfx_shader.sh"
             COMMENT "Compiling shader ${PRINT_NAME} for ${OUTPUTS_PRETTY}"
+            VERBATIM
         )
     endif()
 endfunction()

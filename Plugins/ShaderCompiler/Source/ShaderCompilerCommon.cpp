@@ -128,7 +128,8 @@ namespace Babylon::ShaderCompilerCommon
         constexpr std::string_view predefined[] = {
             "u_viewRect", "u_viewTexel", "u_view", "u_invView", "u_proj", "u_invProj",
             "u_viewProj", "u_invViewProj", "u_model", "u_modelView", "u_invModelView",
-            "u_modelViewProj", "u_alphaRef", "u_alphaRef4", "bgfx_indirectArgBase"};
+            "u_modelViewProj", "u_alphaRef", "u_alphaRef4", "bgfx_indirectArgBase",
+            "bnDepthResolveSource", "bnDepthResolveLayer"};
         const auto collect = [&](const std::vector<ShaderToken>& tokens, std::set<std::string>& stageCandidates) {
             bool uniform{};
             for (const auto& token : tokens)
@@ -510,6 +511,34 @@ namespace Babylon::ShaderCompilerCommon
         return SamplerResourceSet::SeparateSamplers;
 #endif
     }
+
+    void CollectMultisampledSamplers(const ShaderInfo& shader,
+        const spirv_cross::SmallVector<spirv_cross::Resource>& samplers, Graphics::BgfxShaderInfo& result)
+    {
+        const auto& compiler = *shader.Compiler;
+        const auto resources = compiler.get_shader_resources();
+        for (const auto& sampler : samplers)
+        {
+            const auto* type = &compiler.get_type(sampler.type_id);
+            if (type->basetype == spirv_cross::SPIRType::Sampler)
+            {
+                const auto binding = compiler.get_decoration(sampler.id, spv::DecorationBinding);
+                for (const auto& image : resources.separate_images)
+                {
+                    if (compiler.get_decoration(image.id, spv::DecorationBinding) == binding)
+                    {
+                        type = &compiler.get_type(image.type_id);
+                        break;
+                    }
+                }
+            }
+            if ((type->basetype == spirv_cross::SPIRType::SampledImage || type->basetype == spirv_cross::SPIRType::Image) && type->image.ms)
+            {
+                const auto& originalName = shader.Parser->get_parsed_ir().get_name(sampler.id);
+                result.MultisampledSamplers[originalName.empty() ? sampler.name : originalName] = true;
+            }
+        }
+    }
 }
 
 Graphics::BgfxShaderInfo CreateBgfxShader(ShaderInfo vertexShaderInfo, ShaderInfo fragmentShaderInfo, std::map<std::string, uint32_t> builtInInstanceDataSlots)
@@ -563,6 +592,7 @@ Graphics::BgfxShaderInfo CreateBgfxShader(
         AppendBytes(vertexBytes, static_cast<uint16_t>(numUniforms));
         AppendUniformBuffer(vertexBytes, uniformsInfo, false);
         appendSamplers(vertexBytes, compiler, vertexShaderInfo.Parser->get_parsed_ir(), samplers, bgfxShaderInfo.UniformStages);
+        CollectMultisampledSamplers(vertexShaderInfo, samplers, bgfxShaderInfo);
 
         AppendBytes(vertexBytes, static_cast<uint32_t>(vertexShaderInfo.Bytes.size()));
         AppendBytes(vertexBytes, vertexShaderInfo.Bytes);
@@ -621,6 +651,7 @@ Graphics::BgfxShaderInfo CreateBgfxShader(
         AppendBytes(fragmentBytes, static_cast<uint16_t>(numUniforms));
         AppendUniformBuffer(fragmentBytes, uniformsInfo, true);
         appendSamplers(fragmentBytes, compiler, fragmentShaderInfo.Parser->get_parsed_ir(), samplers, bgfxShaderInfo.UniformStages);
+        CollectMultisampledSamplers(fragmentShaderInfo, samplers, bgfxShaderInfo);
 
         AppendBytes(fragmentBytes, static_cast<uint32_t>(fragmentShaderInfo.Bytes.size()));
         AppendBytes(fragmentBytes, fragmentShaderInfo.Bytes);

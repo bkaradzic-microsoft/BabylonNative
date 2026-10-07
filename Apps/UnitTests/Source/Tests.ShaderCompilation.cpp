@@ -59,6 +59,25 @@ namespace
 #endif
 
 #if defined(HAS_SHADER_COMPILER) && defined(BABYLON_NATIVE_GRAPHICS_API_D3D11)
+TEST(ShaderCompilation, ReflectsMultisampledSamplers)
+{
+    Babylon::Plugins::ShaderCompiler compiler;
+    const auto shader = compiler.Compile(
+        "in vec3 position; void main() { gl_Position = vec4(position, 1.0); }",
+        R"(
+            precision highp float;
+            uniform highp sampler2DMS depthSamples;
+            uniform sampler2D ordinary;
+            out vec4 color;
+            void main() {
+                color = texelFetch(depthSamples, ivec2(0), 0) + texture(ordinary, vec2(0.5));
+            }
+        )");
+    EXPECT_TRUE(shader.UniformStages.contains("depthSamples"));
+    EXPECT_TRUE(shader.MultisampledSamplers.contains("depthSamples"));
+    EXPECT_FALSE(shader.MultisampledSamplers.contains("ordinary"));
+}
+
 TEST(ShaderCompilation, InterfaceBlocksHaveMatchingD3D11Semantics)
 {
 #if !defined(HAS_SHADER_INTERFACE_BLOCKS)
@@ -154,15 +173,19 @@ TEST(ShaderCompilation, UniformNamesDoNotCollideWithIntrinsicsOrBgfx)
         uniform mat4 u_view;
         uniform float bnUserUniform_textureSize;
         uniform highp sampler2D inputSampler;
+        uniform mat4 bnDepthResolveLayer;
+        uniform vec4 bnDepthResolveSource;
         out vec4 color;
         void main() {
             color = vec4(SIZE_NAME / vec2(textureSize(inputSampler, 0)),
-                u_view[0][0] + bnUserUniform_textureSize, 1.0);
+                u_view[0][0] + bnUserUniform_textureSize, bnDepthResolveLayer[0][0] + bnDepthResolveSource.x);
         }
     )");
-    ASSERT_EQ(shader.UniformNames.size(), 2u);
+    ASSERT_EQ(shader.UniformNames.size(), 4u);
     EXPECT_EQ(shader.UniformNames.at("bnUserUniform_textureSize1"), "textureSize");
     EXPECT_EQ(shader.UniformNames.at("bnUserUniform_u_view"), "u_view");
+    EXPECT_EQ(shader.UniformNames.at("bnUserUniform_bnDepthResolveLayer"), "bnDepthResolveLayer");
+    EXPECT_EQ(shader.UniformNames.at("bnUserUniform_bnDepthResolveSource"), "bnDepthResolveSource");
     EXPECT_FALSE(shader.FragmentBytes.empty());
 }
 

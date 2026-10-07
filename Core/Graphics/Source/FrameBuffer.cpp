@@ -1,4 +1,5 @@
 #include <Babylon/Graphics/FrameBuffer.h>
+#include <Babylon/Graphics/Texture.h>
 #include "DeviceImpl.h"
 #include <arcana/macros.h>
 #include <cmath>
@@ -43,7 +44,7 @@ namespace
 
 namespace Babylon::Graphics
 {
-    FrameBuffer::FrameBuffer(DeviceContext& deviceContext, bgfx::FrameBufferHandle handle, uint16_t width, uint16_t height, bool defaultBackBuffer, bool hasDepth, bool hasStencil, int8_t depthStencilAttachmentIndex, bool isMultisampled, uint8_t depthOneVolumeAttachmentMask)
+    FrameBuffer::FrameBuffer(DeviceContext& deviceContext, bgfx::FrameBufferHandle handle, uint16_t width, uint16_t height, bool defaultBackBuffer, bool hasDepth, bool hasStencil, int8_t depthStencilAttachmentIndex, bool isMultisampled, uint8_t depthOneVolumeAttachmentMask, std::shared_ptr<MultisampledDepthState> multisampledDepth)
         : m_deviceContext{deviceContext}
         , m_deviceID{deviceContext.GetDeviceId()}
         , m_handle{handle}
@@ -58,7 +59,12 @@ namespace Babylon::Graphics
         , m_depthOneVolumeAttachmentMask{depthOneVolumeAttachmentMask}
         , m_disposed{false}
         , m_depthStencilAttachmentIndex{depthStencilAttachmentIndex}
+        , m_multisampledDepth{std::move(multisampledDepth)}
     {
+        if (m_multisampledDepth)
+        {
+            m_multisampledDepth->HasNativeWriter = true;
+        }
     }
 
     FrameBuffer::~FrameBuffer()
@@ -89,6 +95,7 @@ namespace Babylon::Graphics
         }
 
         m_disposed = true;
+        m_multisampledDepth.reset();
     }
 
     bgfx::FrameBufferHandle FrameBuffer::Handle() const
@@ -146,6 +153,10 @@ namespace Babylon::Graphics
 
     void FrameBuffer::Clear(bgfx::Encoder& encoder, uint16_t flags, float r, float g, float b, float a, float depth, uint8_t stencil, uint8_t colorAttachmentMask)
     {
+        if (m_multisampledDepth && (flags & BGFX_CLEAR_DEPTH) != 0)
+        {
+            ++m_multisampledDepth->Revision;
+        }
         const bool maskColorAttachments{colorAttachmentMask != UINT8_MAX && bgfx::isValid(m_handle) && SupportsClearAttachmentMasking()};
         const std::array<float, 4> color{r, g, b, a};
         const auto packedColor = maskColorAttachments ? std::nullopt : PackClearColor(color);
@@ -226,10 +237,14 @@ namespace Babylon::Graphics
         SetBgfxViewPortAndScissor(m_desiredViewPort, m_desiredScissor);
     }
 
-    void FrameBuffer::Submit(bgfx::Encoder& encoder, bgfx::ProgramHandle programHandle, uint8_t flags)
+    void FrameBuffer::Submit(bgfx::Encoder& encoder, bgfx::ProgramHandle programHandle, uint8_t flags, bool depthWrite)
     {
         SetBgfxViewPortAndScissor(m_desiredViewPort, m_desiredScissor);
         encoder.submit(m_viewId.value(), programHandle, 0, flags);
+        if (m_multisampledDepth && depthWrite)
+        {
+            ++m_multisampledDepth->Revision;
+        }
     }
 
     void FrameBuffer::Blit(bgfx::Encoder& encoder, bgfx::TextureHandle dst, uint16_t dstX, uint16_t dstY, bgfx::TextureHandle src, uint16_t srcX, uint16_t srcY, uint16_t width, uint16_t height)

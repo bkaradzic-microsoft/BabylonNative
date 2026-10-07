@@ -7,9 +7,11 @@
 #include <Babylon/Plugins/NativeEngine.h>
 #include <Babylon/Polyfills/Console.h>
 #include <napi/pointer.h>
+#include "DepthResolver.h"
 
 #include <array>
 #include <chrono>
+#include <cstdlib>
 #include <future>
 #include <iostream>
 #include <string>
@@ -116,6 +118,68 @@ TEST(NativeEngineDepthTextures, ExposesReadableDepthAndPreservesFramebufferOwner
             EXPECT_FALSE(frameBuffer->HasStencil());
             frameBuffer->Dispose();
             engine.Get("dispose").As<Napi::Function>().Call(engine, {});
+        }
+        catch (const std::exception& ex)
+        {
+            error = ex.what();
+        }
+        completed.set_value(std::move(error));
+    });
+    while (future.wait_for(std::chrono::milliseconds{16}) != std::future_status::ready)
+    {
+        device.FinishRenderingCurrentFrame();
+        device.StartRenderingCurrentFrame();
+    }
+    EXPECT_EQ(future.get(), "");
+    device.FinishRenderingCurrentFrame();
+}
+
+TEST(NativeEngineDepthTextures, CachesResolvesUntilSharedDepthIsWritten)
+{
+    Babylon::Graphics::Device device{g_deviceConfig};
+#if defined(USE_NOOP_METAL_DEVICE) || defined(SKIP_RENDER_TESTS)
+    GTEST_SKIP() << "GPU rendering is unavailable in this test configuration";
+#endif
+    device.StartRenderingCurrentFrame();
+    Babylon::AppRuntime runtime{};
+    std::promise<std::string> completed;
+    auto future = completed.get_future();
+    runtime.Dispatch([&](Napi::Env env) {
+        std::string error;
+        try
+        {
+            device.AddToJavaScript(env);
+            auto& context = Babylon::Graphics::DeviceContext::GetFromJavaScript(env);
+            auto scope = context.AcquireFrameCompletionScope();
+            Babylon::DepthResolver resolver{context};
+            Babylon::Graphics::Texture depth{context};
+            depth.Create2D(8, 8, false, 1, bgfx::TextureFormat::D24S8, BGFX_TEXTURE_RT_MSAA_X4 | BGFX_TEXTURE_MSAA_SAMPLE);
+            bgfx::Attachment attachment{};
+            attachment.init(depth.Handle(), bgfx::Access::Write, 0, 1, 0, BGFX_ATTACHMENT_NONE);
+            Babylon::Graphics::FrameBuffer first{context, bgfx::createFrameBuffer(1, &attachment),
+                8, 8, false, true, true, -1, true, 0, depth.MultisampledDepth()};
+            Babylon::Graphics::FrameBuffer second{context, bgfx::createFrameBuffer(1, &attachment),
+                8, 8, false, true, true, -1, true, 0, depth.MultisampledDepth()};
+            first.Clear(*context.GetActiveEncoder(), BGFX_CLEAR_DEPTH, 0, 0, 0, 0, 0.25f, 0);
+            const auto resolved = resolver.Resolve(depth.MultisampledDepth());
+            EXPECT_NE(resolved.idx, depth.Handle().idx);
+            EXPECT_EQ(resolver.ResolveCount(), 1u);
+            EXPECT_EQ(resolver.Resolve(depth.MultisampledDepth()).idx, resolved.idx);
+            EXPECT_EQ(resolver.ResolveCount(), 1u);
+            second.Clear(*context.GetActiveEncoder(), BGFX_CLEAR_STENCIL, 0, 0, 0, 0, 0.0f, 2);
+            second.Submit(*context.GetActiveEncoder(), BGFX_INVALID_HANDLE, BGFX_DISCARD_ALL, false);
+            resolver.Resolve(depth.MultisampledDepth());
+            EXPECT_EQ(resolver.ResolveCount(), 1u);
+            second.Clear(*context.GetActiveEncoder(), BGFX_CLEAR_DEPTH, 0, 0, 0, 0, 0.75f, 0);
+            EXPECT_EQ(resolver.Resolve(depth.MultisampledDepth()).idx, resolved.idx);
+            EXPECT_EQ(resolver.ResolveCount(), 2u);
+            EXPECT_TRUE(first.IsMultisampled());
+            EXPECT_TRUE(second.IsMultisampled());
+            EXPECT_EQ(depth.Flags() & BGFX_TEXTURE_RT_MSAA_MASK, BGFX_TEXTURE_RT_MSAA_X4);
+            depth.MultisampledDepth()->External = true;
+            resolver.Resolve(depth.MultisampledDepth());
+            resolver.Resolve(depth.MultisampledDepth());
+            EXPECT_EQ(resolver.ResolveCount(), 4u);
         }
         catch (const std::exception& ex)
         {

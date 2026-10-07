@@ -35,7 +35,10 @@ namespace Babylon
     namespace Graphics
     {
         class Texture;
+        struct MultisampledDepthState;
     }
+
+    class DepthResolver;
 
     class NativeEngine final : public Napi::ObjectWrap<NativeEngine>
     {
@@ -160,6 +163,7 @@ namespace Babylon
         void DrawInternal(bgfx::Encoder* encoder, uint32_t fillMode, const VertexBuffer::InstanceDataLayout& instanceDataLayout);
 
         bgfx::Encoder* GetEncoder();
+        bgfx::Encoder* PrepareDraw();
         Graphics::FrameBuffer& GetBoundFrameBuffer();
 
         std::shared_ptr<arcana::cancellation_source> m_cancellationSource{};
@@ -236,6 +240,7 @@ namespace Babylon
         std::vector<Napi::FunctionReference> m_requestAnimationFrameCallbacks{};
 
         VertexArray* m_boundVertexArray{};
+        std::unique_ptr<DepthResolver> m_depthResolver{};
         Graphics::FrameBuffer m_defaultFrameBuffer;
         Graphics::FrameBuffer* m_boundFrameBuffer{};
         PerFrameValue<bool> m_boundFrameBufferNeedsRebinding;
@@ -246,6 +251,8 @@ namespace Babylon
         {
             bgfx::UniformHandle Handle{bgfx::kInvalidHandle};
             bgfx::TextureHandle Texture{bgfx::kInvalidHandle};
+            bgfx::TextureHandle SamplingTexture{bgfx::kInvalidHandle};
+            std::shared_ptr<Graphics::MultisampledDepthState> MultisampledDepth{};
             uint32_t Flags{};
             uint16_t FirstLayer{};
             uint16_t NumLayers{};
