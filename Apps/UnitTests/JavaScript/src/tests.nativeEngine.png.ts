@@ -1,6 +1,6 @@
 import * as Mocha from "mocha";
 import { expect } from "chai";
-import { Constants, NativeEngine, Scene, Texture } from "@babylonjs/core";
+import { Constants, NativeEngine, RawTexture, Scene, Texture } from "@babylonjs/core";
 
 const fixtures: { name: string; png: string; pixels: number[]; width?: number; height?: number; tolerance?: number }[] = [
     {
@@ -142,5 +142,25 @@ export function registerPngTests(
                 }
             });
         }
+
+        test("preserves explicitly uploaded floating-point texture values", async function () {
+            const engine = new NativeEngine();
+            const scene = new Scene(engine);
+            try {
+                const data = new Float32Array([-0.25, 0.49999237048905165, 2, 1]);
+                const texture = RawTexture.CreateRGBATexture(
+                    data, 1, 1, scene, false, false, Constants.TEXTURE_NEAREST_SAMPLINGMODE,
+                    Constants.TEXTURETYPE_FLOAT
+                );
+                const pixels = await texture.readPixels();
+                if (!(pixels instanceof Float32Array)) {
+                    throw new Error("Expected floating-point raw texture readback");
+                }
+                expect(Array.from(pixels)).to.deep.equal(Array.from(data));
+            } finally {
+                scene.dispose();
+                engine.dispose();
+            }
+        });
     });
 }

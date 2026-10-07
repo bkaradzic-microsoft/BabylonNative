@@ -2,6 +2,7 @@ import * as Mocha from "mocha";
 import { expect } from "chai";
 import { registerTriangleStripDepthTests } from "./tests.nativeEngine.triangleStripDepth";
 import { registerPrimitiveModeTests } from "./tests.nativeEngine.primitiveModes";
+import { registerIblCdfTests } from "./tests.nativeEngine.iblCdf";
 import { registerPngTests } from "./tests.nativeEngine.png";
 import { registerCanvasImageTests } from "./tests.nativeEngine.canvasImage";
 import { Buffer } from "buffer";
@@ -9,6 +10,9 @@ import {
   RequestFile,
   NativeEngine,
   RawTexture,
+  ThinNativeEngine,
+  Matrix,
+  VertexData,
   DynamicTexture,
   MeshBuilder,
   DefaultRenderingPipeline,
@@ -47,6 +51,7 @@ declare const _native: any;
 
 registerTriangleStripDepthTests(describe, it, skipCanvasGpuTests);
 registerPrimitiveModeTests(describe, it, skipCanvasGpuTests);
+registerIblCdfTests(describe, it, skipCanvasGpuTests);
 registerPngTests(describe, it, hasGpuRendering && hasNativeImageLoading);
 registerAttributeLessInstancingTests(describe, it, hasAttributeLessInstancing);
 
@@ -242,11 +247,16 @@ registerCanvasImageTests(describe, it, skipCanvasGpuTests);
 
 describe("RequestFile", function () {
   this.timeout(0);
-  it("should throw when requesting a URL with no protocol", function () {
-    function requestFile() {
-      RequestFile("noprotocol.gltf", () => {});
-    }
-    expect(requestFile).to.throw();
+  it("should report a URL with no protocol through the asynchronous error callback", async function () {
+    this.timeout(5000);
+    let requesting = true;
+    const result = await new Promise<{ status: number; synchronous: boolean }>((resolve, reject) => {
+      RequestFile("noprotocol.gltf", () => reject(new Error("Unexpected relative URL success")), undefined, undefined, false,
+        (error) => resolve({ status: error.request.status, synchronous: requesting }));
+      requesting = false;
+    });
+    expect(result.synchronous).to.equal(false);
+    expect(result.status).to.equal(0);
   });
 });
 
@@ -351,6 +361,42 @@ describe("ColorParsing", function () {
     }
     expect(incorrectColor).to.throw();
   });
+});
+
+describe("Native engine creation options", function () {
+  for (const [name, EngineType] of [["NativeEngine", NativeEngine], ["ThinNativeEngine", ThinNativeEngine]] as const) {
+    for (const useLargeWorldRendering of [false, true]) {
+      it(`${name} preserves ${useLargeWorldRendering ? "large-world" : "high-precision"} options`, function () {
+        const options = {
+          adaptToDeviceRatio: false,
+          useLargeWorldRendering,
+          useHighPrecisionMatrix: !useLargeWorldRendering
+        };
+        const engine = new EngineType(options);
+        try {
+          expect(engine.getCreationOptions().useLargeWorldRendering).to.equal(useLargeWorldRendering);
+          expect(engine.getCreationOptions().useHighPrecisionMatrix).to.equal(!useLargeWorldRendering);
+          const matrix = Matrix.Translation(1_000_000_001, 0, 999_999_999);
+          expect(matrix.m[12]).to.equal(1_000_000_001);
+          expect(matrix.m[14]).to.equal(999_999_999);
+          const vertices = new VertexData();
+          vertices.positions = new Float32Array([1, 2, 3]);
+          vertices.normals = new Float32Array([1, 0, 0]);
+          vertices.tangents = new Float32Array([1, 0, 0, 1]);
+          vertices.transform(Matrix.Translation(5, 6, 7));
+          expect(Array.from(vertices.positions)).to.deep.equal([6, 8, 10]);
+          expect(Array.from(vertices.normals)).to.deep.equal([1, 0, 0]);
+          expect(Array.from(vertices.tangents)).to.deep.equal([1, 0, 0, 1]);
+          const scene = new Scene(engine);
+          expect(scene.floatingOriginMode).to.equal(useLargeWorldRendering);
+          scene.dispose();
+        } finally {
+          engine.dispose();
+          new EngineType().dispose();
+        }
+      });
+    }
+  }
 });
 
 describe("Native splat matrix storage", function () {
