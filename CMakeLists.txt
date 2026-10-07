@@ -68,15 +68,15 @@ FetchContent_Declare(ios-cmake
     GIT_TAG 4.5.0
     EXCLUDE_FROM_ALL)
 FetchContent_Declare(JsRuntimeHost
-    GIT_REPOSITORY https://github.com/BabylonJS/JsRuntimeHost.git
-    GIT_TAG 2f8b9be3a4d691d4a76c85c9c856319eb25f744c)
+    GIT_REPOSITORY https://github.com/bkaradzic-microsoft/JsRuntimeHost.git
+    GIT_TAG 0ad1c2dcaab54d19fa9ad8c2562b7c29364774b7)
 FetchContent_Declare(metal-cpp
     GIT_REPOSITORY https://github.com/bkaradzic/metal-cpp.git
     GIT_TAG metal-cpp_26
     EXCLUDE_FROM_ALL)
 FetchContent_Declare(SPIRV-Cross
-    GIT_REPOSITORY https://github.com/BabylonJS/SPIRV-Cross.git
-    GIT_TAG 7c8705749fc1e234119c20695f82179b30d90914
+    GIT_REPOSITORY https://github.com/bkaradzic-microsoft/SPIRV-Cross.git
+    GIT_TAG 26c40e831c35e2794d5d3a72384f4c27628ee056
     EXCLUDE_FROM_ALL)
 
 # --------------------------------------------------
@@ -132,7 +132,7 @@ option(BABYLON_NATIVE_CHECK_THREAD_AFFINITY "Checks thread safety in the graphic
 option(BABYLON_NATIVE_PLUGIN_EXTERNALTEXTURE "Include Babylon Native Plugin ExternalTexture." ON)
 option(BABYLON_NATIVE_PLUGIN_NATIVECAMERA "Include Babylon Native Plugin NativeCamera." ON)
 option(BABYLON_NATIVE_PLUGIN_NATIVECAPTURE "Include Babylon Native Plugin NativeCapture." ON)
-option(BABYLON_NATIVE_PLUGIN_NATIVEDRACO "Include Babylon Native Plugin NativeDraco." OFF)
+option(BABYLON_NATIVE_PLUGIN_NATIVEDRACO "Include Babylon Native Plugin NativeDraco." ON)
 option(BABYLON_NATIVE_PLUGIN_NATIVEENCODING "Include Babylon Native Plugin NativeEncoding." ON)
 option(BABYLON_NATIVE_PLUGIN_NATIVEENGINE "Include Babylon Native Plugin NativeEngine." ON)
 option(BABYLON_NATIVE_PLUGIN_NATIVEENGINE_LOAD_IMAGES "Enable image loading in NativeEngine (LoadTexture, image bitmap, bimg)." ON)
@@ -143,7 +143,7 @@ option(BABYLON_NATIVE_PLUGIN_NATIVEENGINE_COMPILESHADERS "Include Babylon Native
 # on the native path) requires the full builds, so this defaults ON here.
 option(BABYLON_NATIVE_DISABLE_WEBMIN "Disable WebMin minimization in glslang and SPIRV-Cross (required for compute shaders)." ON)
 option(BABYLON_NATIVE_PLUGIN_NATIVEINPUT "Include Babylon Native Plugin NativeInput." ON)
-option(BABYLON_NATIVE_PLUGIN_NATIVEMESHOPT "Include Babylon Native Plugin NativeMeshopt." OFF)
+option(BABYLON_NATIVE_PLUGIN_NATIVEMESHOPT "Include Babylon Native Plugin NativeMeshopt." ON)
 option(BABYLON_NATIVE_PLUGIN_NATIVEOPTIMIZATIONS "Include Babylon Native Plugin NativeOptimizations." ON)
 option(BABYLON_NATIVE_PLUGIN_NATIVETRACING "Include Babylon Native Plugin NativeTracing." ON)
 option(BABYLON_NATIVE_PLUGIN_NATIVEXR "Include Babylon Native Plugin XR." ON)
