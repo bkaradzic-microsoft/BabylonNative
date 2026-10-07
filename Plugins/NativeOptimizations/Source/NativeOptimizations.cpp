@@ -1,9 +1,69 @@
 #include <Babylon/Plugins/NativeOptimizations.h>
 #include <Babylon/JsRuntime.h>
+#include <algorithm>
+#include <array>
+#include <cmath>
 #include <optional>
+#include <utility>
 
 namespace
 {
+    std::pair<size_t, size_t> ReadVertexRange(const Napi::CallbackInfo& info, size_t elementCount, size_t stride, size_t offsetIndex = 2)
+    {
+        const double offset = info[offsetIndex].IsUndefined() ? 0 : info[offsetIndex].As<Napi::Number>().DoubleValue();
+        const double length = info[offsetIndex + 1].IsUndefined() ? static_cast<double>(elementCount) : info[offsetIndex + 1].As<Napi::Number>().DoubleValue();
+        if (!std::isfinite(offset) || !std::isfinite(length) || offset < 0 || length < 0 ||
+            std::floor(offset) != offset || std::floor(length) != length ||
+            offset > elementCount || length > elementCount - offset || std::fmod(length, static_cast<double>(stride)) != 0)
+        {
+            throw Napi::RangeError::New(info.Env(), "Vertex range must contain whole elements within the array.");
+        }
+        return {static_cast<size_t>(offset), static_cast<size_t>(length)};
+    }
+
+    std::array<double, 16> ReadTransformMatrix(const Napi::Object& transform)
+    {
+        const auto value{transform.Get("_m")};
+        std::array<double, 16> matrix{};
+        if (value.IsTypedArray())
+        {
+            const auto data{value.As<Napi::TypedArray>()};
+            if (data.ElementLength() == matrix.size())
+            {
+                if (data.TypedArrayType() == napi_float32_array)
+                {
+                    const auto elements{data.As<Napi::Float32Array>()};
+                    std::copy_n(elements.Data(), matrix.size(), matrix.begin());
+                    return matrix;
+                }
+                if (data.TypedArrayType() == napi_float64_array)
+                {
+                    const auto elements{data.As<Napi::Float64Array>()};
+                    std::copy_n(elements.Data(), matrix.size(), matrix.begin());
+                    return matrix;
+                }
+            }
+        }
+        else if (value.IsArray())
+        {
+            const auto elements{value.As<Napi::Array>()};
+            if (elements.Length() == matrix.size())
+            {
+                for (uint32_t index = 0; index < matrix.size(); ++index)
+                {
+                    const auto element{elements.Get(index)};
+                    if (!element.IsNumber())
+                    {
+                        throw Napi::TypeError::New(transform.Env(), "Transform matrix elements must be numbers.");
+                    }
+                    matrix[index] = element.As<Napi::Number>().DoubleValue();
+                }
+                return matrix;
+            }
+        }
+        throw Napi::TypeError::New(transform.Env(), "Transform matrix must contain 16 elements in a Float32Array, Float64Array, or Array.");
+    }
+
     void MatrixScaleAdd(const float inputMatrix[16], float scale, float outputMatrix[16])
     {
         for (size_t i = 0; i < 16; ++i)
@@ -39,9 +99,8 @@ namespace
     {
         auto coordinates{info[0].As<Napi::Float32Array>()};
         const auto transform{info[1].As<Napi::Object>()};
-        const auto m{transform.Get("_m").As<Napi::Float32Array>()};
-        const auto offset{info[2].As<Napi::Number>().Uint32Value()};
-        const auto length{info[3].As<Napi::Number>().Uint32Value()};
+        const auto m{ReadTransformMatrix(transform)};
+        const auto [offset, length] = ReadVertexRange(info, coordinates.ElementLength(), 3);
 
         for (size_t index = offset; index < offset + length; index += 3)
         {
@@ -51,9 +110,9 @@ namespace
             const auto rz{x * m[2U] + y * m[6U] + z * m[10U] + m[14U]};
             const auto rw{1 / (x * m[3U] + y * m[7U] + z * m[11U] + m[15U])};
 
-            coordinates[index + 0] = rx * rw;
-            coordinates[index + 1] = ry * rw;
-            coordinates[index + 2] = rz * rw;
+            coordinates[index + 0] = static_cast<float>(rx * rw);
+            coordinates[index + 1] = static_cast<float>(ry * rw);
+            coordinates[index + 2] = static_cast<float>(rz * rw);
         }
     }
 
@@ -61,17 +120,16 @@ namespace
     {
         auto normals{info[0].As<Napi::Float32Array>()};
         const auto transform{info[1].As<Napi::Object>()};
-        const auto m{transform.Get("_m").As<Napi::Float32Array>()};
-        const auto offset{info[2].As<Napi::Number>().Uint32Value()};
-        const auto length{info[3].As<Napi::Number>().Uint32Value()};
+        const auto m{ReadTransformMatrix(transform)};
+        const auto [offset, length] = ReadVertexRange(info, normals.ElementLength(), 3);
 
         for (size_t index = offset; index < offset + length; index += 3)
         {
             const auto x{normals[index]}, y{normals[index + 1]}, z{normals[index + 2]};
 
-            normals[index + 0] = x * m[0U] + y * m[4U] + z * m[8U];
-            normals[index + 1] = x * m[1U] + y * m[5U] + z * m[9U];
-            normals[index + 2] = x * m[2U] + y * m[6U] + z * m[10U];
+            normals[index + 0] = static_cast<float>(x * m[0U] + y * m[4U] + z * m[8U]);
+            normals[index + 1] = static_cast<float>(x * m[1U] + y * m[5U] + z * m[9U]);
+            normals[index + 2] = static_cast<float>(x * m[2U] + y * m[6U] + z * m[10U]);
         }
     }
 
@@ -79,22 +137,21 @@ namespace
     {
         auto normals{info[0].As<Napi::Float32Array>()};
         const auto transform{info[1].As<Napi::Object>()};
-        const auto m{transform.Get("_m").As<Napi::Float32Array>()};
-        const auto offset{info[2].As<Napi::Number>().Uint32Value()};
-        const auto length{info[3].As<Napi::Number>().Uint32Value()};
+        const auto m{ReadTransformMatrix(transform)};
+        const auto [offset, length] = ReadVertexRange(info, normals.ElementLength(), 4);
 
         for (size_t index = offset; index < offset + length; index += 4)
         {
             const auto x{normals[index]}, y{normals[index + 1]}, z{normals[index + 2]};
 
-            normals[index + 0] = x * m[0U] + y * m[4U] + z * m[8U];
-            normals[index + 1] = x * m[1U] + y * m[5U] + z * m[9U];
-            normals[index + 2] = x * m[2U] + y * m[6U] + z * m[10U];
+            normals[index + 0] = static_cast<float>(x * m[0U] + y * m[4U] + z * m[8U]);
+            normals[index + 1] = static_cast<float>(x * m[1U] + y * m[5U] + z * m[9U]);
+            normals[index + 2] = static_cast<float>(x * m[2U] + y * m[6U] + z * m[10U]);
         }
     }
 
     template<typename IndexT>
-    void FlipIndicesT(Napi::TypedArrayOf<IndexT> indices, uint32_t offset, uint32_t length)
+    void FlipIndicesT(Napi::TypedArrayOf<IndexT> indices, size_t offset, size_t length)
     {
         for (size_t index = offset; index < offset + length; index += 3)
         {
@@ -107,8 +164,7 @@ namespace
     void FlipFaces(const Napi::CallbackInfo& info)
     {
         auto indices{info[0].As<Napi::TypedArray>()};
-        const auto offset{info[1].As<Napi::Number>().Uint32Value()};
-        const auto length{info[2].As<Napi::Number>().Uint32Value()};
+        const auto [offset, length] = ReadVertexRange(info, indices.ElementLength(), 3, 1);
 
         if (indices.TypedArrayType() == napi_typedarray_type::napi_int32_array)
         {
