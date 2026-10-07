@@ -7,9 +7,12 @@
 #include <Babylon/Plugins/NativeEngine.h>
 #include <Babylon/Polyfills/Console.h>
 #include <napi/pointer.h>
+#include "DepthResolver.h"
+#include "StorageBuffer.h"
 
 #include <array>
 #include <chrono>
+#include <cstdlib>
 #include <future>
 #include <iostream>
 #include <string>
@@ -131,3 +134,166 @@ TEST(NativeEngineDepthTextures, ExposesReadableDepthAndPreservesFramebufferOwner
     EXPECT_EQ(future.get(), "");
     device.FinishRenderingCurrentFrame();
 }
+
+TEST(NativeEngineDepthTextures, CachesResolvesUntilSharedDepthIsWritten)
+{
+    Babylon::Graphics::Device device{g_deviceConfig};
+#if defined(USE_NOOP_METAL_DEVICE) || defined(SKIP_RENDER_TESTS)
+    GTEST_SKIP() << "GPU rendering is unavailable in this test configuration";
+#endif
+    device.StartRenderingCurrentFrame();
+    Babylon::AppRuntime runtime{};
+    std::promise<std::string> completed;
+    auto future = completed.get_future();
+    runtime.Dispatch([&](Napi::Env env) {
+        std::string error;
+        try
+        {
+            device.AddToJavaScript(env);
+            auto& context = Babylon::Graphics::DeviceContext::GetFromJavaScript(env);
+            auto scope = context.AcquireFrameCompletionScope();
+            Babylon::DepthResolver resolver{context};
+            Babylon::Graphics::Texture depth{context};
+            depth.Create2D(8, 8, false, 1, bgfx::TextureFormat::D24S8, BGFX_TEXTURE_RT_MSAA_X4 | BGFX_TEXTURE_MSAA_SAMPLE);
+            bgfx::Attachment attachment{};
+            attachment.init(depth.Handle(), bgfx::Access::Write, 0, 1, 0, BGFX_ATTACHMENT_NONE);
+            Babylon::Graphics::FrameBuffer first{context, bgfx::createFrameBuffer(1, &attachment),
+                8, 8, false, true, true, -1, true, 0, depth.MultisampledDepth()};
+            Babylon::Graphics::FrameBuffer second{context, bgfx::createFrameBuffer(1, &attachment),
+                8, 8, false, true, true, -1, true, 0, depth.MultisampledDepth()};
+            first.Clear(*context.GetActiveEncoder(), BGFX_CLEAR_DEPTH, 0, 0, 0, 0, 0.25f, 0);
+            const auto resolved = resolver.Resolve(depth.MultisampledDepth());
+            EXPECT_NE(resolved.idx, depth.Handle().idx);
+            EXPECT_EQ(resolver.ResolveCount(), 1u);
+            EXPECT_EQ(resolver.Resolve(depth.MultisampledDepth()).idx, resolved.idx);
+            EXPECT_EQ(resolver.ResolveCount(), 1u);
+            second.Clear(*context.GetActiveEncoder(), BGFX_CLEAR_STENCIL, 0, 0, 0, 0, 0.0f, 2);
+            second.Submit(*context.GetActiveEncoder(), BGFX_INVALID_HANDLE, BGFX_DISCARD_ALL, false);
+            resolver.Resolve(depth.MultisampledDepth());
+            EXPECT_EQ(resolver.ResolveCount(), 1u);
+            second.Clear(*context.GetActiveEncoder(), BGFX_CLEAR_DEPTH, 0, 0, 0, 0, 0.75f, 0);
+            EXPECT_EQ(resolver.Resolve(depth.MultisampledDepth()).idx, resolved.idx);
+            EXPECT_EQ(resolver.ResolveCount(), 2u);
+            EXPECT_TRUE(first.IsMultisampled());
+            EXPECT_TRUE(second.IsMultisampled());
+            EXPECT_EQ(depth.Flags() & BGFX_TEXTURE_RT_MSAA_MASK, BGFX_TEXTURE_RT_MSAA_X4);
+            depth.MultisampledDepth()->External = true;
+            resolver.Resolve(depth.MultisampledDepth());
+            resolver.Resolve(depth.MultisampledDepth());
+            EXPECT_EQ(resolver.ResolveCount(), 4u);
+        }
+        catch (const std::exception& ex)
+        {
+            error = ex.what();
+        }
+        completed.set_value(std::move(error));
+    });
+    while (future.wait_for(std::chrono::milliseconds{16}) != std::future_status::ready)
+    {
+        device.FinishRenderingCurrentFrame();
+        device.StartRenderingCurrentFrame();
+    }
+    EXPECT_EQ(future.get(), "");
+    device.FinishRenderingCurrentFrame();
+}
+
+#if defined(HAS_SHADER_COMPILER) && defined(BABYLON_NATIVE_GRAPHICS_API_D3D11)
+TEST(NativeEngineDepthTextures, ResolvesBeforeBindingComputeResources)
+{
+    Babylon::Graphics::Device device{g_deviceConfig};
+    device.StartRenderingCurrentFrame();
+    std::array<float, 4> pixels{};
+    std::promise<std::string> completed;
+    auto future = completed.get_future();
+    {
+        Babylon::AppRuntime runtime{};
+        runtime.Dispatch([&](Napi::Env env) {
+            try
+            {
+                device.AddToJavaScript(env);
+                Babylon::Plugins::NativeEngine::Initialize(env);
+                auto& context = Babylon::Graphics::DeviceContext::GetFromJavaScript(env);
+                auto scope = context.AcquireFrameCompletionScope();
+                auto engine = env.Global().Get("_native").As<Napi::Object>().Get("Engine").As<Napi::Function>().New({});
+                auto textureValue = engine.Get("createTexture").As<Napi::Function>().Call(engine, {});
+                auto* texture = textureValue.As<Napi::Pointer<Babylon::Graphics::Texture>>().Get();
+                texture->Create2D(8, 8, false, 1, bgfx::TextureFormat::D32F,
+                    BGFX_TEXTURE_RT_MSAA_X4 | BGFX_TEXTURE_MSAA_SAMPLE);
+                bgfx::Attachment attachment{};
+                attachment.init(texture->Handle(), bgfx::Access::Write, 0, 1, 0, BGFX_ATTACHMENT_NONE);
+                Babylon::Graphics::FrameBuffer frameBuffer{context, bgfx::createFrameBuffer(1, &attachment),
+                    8, 8, false, true, false, -1, true, 0, texture->MultisampledDepth()};
+                frameBuffer.Clear(*context.GetActiveEncoder(), BGFX_CLEAR_DEPTH, 0, 0, 0, 0, 0.25f, 0);
+                auto bufferValue = Napi::Eval(env, R"(
+                    (function(engine, texture) {
+                        const program = engine.createComputeProgram(`
+                            #version 310 es
+                            precision highp float;
+                            layout(local_size_x=1) in;
+                            layout(binding=0) uniform sampler2D depthInput;
+                            layout(std430, binding=1) buffer Output { vec4 values[]; };
+                            void main() { values[0] = vec4(texture(depthInput, vec2(0.5)).r, 0.5, 0.75, 1.0); }
+                        `.trim());
+                        const buffer = engine.createStorageBuffer(16, true);
+                        const stream = new _native.NativeDataStream(function() {});
+                        engine.setCommandDataStream({_nativeDataStream: stream});
+                        const words = new Uint32Array([
+                            ..._native.Engine.COMMAND_COMPUTEDISPATCH, ...program, 1, 1, 1,
+                            1, 1, ...buffer, 2,
+                            1, 0, ...texture
+                        ]);
+                        stream.writeBuffer(words.buffer, words.length);
+                        engine.submitCommands();
+                        return buffer;
+                    })
+                )", "multisampled-depth-compute.js").As<Napi::Function>().Call({engine, textureValue});
+                auto* buffer = bufferValue.As<Napi::Pointer<Babylon::StorageBuffer>>().Get();
+                auto readback = std::make_shared<Babylon::Graphics::Texture>(context);
+                readback->Create2D(1, 1, false, 1, bgfx::TextureFormat::RGBA32F,
+                    BGFX_TEXTURE_READ_BACK | BGFX_TEXTURE_BLIT_DST);
+                bgfx::TextureRegion destination{};
+                destination.init(readback->Handle());
+                bgfx::BufferRegion source{};
+                source.init(buffer->Handle(), 0, static_cast<uint32_t>(sizeof(pixels)));
+                context.GetActiveEncoder()->blit(context.AcquireNewViewId(), destination, source);
+                context.ReadTextureAsync(readback->Handle(),
+                    gsl::make_span(reinterpret_cast<uint8_t*>(pixels.data()), sizeof(pixels)))
+                    .then(arcana::inline_scheduler, arcana::cancellation::none(),
+                        [readback, &completed](const arcana::expected<void, std::exception_ptr>& result) {
+                            std::string error;
+                            if (result.has_error())
+                            {
+                                try
+                                {
+                                    std::rethrow_exception(result.error());
+                                }
+                                catch (const std::exception& ex)
+                                {
+                                    error = ex.what();
+                                }
+                            }
+                            completed.set_value(std::move(error));
+                        });
+            }
+            catch (const std::exception& ex)
+            {
+                completed.set_value(ex.what());
+            }
+        });
+        const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds{30};
+        while (future.wait_for(std::chrono::milliseconds{1}) != std::future_status::ready)
+        {
+            if (std::chrono::steady_clock::now() >= deadline)
+            {
+                std::cerr << "Timed out waiting for multisampled depth compute readback" << std::endl;
+                std::quick_exit(1);
+            }
+            device.FinishRenderingCurrentFrame();
+            device.StartRenderingCurrentFrame();
+        }
+        EXPECT_EQ(future.get(), "");
+        EXPECT_EQ(pixels, (std::array<float, 4>{0.25f, 0.5f, 0.75f, 1.f}));
+    }
+    device.FinishRenderingCurrentFrame();
+}
+#endif

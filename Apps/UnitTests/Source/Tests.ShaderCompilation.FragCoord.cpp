@@ -5,6 +5,7 @@
 #include <Babylon/Graphics/Device.h>
 #include <Babylon/Graphics/DeviceContext.h>
 #include <Babylon/Graphics/Texture.h>
+#include <Babylon/Graphics/FrameBuffer.h>
 #include <Babylon/Polyfills/Console.h>
 #include <Babylon/Polyfills/Window.h>
 #include <Babylon/Plugins/NativeEngine.h>
@@ -14,6 +15,10 @@
 #include <napi/pointer.h>
 
 #include "Helpers.h"
+#ifdef HAS_SHADER_COMPILER
+#include <Babylon/Plugins/ShaderCompiler.h>
+#include "Program.h"
+#endif
 
 #include <atomic>
 #include <array>
@@ -405,6 +410,160 @@ namespace
         return Helpers::ReadPixels(device.GetPlatformInfo(), outputTexture, width, height);
     }
 
+    std::vector<uint8_t> RenderMultisampledDepth(uint32_t mode)
+    {
+        const bool array = mode == 2;
+        const auto initialize = [array, mode](Napi::Env env) {
+            env.Global().Set("checkTestSamples", Napi::Function::New(env, [](const Napi::CallbackInfo& info) {
+                const auto* texture = info[0].As<Napi::Pointer<Babylon::Graphics::Texture>>().Get();
+                if ((texture->Flags() & BGFX_TEXTURE_RT_MSAA_MASK) != BGFX_TEXTURE_RT_MSAA_X4)
+                {
+                    throw Napi::Error::New(info.Env(), "FrameGraph attachment did not retain four samples");
+                }
+            }));
+            env.Global().Set("writeTestDepth", Napi::Function::New(env, [array, mode](const Napi::CallbackInfo& info) {
+                auto& context = Babylon::Graphics::DeviceContext::GetFromJavaScript(info.Env());
+                auto scope = context.AcquireFrameCompletionScope();
+                auto* texture = info[0].As<Napi::Pointer<Babylon::Graphics::Texture>>().Get();
+                if (!texture->MultisampledDepth())
+                {
+                    if (mode == 5)
+                    {
+                        throw Napi::Error::New(info.Env(), "FrameGraph depth was not allocated as multisampled");
+                    }
+                    texture->Create2D(8, 8, false, array ? 2 : 1, bgfx::TextureFormat::D32F,
+                        BGFX_TEXTURE_RT_MSAA_X4 | BGFX_TEXTURE_MSAA_SAMPLE);
+                }
+                EXPECT_EQ(texture->Flags() & BGFX_TEXTURE_RT_MSAA_MASK, BGFX_TEXTURE_RT_MSAA_X4);
+                for (uint16_t layer = 0; layer < texture->NumLayers(); ++layer)
+                {
+                    bgfx::Attachment attachment{};
+                    attachment.init(texture->Handle(), bgfx::Access::Write, layer, 1, 0, BGFX_ATTACHMENT_NONE);
+                    Babylon::Graphics::FrameBuffer frameBuffer{context, bgfx::createFrameBuffer(1, &attachment),
+                        8, 8, false, true, false, -1, true, 0, texture->MultisampledDepth()};
+                    frameBuffer.Clear(*context.GetActiveEncoder(), BGFX_CLEAR_DEPTH, 0, 0, 0, 0,
+                        layer == 0 && array ? 0.125f : info[1].As<Napi::Number>().FloatValue(), 0);
+#ifdef HAS_SHADER_COMPILER
+                    if (mode >= 6)
+                    {
+                        Babylon::Plugins::ShaderCompiler compiler;
+                        auto shader = std::make_shared<Babylon::Graphics::BgfxShaderInfo>(compiler.Compile(R"(
+                            void main() {
+                                gl_Position = vec4(gl_VertexID == 1 ? 3.0 : -1.0,
+                                    gl_VertexID == 2 ? 3.0 : -1.0, 0.0, 1.0);
+                            }
+                        )", R"(
+                            #extension GL_OES_sample_variables : require
+                            precision highp float;
+                            uniform vec4 testDepth;
+                            void main() { gl_FragDepth = testDepth.x + float(gl_SampleID) / 32.0; }
+                        )"));
+                        Babylon::Program program{context};
+                        program.Initialize(std::move(shader));
+                        auto* encoder = context.GetActiveEncoder();
+                        const float depth[4]{info[1].As<Napi::Number>().FloatValue(), 0, 0, 0};
+                        encoder->setUniform(program.GetUniformInfo("testDepth")->Handle, depth);
+                        encoder->setVertexCount(3);
+                        encoder->setState(BGFX_STATE_WRITE_Z | BGFX_STATE_DEPTH_TEST_ALWAYS | BGFX_STATE_MSAA);
+                        frameBuffer.Submit(*encoder, program.Handle(), BGFX_DISCARD_ALL);
+                    }
+#endif
+                }
+            }));
+        };
+        std::string vertex = "attribute vec3 position; void main() { gl_Position = vec4(position, 1.0); }";
+        std::string fragment;
+        switch (mode)
+        {
+            case 1:
+                fragment = "uniform highp sampler2DMS depthInput; void main() { gl_FragColor = vec4(vec3(texelFetch(depthInput, ivec2(0), 0).r), 1.0); }";
+                break;
+            case 7:
+                fragment = "uniform highp sampler2DMS depthInput; void main() { gl_FragColor = vec4(vec3(texelFetch(depthInput, ivec2(0), 3).r), 1.0); }";
+                break;
+            case 2:
+                fragment = "uniform highp sampler2DArray depthInput; void main() { gl_FragColor = vec4(vec3(texture(depthInput, vec3(0.5, 0.5, 1.0)).r), 1.0); }";
+                break;
+            case 3:
+                fragment = "uniform highp sampler2DShadow depthInput; void main() { gl_FragColor = vec4(vec3(texture(depthInput, vec3(0.5, 0.5, 0.5))), 1.0); }";
+                break;
+            case 4:
+                vertex = "attribute vec3 position; uniform sampler2D depthInput; varying float depthValue; void main() { gl_Position = vec4(position, 1.0); depthValue = texture2D(depthInput, vec2(0.5)).r; }";
+                fragment = "varying float depthValue; void main() { gl_FragColor = vec4(vec3(depthValue), 1.0); }";
+                break;
+            default:
+                fragment = "uniform sampler2D depthInput; void main() { gl_FragColor = vec4(vec3(texture2D(depthInput, vec2(0.5)).r), 1.0); }";
+                break;
+        }
+        std::string setup = std::string{R"(
+            var depth = BABYLON.RawTexture.CreateRGBATexture(new Uint8Array([0, 0, 0, 255]),
+                1, 1, scene, false, false, BABYLON.Texture.NEAREST_SAMPLINGMODE);
+            var nativeDepth = depth.getInternalTexture()._hardwareTexture.underlyingResource;
+            writeTestDepth(nativeDepth, 0.25);
+            depth.getInternalTexture().is2DArray = )"} + (array ? "true;" : "false;") + R"(
+            material.setTexture("depthInput", depth);
+            globalThis.__prepare = function () {
+                return scene.whenReadyAsync().then(function () {
+                    scene.render();
+                    writeTestDepth(nativeDepth, 0.75);
+                    scene.autoClear = false;
+                    camera.viewport = new BABYLON.Viewport(0.5, 0, 0.5, 1);
+                });
+            };
+        )" + (mode == 3 ? "engine._engine.setTextureComparisonFunction(nativeDepth, BABYLON.Constants.LEQUAL);" : "");
+        if (mode == 5)
+        {
+            setup = R"(
+                var graph = new BABYLON.FrameGraph(scene);
+                var colorHandle = graph.textureManager.createRenderTargetTexture("MSAA color", {
+                    size: { width: 8, height: 8 }, options: { samples: 4 }
+                });
+                var depthHandle = graph.textureManager.createRenderTargetTexture("MSAA depth", {
+                    size: { width: 8, height: 8 },
+                    options: { samples: 4, formats: [BABYLON.Constants.TEXTUREFORMAT_DEPTH32_FLOAT],
+                        types: [BABYLON.Constants.TEXTURETYPE_FLOAT] }
+                });
+                var clear = new BABYLON.FrameGraphClearTextureTask("clear", graph);
+                clear.targetTexture = colorHandle;
+                clear.depthTexture = depthHandle;
+                clear.clearDepth = true;
+                graph.addTask(clear);
+                var reader = new BABYLON.FrameGraphTask("depth reader", graph);
+                reader.record = function () {
+                    var pass = graph.addRenderPass("depth reader");
+                    pass.addDependencies(depthHandle);
+                    pass.setRenderTarget(BABYLON.backbufferColorTextureHandle);
+                    pass.setExecuteFunc(function () {});
+                };
+                graph.addTask(reader);
+                globalThis.__prepare = function () {
+                    return graph.buildAsync(false).then(function () {
+                        var color = graph.textureManager.getTextureFromHandle(colorHandle);
+                        var depth = graph.textureManager.getTextureFromHandle(depthHandle);
+                        if (color.samples !== 4 || depth.samples !== 4) {
+                            throw new Error("FrameGraph changed requested sample counts");
+                        }
+                        checkTestSamples(color._hardwareTexture.underlyingResource);
+                        checkTestSamples(depth._hardwareTexture.underlyingResource);
+                        graph.execute();
+                        var nativeDepth = depth._hardwareTexture.underlyingResource;
+                        writeTestDepth(nativeDepth, 0.25);
+                        var wrapper = new BABYLON.Texture(null, scene);
+                        wrapper._texture = depth;
+                        material.setTexture("depthInput", wrapper);
+                        return scene.whenReadyAsync().then(function () {
+                            scene.render();
+                            writeTestDepth(nativeDepth, 0.75);
+                            scene.autoClear = false;
+                            camera.viewport = new BABYLON.Viewport(0.5, 0, 0.5, 1);
+                        });
+                    });
+                };
+            )";
+        }
+        return RenderFullScreenQuad(8, 8, vertex, fragment, false, setup, std::chrono::seconds{30}, initialize);
+    }
+
     std::vector<uint8_t> RenderVolumeQuad(const std::string& fragmentShader)
     {
         const auto initializeVolume = [](Napi::Env env) {
@@ -429,6 +588,51 @@ namespace
                 material.setTexture("volume", raw);
             )", std::chrono::seconds{30}, initializeVolume);
     }
+
+    TEST(NativeEngineDepthTextures, ResolvesForOrdinarySamplersAndRetainsMultisampledReads)
+    {
+    #if defined(USE_NOOP_METAL_DEVICE) || defined(SKIP_RENDER_TESTS)
+        GTEST_SKIP() << "GPU rendering/readback is unavailable in this test configuration";
+    #endif
+        Babylon::Plugins::ShaderCache::Enable();
+        Babylon::Plugins::ShaderCache::Clear();
+        const auto disableCache = gsl::finally([] {
+            Babylon::Plugins::ShaderCache::Clear();
+            Babylon::Plugins::ShaderCache::Disable();
+        });
+#ifdef HAS_SHADER_COMPILER
+        constexpr uint32_t modeCount = 8;
+#else
+        constexpr uint32_t modeCount = 6;
+#endif
+        for (uint32_t mode = 0; mode < modeCount; ++mode)
+        {
+            SCOPED_TRACE(mode);
+            const auto pixels = RenderMultisampledDepth(mode);
+            ASSERT_EQ(pixels.size(), 8u * 8u * 4u);
+            if (mode == 1)
+            {
+                std::stringstream stream{std::ios::in | std::ios::out | std::ios::binary};
+                const auto count = Babylon::Plugins::ShaderCache::Save(stream);
+                ASSERT_GT(count, 0u);
+                Babylon::Plugins::ShaderCache::Clear();
+                EXPECT_EQ(Babylon::Plugins::ShaderCache::Load(stream), count);
+                EXPECT_EQ(RenderMultisampledDepth(mode), pixels);
+            }
+            for (size_t y = 0; y < 8; ++y)
+            {
+                for (size_t x = 0; x < 8; ++x)
+                {
+                    const int expected = mode == 3 ? (x < 4 ? 0 : 255) : mode == 7 ? (x < 4 ? 88 : 215) : (x < 4 ? 64 : 191);
+                    for (size_t channel = 0; channel < 3; ++channel)
+                    {
+                        EXPECT_NEAR(pixels[(y * 8 + x) * 4 + channel], expected, 1)
+                            << "x=" << x << ", y=" << y << ", channel=" << channel;
+                    }
+                }
+            }
+        }
+    }
 }
 
 TEST(ShaderCompilation, UniformNamesSurviveNativeBindingAndCache)
@@ -452,16 +656,20 @@ TEST(ShaderCompilation, UniformNamesSurviveNativeBindingAndCache)
                 uniform mat4 u_view;
                 uniform float bnUserUniform_textureSize;
                 uniform float bnSamplerState_inputSampler;
+                uniform mat4 bnDepthResolveSource;
+                uniform mat4 bnDepthResolveLayer;
                 void main() {
                     gl_FragColor = vec4(textureSize.x / float(textureSize(inputSampler, 0).x),
                         u_view[0][0], bnUserUniform_textureSize * bnSamplerState_inputSampler,
-                        texture2D(inputSampler, vec2(0.5)).a);
+                        texture2D(inputSampler, vec2(0.5)).a * bnDepthResolveSource[0][0] * bnDepthResolveLayer[0][0]);
                 }
             )", true, R"(
                 material.setVector2("textureSize", new BABYLON.Vector2(1, 2));
                 material.setMatrix("u_view", BABYLON.Matrix.Scaling(0.5, 0.5, 0.5));
                 material.setFloat("bnUserUniform_textureSize", 0.75);
                 material.setFloat("bnSamplerState_inputSampler", 1.0);
+                material.setMatrix("bnDepthResolveSource", BABYLON.Matrix.Identity());
+                material.setMatrix("bnDepthResolveLayer", BABYLON.Matrix.Identity());
             )");
     };
     const auto original = render();

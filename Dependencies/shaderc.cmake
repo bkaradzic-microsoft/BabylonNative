@@ -190,6 +190,7 @@ function(_bn_shaderc_parse ARG_OUT)
 endfunction()
 
 function(add_bgfx_shader FILE FOLDER)
+    cmake_parse_arguments(ARG "" "ESSL_PROFILE;METAL_PROFILE" "" ${ARGN})
     get_filename_component(FILENAME "${FILE}" NAME_WE)
     string(SUBSTRING "${FILENAME}" 0 2 TYPE)
     if("${TYPE}" STREQUAL "fs")
@@ -237,13 +238,18 @@ function(add_bgfx_shader FILE FOLDER)
 
         # metal
         set(METAL_OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/Source/Shaders/metal/${FILENAME}.h)
-        _bn_shaderc_parse(METAL ${COMMON} OSX PROFILE metal OUTPUT ${METAL_OUTPUT} BIN2C "${FILENAME}_mtl")
+        if(NOT ARG_METAL_PROFILE)
+            set(ARG_METAL_PROFILE metal)
+        endif()
+        _bn_shaderc_parse(METAL ${COMMON} OSX PROFILE ${ARG_METAL_PROFILE} OUTPUT ${METAL_OUTPUT} BIN2C "${FILENAME}_mtl")
         list(APPEND OUTPUTS "METAL")
         set(OUTPUTS_PRETTY "${OUTPUTS_PRETTY}Metal, ")
 
         # essl
         set(ESSL_OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/Source/Shaders/essl/${FILENAME}.h)
-        if("${TYPE}" STREQUAL "COMPUTE")
+        if(ARG_ESSL_PROFILE)
+            _bn_shaderc_parse(ESSL ${COMMON} ANDROID PROFILE ${ARG_ESSL_PROFILE} OUTPUT ${ESSL_OUTPUT} BIN2C "${FILENAME}_essl")
+        elseif("${TYPE}" STREQUAL "COMPUTE")
             _bn_shaderc_parse(ESSL ${COMMON} ANDROID PROFILE 310_es OUTPUT ${ESSL_OUTPUT} BIN2C "${FILENAME}_essl")
         else()
             _bn_shaderc_parse(ESSL ${COMMON} ANDROID PROFILE 300_es OUTPUT ${ESSL_OUTPUT} BIN2C "${FILENAME}_essl")

@@ -1,4 +1,5 @@
 #include "NativeEngine.h"
+#include "DepthResolver.h"
 
 #include <Babylon/Graphics/Texture.h>
 
@@ -1169,6 +1170,8 @@ namespace Babylon
         // Cancellation doesn't stop work already running on a threadpool thread, so wait for
         // any in-flight graphics tasks to finish before teardown frees the resources they use.
         m_asyncTaskTracker->Wait();
+        m_boundTextures.clear();
+        m_depthResolver.reset();
     }
 
     NativeEngine::AsyncTaskTracker::Scope::Scope(std::shared_ptr<AsyncTaskTracker> tracker)
@@ -1558,16 +1561,20 @@ namespace Babylon
         const uint32_t numY = data.ReadUint32();
         const uint32_t numZ = data.ReadUint32();
 
-        // Always use the frame encoder. begin(true) per dispatch exhausts bgfx's encoder
-        // pool (handles are only reset at frame end). Dispatch clears encoder texture binds;
-        // RestoreBoundTextures brings material samplers back for subsequent draws.
-        bgfx::Encoder* encoder = GetEncoder();
-        const float defaultSamplerState[4]{};
-        for (const auto& [stage, uniform] : program->SamplerStateUniforms())
+        struct BufferBinding
         {
-            encoder->setUniform(uniform, defaultSamplerState);
-        }
-
+            uint8_t Stage;
+            StorageBuffer* Buffer;
+            bgfx::Access::Enum Access;
+        };
+        struct TextureBinding
+        {
+            const Graphics::Texture* Texture;
+            const UniformInfo* Sampler;
+            bgfx::TextureHandle Handle;
+        };
+        std::vector<BufferBinding> buffers;
+        std::vector<TextureBinding> textures;
         const uint32_t bufferCount = data.ReadUint32();
         for (uint32_t i = 0; i < bufferCount; ++i)
         {
@@ -1575,12 +1582,7 @@ namespace Babylon
             StorageBuffer* buffer = data.ReadPointer<StorageBuffer>();
             const uint32_t access = data.ReadUint32();
             bgfx::Access::Enum bgfxAccess = access == 0 ? bgfx::Access::Read : (access == 1 ? bgfx::Access::Write : bgfx::Access::ReadWrite);
-            // Params SSBO (stage 0): ensure deferred shadow uploads are visible this dispatch.
-            if (stage == 0)
-            {
-                buffer->FlushShadowToGpu();
-            }
-            buffer->SetCompute(encoder, stage, bgfxAccess);
+            buffers.push_back({stage, buffer, bgfxAccess});
         }
 
         const uint32_t textureCount = data.ReadUint32();
@@ -1591,17 +1593,39 @@ namespace Babylon
             const UniformInfo* samplerInfo = program->GetSamplerInfoByStage(stage);
             if (samplerInfo != nullptr)
             {
-                const auto state = program->SamplerStateUniforms().find(stage);
-                if (state != program->SamplerStateUniforms().end())
-                {
-                    const float values[4]{PointSampleHeight(*texture), 0.0f, 0.0f, 0.0f};
-                    encoder->setUniform(state->second, values);
-                }
-                encoder->setTexture(samplerInfo->Stage, samplerInfo->Handle, texture->Handle(),
-                    texture->ViewNumLayers() != 0 ? texture->ViewFirstLayer() : 0,
-                    texture->ViewNumLayers() != 0 ? texture->ViewNumLayers() : UINT16_MAX,
-                    0, UINT8_MAX, texture->SamplerFlags(), 0, texture->SamplerMaxLod());
+                textures.push_back({texture, samplerInfo, ResolveTexture(*texture, *samplerInfo)});
             }
+        }
+
+        // Resolves can submit draws and replace the active encoder. Bind compute resources afterwards.
+        bgfx::Encoder* encoder = GetEncoder();
+        const float defaultSamplerState[4]{};
+        for (const auto& [stage, uniform] : program->SamplerStateUniforms())
+        {
+            encoder->setUniform(uniform, defaultSamplerState);
+        }
+        for (const auto& binding : buffers)
+        {
+            if (binding.Stage == 0)
+            {
+                binding.Buffer->FlushShadowToGpu();
+            }
+            binding.Buffer->SetCompute(encoder, binding.Stage, binding.Access);
+        }
+        for (const auto& binding : textures)
+        {
+            const auto* texture = binding.Texture;
+            const auto* samplerInfo = binding.Sampler;
+            const auto state = program->SamplerStateUniforms().find(samplerInfo->Stage);
+            if (state != program->SamplerStateUniforms().end())
+            {
+                const float values[4]{PointSampleHeight(*texture), 0.0f, 0.0f, 0.0f};
+                encoder->setUniform(state->second, values);
+            }
+            encoder->setTexture(samplerInfo->Stage, samplerInfo->Handle, binding.Handle,
+                texture->ViewNumLayers() != 0 ? texture->ViewFirstLayer() : 0,
+                texture->ViewNumLayers() != 0 ? texture->ViewNumLayers() : UINT16_MAX,
+                0, UINT8_MAX, texture->SamplerFlags(), 0, texture->SamplerMaxLod());
         }
 
         GetBoundFrameBuffer().Compute(*encoder, program->Handle(), numX, numY, numZ);
@@ -2771,6 +2795,8 @@ namespace Babylon
         BoundTexture bound{};
         bound.Handle = uniformInfo->Handle;
         bound.Texture = texture->Handle();
+        bound.SamplingTexture = bound.Texture;
+        bound.MultisampledDepth = texture->MultisampledDepth();
         bound.Flags = texture->SamplerFlags();
         bound.FirstLayer = texture->ViewNumLayers() != 0 ? texture->ViewFirstLayer() : 0;
         bound.NumLayers = texture->ViewNumLayers() != 0 ? texture->ViewNumLayers() : UINT16_MAX;
@@ -2809,7 +2835,7 @@ namespace Babylon
             {
                 continue;
             }
-            encoder->setTexture(stage, bound.Handle, bound.Texture,
+            encoder->setTexture(stage, bound.Handle, bound.SamplingTexture,
                 bound.FirstLayer, bound.NumLayers, 0, UINT8_MAX, bound.Flags, 0, bound.MaxLod);
         }
     }
@@ -2817,6 +2843,7 @@ namespace Babylon
     void NativeEngine::DeleteTexture(const Napi::CallbackInfo& info)
     {
         Graphics::Texture* texture = info[0].As<Napi::Pointer<Graphics::Texture>>().Get();
+        std::erase_if(m_boundTextures, [&](const auto& entry) { return entry.second.Texture.idx == texture->Handle().idx; });
         m_deviceContext.RemoveTexture(texture->Handle());
         texture->Dispose();
     }
@@ -3176,6 +3203,7 @@ namespace Babylon
         std::array<bgfx::Attachment, 9> attachments{};
         uint8_t numAttachments = 0;
         uint8_t depthOneVolumeAttachmentMask{};
+        std::shared_ptr<Graphics::MultisampledDepthState> multisampledDepth;
 
         // An uninitialized texture requests sampleable depth; alias the attachment back into it.
         Graphics::Texture* depthStencilTextureRequest = depthStencilTexture;
@@ -3215,6 +3243,10 @@ namespace Babylon
             attachments[numAttachments++].init(texture->Handle(), bgfx::Access::Write, attachmentLayer, 1, mip
                 , autoGenMips ? BGFX_ATTACHMENT_AUTO_GEN_MIPS : BGFX_ATTACHMENT_NONE
                 );
+            if (texture->MultisampledDepth())
+            {
+                multisampledDepth = texture->MultisampledDepth();
+            }
         }
 
         // Create and alias shared depth once; subsequent framebuffers borrow its handle.
@@ -3229,6 +3261,7 @@ namespace Babylon
                     (explicitDepthTexture->NumLayers() > 1) ? depthAttachLayer : static_cast<uint16_t>(0);
                 attachments[numAttachments++].init(explicitDepthTexture->Handle(), bgfx::Access::Write, attachLayer, 1, 0, BGFX_ATTACHMENT_NONE);
                 borrowedExplicitDepth = true;
+                multisampledDepth = explicitDepthTexture->MultisampledDepth();
             }
             else
             {
@@ -3335,6 +3368,7 @@ namespace Babylon
             const bool textureOwnsDepth = depthStencilTexture == nullptr;
             depthStencilTextureRequest->Attach(bgfx::getTexture(frameBufferHandle, static_cast<uint8_t>(depthStencilAttachmentIndex)),
                 textureOwnsDepth, width, height, false, depthStencilNumLayers, depthStencilTextureFormat, depthStencilTextureFlags);
+            multisampledDepth = depthStencilTextureRequest->MultisampledDepth();
             if (textureOwnsDepth)
             {
                 frameBufferDepthOwnerIndex = -1;
@@ -3342,7 +3376,7 @@ namespace Babylon
         }
 
         const bool isMultisampled = RenderTargetSamplesToBgfxRtFlag(samples) != BGFX_TEXTURE_RT;
-        Graphics::FrameBuffer* frameBuffer = new Graphics::FrameBuffer(m_deviceContext, frameBufferHandle, width, height, false, hasDepthAttachment, generateStencilBuffer, frameBufferDepthOwnerIndex, isMultisampled, depthOneVolumeAttachmentMask);
+        Graphics::FrameBuffer* frameBuffer = new Graphics::FrameBuffer(m_deviceContext, frameBufferHandle, width, height, false, hasDepthAttachment, generateStencilBuffer, frameBufferDepthOwnerIndex, isMultisampled, depthOneVolumeAttachmentMask, std::move(multisampledDepth));
 
         return Napi::Pointer<Graphics::FrameBuffer>::Create(env, frameBuffer, Napi::NapiPointerDeleter(frameBuffer));
     }
@@ -3398,7 +3432,7 @@ namespace Babylon
         const uint32_t indexStart = data.ReadUint32();
         const uint32_t indexCount = data.ReadUint32();
 
-        bgfx::Encoder* encoder = GetEncoder();
+        bgfx::Encoder* encoder = PrepareDraw();
         const auto instanceDataLayout = GetInstanceDataLayout();
         bool shouldDraw = true;
         if (m_boundVertexArray != nullptr)
@@ -3431,7 +3465,7 @@ namespace Babylon
         const uint32_t indexCount = data.ReadUint32();
         const uint32_t instanceCount = data.ReadUint32();
 
-        bgfx::Encoder* encoder = GetEncoder();
+        bgfx::Encoder* encoder = PrepareDraw();
         const auto instanceDataLayout = GetInstanceDataLayout();
         bool shouldDraw = true;
         if (m_boundVertexArray != nullptr)
@@ -3471,7 +3505,7 @@ namespace Babylon
         const uint32_t verticesStart = data.ReadUint32();
         const uint32_t verticesCount = data.ReadUint32();
 
-        bgfx::Encoder* encoder = GetEncoder();
+        bgfx::Encoder* encoder = PrepareDraw();
         const auto instanceDataLayout = GetInstanceDataLayout();
         bool shouldDraw = true;
         if (m_boundVertexArray != nullptr)
@@ -3500,7 +3534,7 @@ namespace Babylon
         const uint32_t verticesCount = data.ReadUint32();
         const uint32_t instanceCount = data.ReadUint32();
 
-        bgfx::Encoder* encoder = GetEncoder();
+        bgfx::Encoder* encoder = PrepareDraw();
         const auto instanceDataLayout = GetInstanceDataLayout();
         bool shouldDraw = true;
         if (m_boundVertexArray != nullptr)
@@ -4054,7 +4088,44 @@ namespace Babylon
         boundFrameBuffer.SetStencil(*encoder, m_stencilState);
 
         // Discard everything except textures since we keep the state of everything else.
-        boundFrameBuffer.Submit(*encoder, programHandle, BGFX_DISCARD_ALL & ~BGFX_DISCARD_BINDINGS);
+        boundFrameBuffer.Submit(*encoder, programHandle, BGFX_DISCARD_ALL & ~BGFX_DISCARD_BINDINGS, (m_engineState & BGFX_STATE_WRITE_Z) != 0);
+    }
+
+    bgfx::TextureHandle NativeEngine::ResolveTexture(const Graphics::Texture& texture, const UniformInfo& sampler)
+    {
+        if (texture.MultisampledDepth() && !sampler.Multisampled)
+        {
+            if (!m_depthResolver)
+            {
+                m_depthResolver = std::make_unique<DepthResolver>(m_deviceContext);
+            }
+            return m_depthResolver->Resolve(texture.MultisampledDepth());
+        }
+        return texture.Handle();
+    }
+
+    bgfx::Encoder* NativeEngine::PrepareDraw()
+    {
+        // Resolve before binding vertex/index/instance data: the internal draw discards encoder state.
+        for (auto& [stage, bound] : m_boundTextures)
+        {
+            bound.SamplingTexture = bound.Texture;
+            if (bound.MultisampledDepth && m_currentProgram)
+            {
+                const auto* sampler = m_currentProgram->GetSamplerInfoByStage(stage);
+                if (sampler && !sampler->Multisampled)
+                {
+                    if (!m_depthResolver)
+                    {
+                        m_depthResolver = std::make_unique<DepthResolver>(m_deviceContext);
+                    }
+                    bound.SamplingTexture = m_depthResolver->Resolve(bound.MultisampledDepth);
+                }
+            }
+        }
+        auto* encoder = GetEncoder();
+        RestoreBoundTextures(encoder);
+        return encoder;
     }
 
     Graphics::FrameBuffer& NativeEngine::GetBoundFrameBuffer()

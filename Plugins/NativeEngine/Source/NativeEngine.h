@@ -35,9 +35,11 @@ namespace Babylon
     namespace Graphics
     {
         class Texture;
+        struct MultisampledDepthState;
     }
 
     class InstanceRepacker;
+    class DepthResolver;
 
     class NativeEngine final : public Napi::ObjectWrap<NativeEngine>
     {
@@ -178,6 +180,8 @@ namespace Babylon
         bgfx::DynamicVertexBufferHandle RepackStorageInstances(VertexArray* vertexArray, uint32_t instanceCount);
 
         bgfx::Encoder* GetEncoder();
+        bgfx::Encoder* PrepareDraw();
+        bgfx::TextureHandle ResolveTexture(const Graphics::Texture& texture, const UniformInfo& sampler);
         Graphics::FrameBuffer& GetBoundFrameBuffer();
 
         // One-shot GPU-compute self-test (env-gated by BABYLON_COMPUTE_SELFTEST). Compiles a
@@ -260,6 +264,7 @@ namespace Babylon
 
         VertexArray* m_boundVertexArray{};
         std::unique_ptr<InstanceRepacker> m_instanceRepacker{};
+        std::unique_ptr<DepthResolver> m_depthResolver{};
         Graphics::FrameBuffer m_defaultFrameBuffer;
         Graphics::FrameBuffer* m_boundFrameBuffer{};
         PerFrameValue<bool> m_boundFrameBufferNeedsRebinding;
@@ -271,6 +276,8 @@ namespace Babylon
         {
             bgfx::UniformHandle Handle{bgfx::kInvalidHandle};
             bgfx::TextureHandle Texture{bgfx::kInvalidHandle};
+            bgfx::TextureHandle SamplingTexture{bgfx::kInvalidHandle};
+            std::shared_ptr<Graphics::MultisampledDepthState> MultisampledDepth{};
             uint32_t Flags{};
             uint16_t FirstLayer{};
             uint16_t NumLayers{};
