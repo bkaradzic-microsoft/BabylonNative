@@ -72,6 +72,7 @@ namespace Babylon::Graphics
     /// gl_FragCoord is relative to the whole render target. The name is deliberately outside the
     /// u_ namespace Babylon.js uses for its own uniforms so it cannot collide with a shader uniform.
     inline constexpr const char* FRAGCOORD_TARGET_SIZE_UNIFORM_NAME{"bnFragCoordTargetSize"};
+    inline constexpr const char* SAMPLER_STATE_UNIFORM_PREFIX{"bnSamplerState_"};
 
     struct BgfxShaderInfo
     {
@@ -81,5 +82,6 @@ namespace Babylon::Graphics
         std::map<std::string, uint32_t> VertexAttributeLocations{};
         std::map<std::string, uint32_t> BuiltInInstanceDataSlots{};
         std::map<std::string, uint8_t> UniformStages{};
+        std::map<std::string, std::string> UniformNames{};
     };
 }

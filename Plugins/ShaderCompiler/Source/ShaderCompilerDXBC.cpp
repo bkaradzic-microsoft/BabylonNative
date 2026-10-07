@@ -123,6 +123,11 @@ namespace Babylon::Plugins
 
     Graphics::BgfxShaderInfo ShaderCompiler::Compile(std::string_view vertexSource, std::string_view fragmentSource, const std::map<std::string, uint32_t>& instancedAttributes)
     {
+        auto vertexText = PreprocessShader(EShLangVertex, vertexSource);
+        auto fragmentText = PreprocessShader(EShLangFragment, fragmentSource);
+        auto uniformNames = RenameShaderUniforms(vertexText, &fragmentText);
+        vertexSource = vertexText;
+        fragmentSource = fragmentText;
         glslang::TProgram program;
 
         glslang::TShader vertexShader{EShLangVertex};
@@ -221,11 +226,16 @@ namespace Babylon::Plugins
             {}};
         ReflectRawBindings(fragmentShaderInfo);
 
-        return CreateBgfxShader(std::move(vertexShaderInfo), std::move(fragmentShaderInfo), std::move(builtInInstanceDataSlots));
+        auto result = CreateBgfxShader(std::move(vertexShaderInfo), std::move(fragmentShaderInfo), std::move(builtInInstanceDataSlots));
+        result.UniformNames = std::move(uniformNames);
+        return result;
     }
 
     Graphics::BgfxShaderInfo ShaderCompiler::CompileCompute(std::string_view computeSource)
     {
+        auto source = PreprocessShader(EShLangCompute, computeSource);
+        auto uniformNames = RenameShaderUniforms(source);
+        computeSource = source;
         glslang::TProgram program;
 
         glslang::TShader computeShader{EShLangCompute};
@@ -279,6 +289,8 @@ namespace Babylon::Plugins
             {}};
         ReflectRawBindings(computeShaderInfo);
 
-        return CreateBgfxComputeShader(std::move(computeShaderInfo));
+        auto result = CreateBgfxComputeShader(std::move(computeShaderInfo));
+        result.UniformNames = std::move(uniformNames);
+        return result;
     }
 }

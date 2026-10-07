@@ -10,6 +10,101 @@
 #include <stdexcept>
 #endif
 
+TEST(NativeOptimizations, VertexTransformsAcceptPreciseMatrixStorage)
+{
+#ifndef HAS_NATIVE_OPTIMIZATIONS
+    GTEST_SKIP() << "NativeOptimizations is disabled";
+#else
+    std::promise<void> completed;
+    auto completion = completed.get_future();
+    Babylon::AppRuntime runtime{};
+    runtime.Dispatch([&](Napi::Env env) {
+        try
+        {
+            Babylon::Plugins::NativeOptimizations::Initialize(env);
+            Napi::Eval(env, R"(
+                (function () {
+                    const values = [1, 2, 3, 0, 4, 5, 6, 0, 7, 8, 9, 0, 16777217, -3, 5, 1];
+                    for (const matrix of [new Float32Array(values), new Float64Array(values), values]) {
+                        for (const kind of ["Coordinates", "Normals", "Tangents"]) {
+                            const stride = kind === "Tangents" ? 4 : 3;
+                            const data = new Float32Array(stride * 3).fill(99);
+                            data.set([-16777216, 0, 0], stride);
+                            const original = data.slice(stride, stride * 2);
+                            const expected = new Float32Array(data);
+                            const x = data[stride], y = data[stride + 1], z = data[stride + 2];
+                            const coordinate = kind === "Coordinates";
+                            const reciprocal = coordinate ? 1 / (x * matrix[3] + y * matrix[7] + z * matrix[11] + matrix[15]) : 1;
+                            for (let component = 0; component < 3; ++component) {
+                                expected[stride + component] = (x * matrix[component] + y * matrix[4 + component] +
+                                    z * matrix[8 + component] + (coordinate ? matrix[12 + component] : 0)) * reciprocal;
+                            }
+                            const name = kind === "Coordinates" ? "_TransformVector3Coordinates" :
+                                kind === "Normals" ? "_TransformVector3Normals" : "_TransformVector4Normals";
+                            _native[name](data, { _m: matrix }, stride, stride);
+                            for (let index = 0; index < data.length; ++index) {
+                                if (data[index] !== expected[index]) {
+                                    throw new Error(name + " changed element " + index + ": " + data[index] + " != " + expected[index]);
+                                }
+                            }
+                            for (const range of [[], [undefined], [0, undefined], [0, stride]]) {
+                                const entire = original.slice();
+                                _native[name](entire, { _m: matrix }, ...range);
+                                for (let index = 0; index < entire.length; ++index) {
+                                    if (entire[index] !== expected[stride + index]) {
+                                        throw new Error(name + " did not honor the default range");
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    for (const Type of [Uint16Array, Uint32Array, Int32Array]) {
+                        const indices = new Type([0, 1, 2, 3, 4, 5]);
+                        _native._FlipFaces(indices);
+                        if (Array.from(indices).join(",") !== "0,2,1,3,5,4") {
+                            throw new Error("Face flipping did not honor the default range");
+                        }
+                    }
+                    for (const range of [[-1, 3], [0, -1], [0, 2], [Infinity, 3], [1, 3], [0, 6]]) {
+                        let rejected = false;
+                        try {
+                            _native._TransformVector3Coordinates(new Float32Array(3), { _m: values }, ...range);
+                        } catch (error) {
+                            rejected = /[Rr]ange/.test(error.message);
+                        }
+                        if (!rejected) throw new Error("Invalid vertex range was not rejected");
+                    }
+                    for (const matrix of [null, {}, new Uint8Array(16), new Float32Array(15), new Array(16)]) {
+                        let rejected = false;
+                        try {
+                            _native._TransformVector3Coordinates(new Float32Array(3), { _m: matrix }, 0, 3);
+                        } catch (error) {
+                            rejected = /[Mm]atrix/.test(error.message);
+                        }
+                        if (!rejected) throw new Error("Invalid matrix was not rejected");
+                    }
+                })();
+            )", "native-vertex-matrix-storage.js");
+            completed.set_value();
+        }
+        catch (const Napi::Error& error)
+        {
+            completed.set_exception(std::make_exception_ptr(std::runtime_error{Napi::GetErrorString(error)}));
+        }
+        catch (...)
+        {
+            completed.set_exception(std::current_exception());
+        }
+    });
+    if (completion.wait_for(std::chrono::seconds{30}) != std::future_status::ready)
+    {
+        ADD_FAILURE() << "Timed out waiting for native vertex transforms";
+        std::quick_exit(1);
+    }
+    EXPECT_NO_THROW(completion.get());
+#endif
+}
+
 TEST(NativeOptimizations, SplatSortingAcceptsTypedAndNumberArrayMatrices)
 {
 #ifndef HAS_NATIVE_OPTIMIZATIONS
