@@ -74,6 +74,21 @@ namespace Babylon::Graphics
     inline constexpr const char* FRAGCOORD_TARGET_SIZE_UNIFORM_NAME{"bnFragCoordTargetSize"};
     inline constexpr const char* SAMPLER_STATE_UNIFORM_PREFIX{"bnSamplerState_"};
 
+    /// WebGL2 transform feedback is emulated by compiling the capturing vertex shader into a
+    /// compute shader (one invocation per vertex). Its vertex inputs report attribute locations
+    /// starting at TRANSFORM_FEEDBACK_ATTRIBUTE_LOCATION_BASE, far above any bgfx attribute or
+    /// instance-data location, so vertex arrays can record them as raw storage-buffer inputs.
+    inline constexpr uint32_t TRANSFORM_FEEDBACK_ATTRIBUTE_LOCATION_BASE{0x10000};
+    inline constexpr uint32_t TRANSFORM_FEEDBACK_WORKGROUP_SIZE{64};
+    inline constexpr uint32_t TRANSFORM_FEEDBACK_INPUT_BINDING{0};
+    inline constexpr uint32_t TRANSFORM_FEEDBACK_OUTPUT_BINDING{1};
+    inline constexpr uint32_t TRANSFORM_FEEDBACK_FIRST_SAMPLER_BINDING{2};
+    inline constexpr uint32_t TRANSFORM_FEEDBACK_MAX_SAMPLER_BINDING{16};
+    /// x = vertex count, y = first vertex.
+    inline constexpr const char* TRANSFORM_FEEDBACK_PARAMS_UNIFORM{"bnTfParams"};
+    /// Per vertex input: x = float offset, y = float stride, z = component count (0 = unbound).
+    inline constexpr const char* TRANSFORM_FEEDBACK_INPUT_LAYOUT_UNIFORM{"bnTfInputLayout"};
+
     struct BgfxShaderInfo
     {
         std::vector<uint8_t> VertexBytes{};

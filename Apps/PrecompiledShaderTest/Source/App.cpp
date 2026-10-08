@@ -7,6 +7,7 @@
 #include <Babylon/Polyfills/Console.h>
 #include <Babylon/Polyfills/Window.h>
 
+#include <chrono>
 #include <cmath>
 #include <cstdlib>
 #include <fstream>
@@ -180,8 +181,15 @@ int RunApp(
         CatchAndLogError(jsPromise);
     });
 
-    // Wait for the scene to render.
-    renderScene.get_future().wait();
+    // Wait for the scene to render. Keep frames moving like a render loop does:
+    // GPU particle transform feedback dispatches request mid-frame flushes, which are only
+    // serviced while the render thread is in FinishRenderingCurrentFrame.
+    auto renderSceneFuture = renderScene.get_future();
+    while (renderSceneFuture.wait_for(std::chrono::milliseconds{1}) != std::future_status::ready)
+    {
+        device.FinishRenderingCurrentFrame();
+        device.StartRenderingCurrentFrame();
+    }
 
     // Finish the frame.
     device.FinishRenderingCurrentFrame();

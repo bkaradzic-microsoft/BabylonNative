@@ -1051,6 +1051,7 @@ namespace Babylon
                 StaticValue("COMMAND_DRAWINDEXEDINSTANCED", Napi::FunctionPointer::Create(env, &NativeEngine::DrawIndexedInstanced)),
                 StaticValue("COMMAND_DRAW", Napi::FunctionPointer::Create(env, &NativeEngine::Draw)),
                 StaticValue("COMMAND_DRAWINSTANCED", Napi::FunctionPointer::Create(env, &NativeEngine::DrawInstanced)),
+                StaticValue("COMMAND_DRAWTRANSFORMFEEDBACK", Napi::FunctionPointer::Create(env, &NativeEngine::DrawTransformFeedback)),
                 StaticValue("COMMAND_CLEAR", Napi::FunctionPointer::Create(env, &NativeEngine::Clear)),
                 StaticValue("COMMAND_CLEAR2", Napi::FunctionPointer::Create(env, &NativeEngine::Clear2)),
                 StaticValue("COMMAND_SETSTENCIL", Napi::FunctionPointer::Create(env, &NativeEngine::SetStencil)),
@@ -1414,16 +1415,42 @@ namespace Babylon
         }
     }
 
+    namespace
+    {
+        // Optional transform feedback varyings argument of createProgram/createProgramAsync.
+        std::vector<std::string> ReadTransformFeedbackVaryings(const Napi::CallbackInfo& info, size_t index)
+        {
+            std::vector<std::string> varyings;
+            if (info.Length() > index && info[index].IsArray())
+            {
+                const auto array = info[index].As<Napi::Array>();
+                for (uint32_t element = 0; element < array.Length(); ++element)
+                {
+                    varyings.push_back(array.Get(element).As<Napi::String>().Utf8Value());
+                }
+            }
+            return varyings;
+        }
+    }
+
     Napi::Value NativeEngine::CreateProgram(const Napi::CallbackInfo& info)
     {
         const std::string vertexSource = info[0].As<Napi::String>().Utf8Value();
         const std::string fragmentSource = info[1].As<Napi::String>().Utf8Value();
+        const std::vector<std::string> varyings = ReadTransformFeedbackVaryings(info, 2);
         Program* program = new Program{m_deviceContext};
         Napi::Value jsProgram = Napi::Pointer<Program>::Create(info.Env(), program, Napi::NapiPointerDeleter(program));
         try
         {
-            program->SetSources(vertexSource, fragmentSource);
-            program->Initialize(m_shaderProvider.Get(vertexSource, fragmentSource));
+            if (!varyings.empty())
+            {
+                program->InitializeTransformFeedback(m_shaderProvider.GetTransformFeedback(vertexSource, varyings));
+            }
+            else
+            {
+                program->SetSources(vertexSource, fragmentSource);
+                program->Initialize(m_shaderProvider.Get(vertexSource, fragmentSource));
+            }
         }
         catch (const std::exception& ex)
         {
@@ -1438,20 +1465,31 @@ namespace Babylon
         std::string fragmentSource = info[1].As<Napi::String>().Utf8Value();
         const Napi::Function onSuccess = info[2].As<Napi::Function>();
         const Napi::Function onError = info[3].As<Napi::Function>();
+        std::vector<std::string> varyings = ReadTransformFeedbackVaryings(info, 4);
 
         Program* program = new Program{m_deviceContext};
         Napi::Value jsProgram = Napi::Pointer<Program>::Create(info.Env(), program, Napi::NapiPointerDeleter(program));
 
-        program->SetSources(vertexSource, fragmentSource);
+        if (varyings.empty())
+        {
+            program->SetSources(vertexSource, fragmentSource);
+        }
 
         arcana::make_task(arcana::threadpool_scheduler, *m_cancellationSource,
-            [this, vertexSource = std::move(vertexSource), fragmentSource = std::move(fragmentSource), program, cancellationSource{m_cancellationSource}, asyncTaskScope{TrackAsyncTask()}]() {
+            [this, vertexSource = std::move(vertexSource), fragmentSource = std::move(fragmentSource), varyings = std::move(varyings), program, cancellationSource{m_cancellationSource}, asyncTaskScope{TrackAsyncTask()}]() {
                 // Skip touching graphics resources if teardown has already begun.
                 if (cancellationSource->cancelled())
                 {
                     return;
                 }
-                program->Initialize(m_shaderProvider.Get(vertexSource, fragmentSource));
+                if (!varyings.empty())
+                {
+                    program->InitializeTransformFeedback(m_shaderProvider.GetTransformFeedback(vertexSource, varyings));
+                }
+                else
+                {
+                    program->Initialize(m_shaderProvider.Get(vertexSource, fragmentSource));
+                }
             })
             .then(m_runtimeScheduler, *m_cancellationSource, [jsProgramRef{Napi::Persistent(jsProgram)}, onSuccessRef{Napi::Persistent(onSuccess)}, onErrorRef{Napi::Persistent(onError)}, cancellationSource{m_cancellationSource}](const arcana::expected<void, std::exception_ptr>& result) {
                 if (result.has_error())
@@ -3934,6 +3972,91 @@ namespace Babylon
     {
         // Encoder is managed by StartRenderingCurrentFrame/FinishRenderingCurrentFrame.
         // Nothing to do here.
+    }
+
+    // Emulates a WebGL2 transform feedback draw (rasterizer discarded, POINTS, interleaved
+    // capture into one buffer). Stream layout: output VertexBuffer*, first vertex, vertex count.
+    // The current program must be a transform feedback program; the bound vertex array supplies
+    // its inputs, all from one vertex buffer. Both buffers move to GPU storage on first use, after
+    // which later renders read the captured data from there.
+    void NativeEngine::DrawTransformFeedback(NativeDataStream::Reader& data)
+    {
+        VertexBuffer* output = data.ReadPointer<VertexBuffer>();
+        const uint32_t first = data.ReadUint32();
+        const uint32_t count = data.ReadUint32();
+
+        if (m_currentProgram == nullptr || !m_currentProgram->IsTransformFeedback())
+        {
+            throw std::runtime_error{"Transform feedback draw requires a transform feedback program"};
+        }
+        if (count == 0)
+        {
+            return;
+        }
+
+        VertexBuffer* input{};
+        const uint32_t inputCount = m_currentProgram->TransformFeedbackInputCount();
+        std::vector<float> inputLayout(std::max<size_t>(inputCount, 1) * 4, 0.0f);
+        if (m_boundVertexArray != nullptr)
+        {
+            for (const auto& [index, record] : m_boundVertexArray->GetTransformFeedbackInputs())
+            {
+                if (index >= inputCount)
+                {
+                    continue;
+                }
+                if (input != nullptr && input != record.Buffer)
+                {
+                    throw std::runtime_error{"Transform feedback inputs must come from a single vertex buffer"};
+                }
+                input = record.Buffer;
+                const uint32_t stride = record.ByteStride != 0 ? record.ByteStride : record.NumElements * static_cast<uint32_t>(sizeof(float));
+                inputLayout[index * 4 + 0] = static_cast<float>(record.ByteOffset / sizeof(float));
+                inputLayout[index * 4 + 1] = static_cast<float>(stride / sizeof(float));
+                inputLayout[index * 4 + 2] = static_cast<float>(record.NumElements);
+            }
+        }
+        if (input == output)
+        {
+            throw std::runtime_error{"Transform feedback cannot capture into a buffer it reads from"};
+        }
+
+        StorageBuffer& outputStorage = output->PromoteToGpuStorage();
+        StorageBuffer* inputStorage = input != nullptr ? &input->PromoteToGpuStorage() : nullptr;
+
+        bgfx::Encoder* encoder = PrepareDraw();
+        for (const auto& [handle, value] : m_currentProgram->Uniforms())
+        {
+            encoder->setUniform({handle}, value.Data.data(), value.ElementLength);
+        }
+        for (const auto& [stage, uniform] : m_currentProgram->SamplerStateUniforms())
+        {
+            const auto texture = m_boundTextures.find(stage);
+            const float values[4]{
+                texture == m_boundTextures.end() ? 0.0f : texture->second.PointSampleHeight, 0.0f, 0.0f, 0.0f};
+            encoder->setUniform(uniform, values);
+        }
+        const float params[4]{static_cast<float>(count), static_cast<float>(first), 0.0f, 0.0f};
+        encoder->setUniform(m_currentProgram->TransformFeedbackParams()->Handle, params);
+        if (const UniformInfo* layout = m_currentProgram->TransformFeedbackInputLayout())
+        {
+            encoder->setUniform(layout->Handle, inputLayout.data(), static_cast<uint16_t>(std::max<uint32_t>(inputCount, 1)));
+        }
+
+        // Buffers share bgfx binding slots with textures, so bind them after restoring textures.
+        if (inputStorage != nullptr)
+        {
+            inputStorage->SetCompute(encoder, static_cast<uint8_t>(Graphics::TRANSFORM_FEEDBACK_INPUT_BINDING), bgfx::Access::Read);
+        }
+        outputStorage.SetCompute(encoder, static_cast<uint8_t>(Graphics::TRANSFORM_FEEDBACK_OUTPUT_BINDING), bgfx::Access::Write);
+
+        const uint32_t groups = (count + Graphics::TRANSFORM_FEEDBACK_WORKGROUP_SIZE - 1) / Graphics::TRANSFORM_FEEDBACK_WORKGROUP_SIZE;
+        GetBoundFrameBuffer().Compute(*encoder, m_currentProgram->Handle(), groups, 1, 1);
+
+        // As with ComputeDispatch: submit so the next ping-pong pass or render sees the writes.
+        // RestoreBoundTextures first: ForceMidFrameFlush ends this encoder.
+        RestoreBoundTextures(encoder);
+        m_deviceContext.ForceMidFrameFlush();
     }
 
     bgfx::DynamicVertexBufferHandle NativeEngine::RepackStorageInstances(VertexArray* vertexArray, uint32_t instanceCount)

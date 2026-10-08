@@ -128,6 +128,395 @@ namespace Babylon::ShaderCompilerCommon
         return result;
     }
 
+    namespace
+    {
+        uint32_t FloatComponentCount(std::string_view type)
+        {
+            if (type == "float")
+            {
+                return 1;
+            }
+            if (type == "vec2")
+            {
+                return 2;
+            }
+            if (type == "vec3")
+            {
+                return 3;
+            }
+            if (type == "vec4")
+            {
+                return 4;
+            }
+            return 0;
+        }
+
+        bool IsInterfaceQualifier(std::string_view token)
+        {
+            return token == "flat" || token == "smooth" || token == "noperspective" || token == "centroid" ||
+                token == "invariant" || token == "highp" || token == "mediump" || token == "lowp";
+        }
+
+        size_t FindClosingParenthesis(const std::vector<ShaderToken>& tokens, size_t open)
+        {
+            int depth{};
+            for (size_t index = open; index < tokens.size(); ++index)
+            {
+                if (tokens[index].Text == "(")
+                {
+                    ++depth;
+                }
+                else if (tokens[index].Text == ")" && --depth == 0)
+                {
+                    return index;
+                }
+            }
+            throw std::runtime_error{"Transform feedback shader has unbalanced parentheses."};
+        }
+
+        // Offsets of the top-level commas separating the arguments of the call whose parentheses
+        // span [open, close].
+        std::vector<size_t> FindArgumentSeparators(const std::vector<ShaderToken>& tokens, size_t open, size_t close)
+        {
+            std::vector<size_t> separators;
+            int depth{};
+            for (size_t index = open + 1; index < close; ++index)
+            {
+                const auto text = tokens[index].Text;
+                if (text == "(" || text == "[")
+                {
+                    ++depth;
+                }
+                else if (text == ")" || text == "]")
+                {
+                    --depth;
+                }
+                else if (text == "," && depth == 0)
+                {
+                    separators.push_back(index);
+                }
+            }
+            return separators;
+        }
+    }
+
+    TransformFeedbackShader GenerateTransformFeedbackShader(std::string_view vertexSource, const std::vector<std::string>& varyings)
+    {
+        if (varyings.empty())
+        {
+            throw std::runtime_error{"Transform feedback requires at least one varying."};
+        }
+
+        // Preprocessor directives (only #version and #extension survive preprocessing) are blanked
+        // in the tokenized copy so statement boundaries are not confused by them.
+        std::string tokenText{vertexSource};
+        for (size_t lineStart = 0; lineStart < tokenText.size();)
+        {
+            auto lineEnd = tokenText.find('\n', lineStart);
+            lineEnd = lineEnd == std::string::npos ? tokenText.size() : lineEnd;
+            const auto first = tokenText.find_first_not_of(" \t\r", lineStart);
+            if (first != std::string::npos && first < lineEnd && tokenText[first] == '#')
+            {
+                std::fill(tokenText.begin() + lineStart, tokenText.begin() + lineEnd, ' ');
+            }
+            lineStart = lineEnd + 1;
+        }
+        const auto tokens = TokenizeShader(tokenText);
+
+        struct Variable
+        {
+            std::string Type;
+            std::string Name;
+        };
+        std::vector<Variable> inputs;
+        std::map<std::string, std::string> outputs;
+
+        struct Replacement
+        {
+            size_t Begin;
+            size_t End;
+            std::string Text;
+        };
+        std::vector<Replacement> replacements;
+        const auto replaceToken = [&](const ShaderToken& token, std::string text) {
+            replacements.push_back({token.Offset, token.Offset + token.Text.size(), std::move(text)});
+        };
+
+        // Rewrite top-level declarations: vertex inputs and outputs become private globals, and
+        // samplers get explicit bindings above the two buffer bindings (glslang leaves them at 0).
+        uint32_t nextSamplerBinding{Graphics::TRANSFORM_FEEDBACK_FIRST_SAMPLER_BINDING};
+        int depth{};
+        size_t statementStart{};
+        for (size_t index = 0; index < tokens.size(); ++index)
+        {
+            const auto text = tokens[index].Text;
+            if (text == "{" || text == "(")
+            {
+                ++depth;
+                continue;
+            }
+            if (text == "}" || text == ")")
+            {
+                if (--depth == 0 && text == "}")
+                {
+                    statementStart = index + 1;
+                }
+                continue;
+            }
+            if (depth != 0 || text != ";")
+            {
+                continue;
+            }
+
+            const size_t begin = statementStart;
+            const size_t end = index;
+            statementStart = index + 1;
+
+            bool isInput{};
+            bool isOutput{};
+            bool isUniform{};
+            bool hasLayout{};
+            size_t typeIndex{begin};
+            for (; typeIndex < end; ++typeIndex)
+            {
+                const auto qualifier = tokens[typeIndex].Text;
+                if (qualifier == "in")
+                {
+                    isInput = true;
+                }
+                else if (qualifier == "out")
+                {
+                    isOutput = true;
+                }
+                else if (qualifier == "uniform")
+                {
+                    isUniform = true;
+                }
+                else if (qualifier == "layout")
+                {
+                    hasLayout = true;
+                    typeIndex = FindClosingParenthesis(tokens, typeIndex + 1);
+                }
+                else if (!IsInterfaceQualifier(qualifier))
+                {
+                    break;
+                }
+            }
+
+            if (isUniform && typeIndex < end)
+            {
+                const auto type = tokens[typeIndex].Text;
+                const bool isSampler = type.starts_with("sampler") || type.starts_with("isampler") || type.starts_with("usampler");
+                if (isSampler)
+                {
+                    if (hasLayout)
+                    {
+                        throw std::runtime_error{"Transform feedback shaders cannot declare sampler layouts."};
+                    }
+                    if (nextSamplerBinding >= Graphics::TRANSFORM_FEEDBACK_MAX_SAMPLER_BINDING)
+                    {
+                        throw std::runtime_error{"Transform feedback shader declares too many samplers."};
+                    }
+                    replacements.push_back({tokens[begin].Offset, tokens[begin].Offset,
+                        "layout(binding = " + std::to_string(nextSamplerBinding++) + ") "});
+                }
+                continue;
+            }
+
+            if (!isInput && !isOutput)
+            {
+                continue;
+            }
+            if (isInput && isOutput)
+            {
+                throw std::runtime_error{"Transform feedback shader has an invalid interface declaration."};
+            }
+            if (typeIndex + 1 >= end)
+            {
+                throw std::runtime_error{"Transform feedback shader has an incomplete interface declaration."};
+            }
+
+            const std::string type{tokens[typeIndex].Text};
+            if (FloatComponentCount(type) == 0)
+            {
+                throw std::runtime_error{"Transform feedback supports only float, vec2, vec3 and vec4 attributes and varyings ('" + type + "')."};
+            }
+
+            std::string declaration = type + " ";
+            for (size_t nameIndex = typeIndex + 1; nameIndex < end; nameIndex += 2)
+            {
+                const auto name = tokens[nameIndex].Text;
+                if (nameIndex + 1 < end && tokens[nameIndex + 1].Text != ",")
+                {
+                    throw std::runtime_error{"Transform feedback does not support array or initialized interface variables ('" + std::string{name} + "')."};
+                }
+                if (isInput)
+                {
+                    inputs.push_back({type, std::string{name}});
+                }
+                else
+                {
+                    outputs[std::string{name}] = type;
+                }
+                declaration += std::string{name} + (nameIndex + 2 < end ? ", " : "");
+            }
+            replacements.push_back({tokens[begin].Offset, tokens[end].Offset, std::move(declaration)});
+        }
+
+        // Rewrite vertex-stage built-ins and implicit-LOD sampling, which compute shaders lack.
+        for (size_t index = 0; index < tokens.size(); ++index)
+        {
+            const auto& token = tokens[index];
+            if (token.Text == "main")
+            {
+                replaceToken(token, "bnTfMain");
+            }
+            else if (token.Text == "gl_VertexID")
+            {
+                replaceToken(token, "bnTfVertexID");
+            }
+            else if (token.Text == "gl_InstanceID")
+            {
+                replaceToken(token, "bnTfInstanceID");
+            }
+            else if (token.Text == "gl_Position")
+            {
+                replaceToken(token, "bnTfPosition");
+            }
+            else if (token.Text == "gl_PointSize")
+            {
+                replaceToken(token, "bnTfPointSize");
+            }
+            else if ((token.Text == "texture" || token.Text == "textureProj" || token.Text == "textureOffset") &&
+                index + 1 < tokens.size() && tokens[index + 1].Text == "(")
+            {
+                const size_t close = FindClosingParenthesis(tokens, index + 1);
+                const auto separators = FindArgumentSeparators(tokens, index + 1, close);
+                const bool offset = token.Text == "textureOffset";
+                if (separators.size() != (offset ? 2u : 1u))
+                {
+                    throw std::runtime_error{"Transform feedback shaders cannot use a texture bias ('" + std::string{token.Text} + "')."};
+                }
+                replaceToken(token, offset ? "textureLodOffset" : std::string{token.Text} + "Lod");
+                const size_t insertAt = offset ? tokens[separators[1]].Offset : tokens[close].Offset;
+                replacements.push_back({insertAt, insertAt, ", 0.0"});
+            }
+        }
+
+        std::sort(replacements.begin(), replacements.end(), [](const Replacement& left, const Replacement& right) {
+            return left.Begin < right.Begin || (left.Begin == right.Begin && left.End < right.End);
+        });
+
+        std::string body;
+        size_t copied{};
+        for (const auto& replacement : replacements)
+        {
+            if (replacement.Begin < copied)
+            {
+                throw std::runtime_error{"Transform feedback shader rewrite overlaps."};
+            }
+            body.append(vertexSource, copied, replacement.Begin - copied);
+            body += replacement.Text;
+            copied = replacement.End;
+        }
+        body.append(vertexSource, copied);
+
+        // Replace #version and keep the remaining directives (#extension) ahead of declarations.
+        std::string directives;
+        std::string declarations;
+        for (size_t lineStart = 0; lineStart < body.size();)
+        {
+            auto lineEnd = body.find('\n', lineStart);
+            lineEnd = lineEnd == std::string::npos ? body.size() : lineEnd;
+            const std::string_view line{body.data() + lineStart, lineEnd - lineStart};
+            const auto first = line.find_first_not_of(" \t\r");
+            if (first != std::string_view::npos && line[first] == '#')
+            {
+                if (line.substr(first).starts_with("#version"))
+                {
+                    directives.insert(0, "#version 310 es\n");
+                }
+                else
+                {
+                    directives.append(line).append("\n");
+                }
+            }
+            else
+            {
+                declarations.append(line).append("\n");
+            }
+            lineStart = lineEnd + 1;
+        }
+        if (!directives.starts_with("#version"))
+        {
+            directives.insert(0, "#version 310 es\n");
+        }
+
+        TransformFeedbackShader result{};
+        const size_t layoutCount = std::max<size_t>(inputs.size(), 1);
+        std::string source = directives;
+        source += "layout(local_size_x = " + std::to_string(Graphics::TRANSFORM_FEEDBACK_WORKGROUP_SIZE) + ", local_size_y = 1, local_size_z = 1) in;\n";
+        source += "layout(std430, binding = " + std::to_string(Graphics::TRANSFORM_FEEDBACK_INPUT_BINDING) + ") readonly buffer BnTfInput { float bnTfInput[]; };\n";
+        source += "layout(std430, binding = " + std::to_string(Graphics::TRANSFORM_FEEDBACK_OUTPUT_BINDING) + ") writeonly buffer BnTfOutput { float bnTfOutput[]; };\n";
+        source += std::string{"uniform vec4 "} + Graphics::TRANSFORM_FEEDBACK_PARAMS_UNIFORM + ";\n";
+        source += std::string{"uniform vec4 "} + Graphics::TRANSFORM_FEEDBACK_INPUT_LAYOUT_UNIFORM + "[" + std::to_string(layoutCount) + "];\n";
+        source += "int bnTfVertexID;\nint bnTfInstanceID;\nvec4 bnTfPosition;\nfloat bnTfPointSize;\n";
+        source += declarations;
+
+        source += "float bnTfReadInput(int slot, int component, float fallback)\n{\n";
+        source += "    vec4 inputLayout = " + std::string{Graphics::TRANSFORM_FEEDBACK_INPUT_LAYOUT_UNIFORM} + "[slot];\n";
+        source += "    if (float(component) >= inputLayout.z) { return fallback; }\n";
+        source += "    return bnTfInput[int(inputLayout.x) + bnTfVertexID * int(inputLayout.y) + component];\n}\n";
+
+        source += "void main()\n{\n";
+        source += "    uint index = gl_GlobalInvocationID.x;\n";
+        source += "    if (index >= uint(" + std::string{Graphics::TRANSFORM_FEEDBACK_PARAMS_UNIFORM} + ".x)) { return; }\n";
+        source += "    bnTfVertexID = int(index) + int(" + std::string{Graphics::TRANSFORM_FEEDBACK_PARAMS_UNIFORM} + ".y);\n";
+        source += "    bnTfInstanceID = 0;\n";
+        static constexpr const char* fallbacks[]{"0.0", "0.0", "0.0", "1.0"};
+        static constexpr const char* swizzles[]{".x", ".y", ".z", ".w"};
+        for (size_t attribute = 0; attribute < inputs.size(); ++attribute)
+        {
+            const auto& input = inputs[attribute];
+            const uint32_t components = FloatComponentCount(input.Type);
+            source += "    " + input.Name + " = " + (components == 1 ? "" : input.Type + "(");
+            for (uint32_t component = 0; component < components; ++component)
+            {
+                source += (component == 0 ? "" : ", ") + std::string{"bnTfReadInput("} + std::to_string(attribute) + ", " +
+                    std::to_string(component) + ", " + fallbacks[component] + ")";
+            }
+            source += std::string{components == 1 ? "" : ")"} + ";\n";
+            result.InputNames.push_back(input.Name);
+        }
+        source += "    bnTfMain();\n";
+
+        uint32_t stride{};
+        for (const auto& varying : varyings)
+        {
+            const auto output = outputs.find(varying);
+            if (output == outputs.end())
+            {
+                throw std::runtime_error{"Transform feedback varying '" + varying + "' is not a vertex shader output."};
+            }
+            stride += FloatComponentCount(output->second);
+        }
+        source += "    int base = int(index) * " + std::to_string(stride) + ";\n";
+        uint32_t offset{};
+        for (const auto& varying : varyings)
+        {
+            const uint32_t components = FloatComponentCount(outputs.at(varying));
+            for (uint32_t component = 0; component < components; ++component)
+            {
+                source += "    bnTfOutput[base + " + std::to_string(offset++) + "] = " + varying +
+                    (components == 1 ? "" : swizzles[component]) + ";\n";
+            }
+        }
+        source += "}\n";
+
+        result.Source = std::move(source);
+        return result;
+    }
+
     std::map<std::string, std::string> RenameShaderUniforms(std::string& source, std::string* pairedSource)
     {
         const auto first = TokenizeShader(source);
@@ -728,5 +1117,20 @@ namespace Babylon::ShaderCompilerCommon
         AppendBytes(computeBytes, static_cast<uint16_t>(uniformsInfo.ByteSize));
 
         return bgfxShaderInfo;
+    }
+}
+
+namespace Babylon::Plugins
+{
+    Graphics::BgfxShaderInfo ShaderCompiler::CompileTransformFeedback(std::string_view vertexSource, const std::vector<std::string>& varyings)
+    {
+        const auto preprocessed = ShaderCompilerCommon::PreprocessShader(EShLangVertex, vertexSource);
+        const auto generated = ShaderCompilerCommon::GenerateTransformFeedbackShader(preprocessed, varyings);
+        auto result = CompileCompute(generated.Source);
+        for (uint32_t index = 0; index < generated.InputNames.size(); ++index)
+        {
+            result.VertexAttributeLocations[generated.InputNames[index]] = Graphics::TRANSFORM_FEEDBACK_ATTRIBUTE_LOCATION_BASE + index;
+        }
+        return result;
     }
 }

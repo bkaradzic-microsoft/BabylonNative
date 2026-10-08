@@ -4,12 +4,14 @@ A cross-platform console tool that compiles GLSL shaders using the ShaderCompile
 
 ## Overview
 
-This tool takes vertex and fragment shader source files (in GLSL format) as input, compiles them for the target graphics API using Babylon Native's ShaderCompiler, and saves the compiled shader data to an output file using the ShaderCache component. Multiple shader pairs can be compiled into a single cache file.
+This tool takes vertex and fragment shader source files (in GLSL format), and optionally compute shader source files (GLSL ES 3.10), as input, compiles them for the target graphics API using Babylon Native's ShaderCompiler, and saves the compiled shader data to an output file using the ShaderCache component. Multiple shader pairs and compute shaders can be compiled into a single cache file.
+
+Shader sources must exactly match the strings Babylon Native receives at run time (`createProgram` for vertex/fragment pairs, `createComputeProgram` for compute shaders); CR/LF differences are ignored.
 
 ## Usage
 
 ```
-ShaderTool -o <output_file> <vertex1> <fragment1> [<vertex2> <fragment2> ...]
+ShaderTool -o <output_file> [-c <compute>]... [<vertex1> <fragment1> ...]
 ```
 
 ### Options
@@ -17,6 +19,7 @@ ShaderTool -o <output_file> <vertex1> <fragment1> [<vertex2> <fragment2> ...]
 | Option | Description |
 |--------|-------------|
 | `-o <output_file>` | Path to the output compiled shader cache file (required) |
+| `-c <compute>` | Compute shader source file (GLSL ES 3.10); may be repeated |
 
 ### Arguments
 
@@ -34,6 +37,11 @@ ShaderTool -o cache.bin vertex.glsl fragment.glsl
 Multiple shader pairs:
 ```bash
 ShaderTool -o cache.bin v1.glsl f1.glsl v2.glsl f2.glsl v3.glsl f3.glsl
+```
+
+Compute shaders alongside a shader pair:
+```bash
+ShaderTool -o cache.bin -c particles.comp -c sort.comp vertex.glsl fragment.glsl
 ```
 
 ## Build Integration

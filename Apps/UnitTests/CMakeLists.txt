@@ -115,6 +115,7 @@ target_link_libraries(UnitTests
     PRIVATE NativeEncoding
     PRIVATE ScriptLoader
     PRIVATE ShaderCache
+    PRIVATE ShaderCacheInternal
     PRIVATE Window
     PRIVATE XMLHttpRequest
     PRIVATE gtest_main

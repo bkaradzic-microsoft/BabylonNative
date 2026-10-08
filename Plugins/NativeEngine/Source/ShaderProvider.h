@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <map>
 #include <string>
+#include <vector>
 
 #ifdef SHADER_COMPILER
 #include <Babylon/Plugins/ShaderCompiler.h>
@@ -21,6 +22,9 @@ namespace Babylon
 
         // Compiles a single GLSL compute shader into a bgfx CSH shader binary.
         std::shared_ptr<Graphics::BgfxShaderInfo> GetCompute(std::string_view computeSource);
+
+        // Compiles a transform feedback vertex shader into its emulating compute shader.
+        std::shared_ptr<Graphics::BgfxShaderInfo> GetTransformFeedback(std::string_view vertexSource, const std::vector<std::string>& varyings);
 
     private:
 #ifdef SHADER_COMPILER

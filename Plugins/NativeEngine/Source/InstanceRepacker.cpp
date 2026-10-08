@@ -108,10 +108,17 @@ namespace Babylon
             return BGFX_INVALID_HANDLE;
         }
 
-        StorageBuffer* source = instances.begin()->second.StorageSource;
+        StorageBuffer* source = instances.begin()->second.ResolveStorage();
         if (source == nullptr)
         {
             return BGFX_INVALID_HANDLE;
+        }
+        for (const auto& [location, instance] : instances)
+        {
+            if (instance.ResolveStorage() != source)
+            {
+                throw std::runtime_error{"GPU instance attributes must share a single storage buffer"};
+            }
         }
 
         EnsureProgram();

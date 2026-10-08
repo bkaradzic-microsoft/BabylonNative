@@ -4,8 +4,14 @@
 #include <Babylon/AppRuntime.h>
 #include <Babylon/Graphics/Device.h>
 #include <Babylon/Graphics/DeviceContext.h>
+#include <Babylon/Graphics/Texture.h>
+#include <Babylon/Plugins/NativeEngine.h>
+#include <Babylon/Plugins/ShaderCache.h>
+#include <Babylon/Plugins/ShaderCacheInternal.h>
 #include <Babylon/Plugins/ShaderCompiler.h>
+#include <gsl/util>
 #include <gtest/gtest.h>
+#include <napi/pointer.h>
 
 #include <array>
 #include <chrono>
@@ -14,7 +20,9 @@
 #include <future>
 #include <iostream>
 #include <memory>
+#include <sstream>
 #include <stdexcept>
+#include <string>
 
 extern Babylon::Graphics::Configuration g_deviceConfig;
 
@@ -69,6 +77,99 @@ void main() {
             throw std::runtime_error{"Failed to create compute program"};
         }
         return program;
+    }
+
+    std::string ConstantComputeSource(std::string_view value)
+    {
+        return std::string{"#version 310 es\nprecision highp float;\nlayout(local_size_x = 1) in;\n"
+                           "layout(std430, binding = 1) buffer Output { vec4 values[]; };\n"
+                           "void main() { values[0] = vec4("} +
+               std::string{value} + "); }\n";
+    }
+
+    // Creates the program through the JavaScript createComputeProgram binding, dispatches it with
+    // a single storage buffer, and reads back the vec4 it wrote.
+    std::array<float, 4> DispatchNativeComputeProgram(const std::string& source)
+    {
+        Babylon::Graphics::Device device{g_deviceConfig};
+        device.StartRenderingCurrentFrame();
+        std::array<float, 4> values{};
+        std::promise<std::string> completed;
+        auto future = completed.get_future();
+        {
+            Babylon::AppRuntime runtime{};
+            runtime.Dispatch([&](Napi::Env env) {
+                try
+                {
+                    device.AddToJavaScript(env);
+                    Babylon::Plugins::NativeEngine::Initialize(env);
+                    auto& context = Babylon::Graphics::DeviceContext::GetFromJavaScript(env);
+                    auto scope = context.AcquireFrameCompletionScope();
+                    auto engine = env.Global().Get("_native").As<Napi::Object>().Get("Engine").As<Napi::Function>().New({});
+                    auto bufferValue = Napi::Eval(env, R"(
+                        (function(engine, source) {
+                            const program = engine.createComputeProgram(source);
+                            const buffer = engine.createStorageBuffer(16, true);
+                            const stream = new _native.NativeDataStream(function() {});
+                            engine.setCommandDataStream({_nativeDataStream: stream});
+                            const words = new Uint32Array([
+                                ..._native.Engine.COMMAND_COMPUTEDISPATCH, ...program, 1, 1, 1,
+                                1, 1, ...buffer, 2,
+                                0
+                            ]);
+                            stream.writeBuffer(words.buffer, words.length);
+                            engine.submitCommands();
+                            return buffer;
+                        })
+                    )", "shader-cache-compute.js").As<Napi::Function>().Call({engine, Napi::String::New(env, source)});
+                    auto* buffer = bufferValue.As<Napi::Pointer<Babylon::StorageBuffer>>().Get();
+                    auto readback = std::make_shared<Babylon::Graphics::Texture>(context);
+                    readback->Create2D(1, 1, false, 1, bgfx::TextureFormat::RGBA32F,
+                        BGFX_TEXTURE_READ_BACK | BGFX_TEXTURE_BLIT_DST);
+                    bgfx::TextureRegion destination{};
+                    destination.init(readback->Handle());
+                    bgfx::BufferRegion sourceRegion{};
+                    sourceRegion.init(buffer->Handle(), 0, static_cast<uint32_t>(sizeof(values)));
+                    context.GetActiveEncoder()->blit(context.AcquireNewViewId(), destination, sourceRegion);
+                    context.ReadTextureAsync(readback->Handle(),
+                        gsl::make_span(reinterpret_cast<uint8_t*>(values.data()), sizeof(values)))
+                        .then(arcana::inline_scheduler, arcana::cancellation::none(),
+                            [readback, &completed](const arcana::expected<void, std::exception_ptr>& result) {
+                                std::string error;
+                                if (result.has_error())
+                                {
+                                    try
+                                    {
+                                        std::rethrow_exception(result.error());
+                                    }
+                                    catch (const std::exception& ex)
+                                    {
+                                        error = ex.what();
+                                    }
+                                }
+                                completed.set_value(std::move(error));
+                            });
+                }
+                catch (const std::exception& ex)
+                {
+                    completed.set_value(ex.what());
+                }
+            });
+            const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds{30};
+            while (future.wait_for(std::chrono::milliseconds{1}) != std::future_status::ready)
+            {
+                if (std::chrono::steady_clock::now() >= deadline)
+                {
+                    std::cerr << "Timed out waiting for cached compute readback" << std::endl;
+                    std::quick_exit(1);
+                }
+                device.FinishRenderingCurrentFrame();
+                device.StartRenderingCurrentFrame();
+            }
+            EXPECT_EQ(future.get(), "");
+        }
+        device.FinishRenderingCurrentFrame();
+        return values;
     }
 
     struct ComputeResources
@@ -265,5 +366,49 @@ TEST(NativeEngineCompute, RawStorageBufferRoundTrip)
         EXPECT_EQ(pixels[i * 4 + 2], 0u) << "pixel " << i;
         EXPECT_EQ(pixels[i * 4 + 3], 255u) << "pixel " << i;
     }
+}
+
+TEST(NativeEngineCompute, CreateComputeProgramUsesShaderCache)
+{
+    Babylon::Plugins::ShaderCache::Enable();
+    Babylon::Plugins::ShaderCache::Clear();
+    const auto disableCache = gsl::finally([] {
+        Babylon::Plugins::ShaderCache::Clear();
+        Babylon::Plugins::ShaderCache::Disable();
+    });
+
+    Babylon::Plugins::ShaderCompiler compiler;
+    const auto requested = ConstantComputeSource("1.0, 2.0, 3.0, 4.0");
+    std::string requestedCrlf;
+    for (const char ch : requested)
+    {
+        if (ch == '\n')
+        {
+            requestedCrlf.push_back('\r');
+        }
+        requestedCrlf.push_back(ch);
+    }
+    // Plant a different shader under the requested source: only a cache hit can produce its output.
+    Babylon::Plugins::ShaderCache::AddComputeShader(requestedCrlf,
+        compiler.CompileCompute(ConstantComputeSource("5.0, 6.0, 7.0, 8.0")));
+    EXPECT_EQ(DispatchNativeComputeProgram(requested), (std::array<float, 4>{5.f, 6.f, 7.f, 8.f}));
+
+    const auto missed = ConstantComputeSource("9.0, 10.0, 11.0, 12.0");
+    ASSERT_EQ(Babylon::Plugins::ShaderCache::GetComputeShader(missed), nullptr);
+    EXPECT_EQ(DispatchNativeComputeProgram(missed), (std::array<float, 4>{9.f, 10.f, 11.f, 12.f}));
+    const auto inserted = Babylon::Plugins::ShaderCache::GetComputeShader(missed);
+    ASSERT_NE(inserted, nullptr);
+    const auto insertedBytes = inserted->ComputeBytes;
+    EXPECT_FALSE(insertedBytes.empty());
+
+    std::stringstream stream{std::ios::in | std::ios::out | std::ios::binary};
+    ASSERT_EQ(Babylon::Plugins::ShaderCache::Save(stream), 2u);
+    Babylon::Plugins::ShaderCache::Clear();
+    ASSERT_EQ(Babylon::Plugins::ShaderCache::Load(stream), 2u);
+    const auto loaded = Babylon::Plugins::ShaderCache::GetComputeShader(missed);
+    ASSERT_NE(loaded, nullptr);
+    EXPECT_EQ(loaded->ComputeBytes, insertedBytes);
+    EXPECT_EQ(DispatchNativeComputeProgram(requested), (std::array<float, 4>{5.f, 6.f, 7.f, 8.f}));
+    EXPECT_EQ(DispatchNativeComputeProgram(missed), (std::array<float, 4>{9.f, 10.f, 11.f, 12.f}));
 }
 #endif

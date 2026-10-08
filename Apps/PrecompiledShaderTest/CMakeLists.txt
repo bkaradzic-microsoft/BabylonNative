@@ -5,11 +5,14 @@
 # saving the result as a PNG screenshot.
 #
 # The JavaScript build produces:
-#     JavaScript/dist/index.js                      -- bundled scene script
-#     JavaScript/dist/shaders/<name>/vertex.fx      -- preprocessed vertex shaders
-#     JavaScript/dist/shaders/<name>/fragment.fx    -- preprocessed fragment shaders
+#     JavaScript/dist/index.js                              -- bundled scene script
+#     JavaScript/dist/shaders/<name>/vertex.fx              -- preprocessed vertex shader
+#     JavaScript/dist/shaders/<name>/fragment.fx            -- preprocessed fragment shader
+#     JavaScript/dist/shaders/<name>/instanced.txt          -- attributes the pair reads per instance
+#     JavaScript/dist/shaders/<name>/transformFeedback.fx   -- optional transform feedback vertex shader
+#     JavaScript/dist/shaders/<name>/transformFeedback.txt  -- its captured varyings
 #
-# Build-time: ShaderTool compiles shader pairs from JavaScript/dist/shaders/ into shaders.bin
+# Build-time: ShaderTool compiles the shaders from JavaScript/dist/shaders/ into shaders.bin
 # Run-time:   The app loads shaders.bin into ShaderCache and renders without ShaderCompiler
 
 # ---- JavaScript build ----
@@ -23,17 +26,38 @@ npm(run build WORKING_DIRECTORY "${JS_DIR}")
 # Shader directory produced by the JavaScript build.
 set(JS_SHADER_DIR "${JS_DIR}/dist/shaders")
 
-# Shader pairs to compile with ShaderTool (vertex, fragment).
-# Each pair corresponds to an effect registered in JavaScript/src/effects/effectList.ts.
-set(SHADER_FILES
-    "${JS_SHADER_DIR}/simple/vertex.fx"
-    "${JS_SHADER_DIR}/simple/fragment.fx")
+# Effects to compile with ShaderTool, each registered in JavaScript/src/effects/effectList.ts.
+set(EFFECTS simple particles)
+
+set(SHADER_ARGS)
+set(SHADER_FILES)
+foreach(EFFECT ${EFFECTS})
+    set(EFFECT_DIR "${JS_SHADER_DIR}/${EFFECT}")
+
+    # Programs created with transform feedback varyings (e.g. the GPU particle update) are
+    # compiled into the compute shader NativeEngine runs in their place.
+    if(EXISTS "${EFFECT_DIR}/transformFeedback.fx")
+        file(READ "${EFFECT_DIR}/transformFeedback.txt" VARYINGS)
+        string(STRIP "${VARYINGS}" VARYINGS)
+        list(APPEND SHADER_ARGS -v "${EFFECT_DIR}/transformFeedback.fx" "${VARYINGS}")
+        list(APPEND SHADER_FILES "${EFFECT_DIR}/transformFeedback.fx")
+    endif()
+
+    # Attributes read per instance select the instanced variant of the vertex shader.
+    file(READ "${EFFECT_DIR}/instanced.txt" INSTANCED)
+    string(STRIP "${INSTANCED}" INSTANCED)
+    if(INSTANCED)
+        list(APPEND SHADER_ARGS -i "${INSTANCED}")
+    endif()
+    list(APPEND SHADER_ARGS "${EFFECT_DIR}/vertex.fx" "${EFFECT_DIR}/fragment.fx")
+    list(APPEND SHADER_FILES "${EFFECT_DIR}/vertex.fx" "${EFFECT_DIR}/fragment.fx")
+endforeach()
 
 set(SHADERS_BIN "${CMAKE_CURRENT_BINARY_DIR}/shaders.bin")
 
 add_custom_command(
     OUTPUT "${SHADERS_BIN}"
-    COMMAND ShaderTool -o "${SHADERS_BIN}" ${SHADER_FILES}
+    COMMAND ShaderTool -o "${SHADERS_BIN}" ${SHADER_ARGS}
     DEPENDS ShaderTool ${SHADER_FILES}
     COMMENT "Compiling shaders with ShaderTool"
     VERBATIM)

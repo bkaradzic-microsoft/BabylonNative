@@ -150,6 +150,7 @@ namespace Babylon
         void DrawIndexedInstanced(NativeDataStream::Reader& data);
         void Draw(NativeDataStream::Reader& data);
         void DrawInstanced(NativeDataStream::Reader& data);
+        void DrawTransformFeedback(NativeDataStream::Reader& data);
         void Clear(NativeDataStream::Reader& data);
         void Clear2(NativeDataStream::Reader& data);
         void ClearImpl(NativeDataStream::Reader& data, bool hasAttachmentMask);

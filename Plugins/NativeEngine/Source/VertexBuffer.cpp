@@ -1,4 +1,5 @@
 #include "VertexBuffer.h"
+#include "StorageBuffer.h"
 #include "Babylon/Graphics/DeviceContext.h"
 #include <algorithm>
 #include <cassert>
@@ -26,6 +27,11 @@ namespace Babylon
             return;
         }
 
+        if (m_gpuStorage)
+        {
+            m_gpuStorage->Dispose();
+        }
+
         if (bgfx::isValid(m_handle) && m_deviceId == m_deviceContext.GetDeviceId())
         {
             if (m_dynamic)
@@ -45,6 +51,16 @@ namespace Babylon
 
     void VertexBuffer::Update(gsl::span<const uint8_t> bytes, size_t byteOffset)
     {
+        if (m_gpuStorage)
+        {
+            if (byteOffset > UINT32_MAX)
+            {
+                throw std::runtime_error{"Cannot update vertex buffer due to buffer overflow"};
+            }
+            m_gpuStorage->Update(bytes, static_cast<uint32_t>(byteOffset));
+            return;
+        }
+
         if (!m_dynamic)
         {
             throw std::runtime_error{"Cannot update non-dynamic vertex buffer"};
@@ -89,7 +105,7 @@ namespace Babylon
             throw std::runtime_error{"Attributes of a vertex buffer must have the same byte stride"};
         }
 
-        if (!bgfx::isValid(m_handle))
+        if (!m_gpuStorage && !bgfx::isValid(m_handle))
         {
             auto releaseFn = [](void*, void* userData) {
                 delete reinterpret_cast<decltype(m_bytes)*>(userData);
@@ -121,7 +137,11 @@ namespace Babylon
 
     void VertexBuffer::Set(bgfx::Encoder* encoder, uint8_t stream, uint32_t startVertex, uint32_t numVertices, bgfx::VertexLayoutHandle layout)
     {
-        if (m_dynamic)
+        if (m_gpuStorage)
+        {
+            m_gpuStorage->SetVertex(encoder, stream, startVertex, numVertices, layout);
+        }
+        else if (m_dynamic)
         {
             encoder->setVertexBuffer(stream, m_dynamicHandle, startVertex, numVertices, layout);
         }
@@ -129,6 +149,45 @@ namespace Babylon
         {
             encoder->setVertexBuffer(stream, m_handle, startVertex, numVertices, layout);
         }
+    }
+
+    StorageBuffer& VertexBuffer::PromoteToGpuStorage()
+    {
+        if (m_gpuStorage)
+        {
+            return *m_gpuStorage;
+        }
+        if (m_disposed || m_deviceId != m_deviceContext.GetDeviceId())
+        {
+            throw std::runtime_error{"Cannot use a disposed or stale vertex buffer for transform feedback"};
+        }
+        if (bgfx::isValid(m_handle))
+        {
+            // Build hands the CPU bytes to bgfx, so they can no longer seed the storage buffer.
+            throw std::runtime_error{"Transform feedback cannot use a vertex buffer already bound as a per-vertex stream"};
+        }
+        if (m_bytes.empty() || m_bytes.size() % sizeof(float) != 0 || m_bytes.size() > UINT32_MAX)
+        {
+            throw std::runtime_error{"Transform feedback vertex buffers must hold a non-empty float array"};
+        }
+
+        // A 4-byte storage stride keeps any float-aligned update offset addressable.
+        auto storage = std::make_unique<StorageBuffer>(m_deviceContext, static_cast<uint32_t>(m_bytes.size()), true, static_cast<uint32_t>(sizeof(float)), true);
+        storage->Update(m_bytes, 0);
+        m_gpuStorage = std::move(storage);
+        m_bytes.clear();
+        m_bytes.shrink_to_fit();
+        return *m_gpuStorage;
+    }
+
+    uint32_t VertexBuffer::ByteLength() const
+    {
+        return m_gpuStorage ? m_gpuStorage->ByteLength() : static_cast<uint32_t>(m_bytes.size());
+    }
+
+    StorageBuffer* VertexBuffer::InstanceInfo::ResolveStorage() const
+    {
+        return StorageSource != nullptr ? StorageSource : (Buffer != nullptr ? Buffer->GpuStorage() : nullptr);
     }
 
     VertexBuffer::InstanceDataLayout VertexBuffer::CreateInstanceDataLayout(

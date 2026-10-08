@@ -5,6 +5,7 @@
 #include <gsl/gsl>
 #include <list>
 #include <map>
+#include <memory>
 #include <optional>
 #include <vector>
 
@@ -35,6 +36,13 @@ namespace Babylon
 
         void Set(bgfx::Encoder* encoder, uint8_t stream, uint32_t startVertex, uint32_t numVertices, bgfx::VertexLayoutHandle layout);
 
+        // Moves the contents into a GPU storage buffer so compute work (transform feedback
+        // emulation) can read and write it; later updates, vertex binds and instance repacks use the
+        // storage buffer. Must happen before the buffer is built as a regular vertex stream.
+        StorageBuffer& PromoteToGpuStorage();
+        StorageBuffer* GpuStorage() const { return m_gpuStorage.get(); }
+        uint32_t ByteLength() const;
+
         struct InstanceInfo
         {
             VertexBuffer* Buffer{};
@@ -47,6 +55,9 @@ namespace Babylon
             // describe the packing within the storage buffer. The CPU BuildInstanceDataBuffer path is
             // skipped for these; NativeEngine repacks them on the GPU (see InstanceRepacker).
             StorageBuffer* StorageSource{};
+
+            // The GPU-resident source of this instance attribute, if any.
+            StorageBuffer* ResolveStorage() const;
         };
 
         struct InstanceDataLayout
@@ -79,6 +90,8 @@ namespace Babylon
             bgfx::VertexBufferHandle m_handle{bgfx::kInvalidHandle};
             bgfx::DynamicVertexBufferHandle m_dynamicHandle;
         };
+
+        std::unique_ptr<StorageBuffer> m_gpuStorage{};
 
         bool m_disposed{};
     };

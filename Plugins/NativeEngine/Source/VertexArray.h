@@ -37,6 +37,17 @@ namespace Babylon
         // BuildInstanceDataBuffer path is skipped and NativeEngine binds a GPU-repacked buffer.
         bool HasStorageInstances() const;
 
+        // Vertex inputs of a transform feedback program (locations at or above
+        // TRANSFORM_FEEDBACK_ATTRIBUTE_LOCATION_BASE), keyed by input index. They are read directly
+        // from the vertex buffer's GPU storage by the emulating compute shader.
+        struct TransformFeedbackInput
+        {
+            VertexBuffer* Buffer{};
+            uint32_t ByteOffset{};
+            uint32_t ByteStride{};
+            uint32_t NumElements{};
+        };
+        const std::map<uint32_t, TransformFeedbackInput>& GetTransformFeedbackInputs() const { return m_transformFeedbackInputs; }
     private:
         struct UnindexedExpansionKey final
         {
@@ -74,6 +85,7 @@ namespace Babylon
         std::map<bgfx::Attrib::Enum, VertexBufferRecord> m_vertexBufferRecords{};
 
         std::map<uint32_t, VertexBuffer::InstanceInfo> m_vertexBufferInstances;
+        std::map<uint32_t, TransformFeedbackInput> m_transformFeedbackInputs;
 
         bool m_disposed{};
     };

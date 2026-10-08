@@ -39,6 +39,7 @@ namespace Babylon
         }
         m_vertexBufferRecords.clear();
         m_vertexBufferInstances.clear();
+        m_transformFeedbackInputs.clear();
         if (m_deviceId == m_deviceContext.GetDeviceId())
         {
             for (const auto& [key, buffer] : m_unindexedExpandedBuffers)
@@ -73,6 +74,20 @@ namespace Babylon
         }
 
         auto attribType = static_cast<bgfx::AttribType::Enum>(type);
+
+        if (location >= Graphics::TRANSFORM_FEEDBACK_ATTRIBUTE_LOCATION_BASE)
+        {
+            if (attribType != bgfx::AttribType::Float || normalized || divisor != 0)
+            {
+                throw std::runtime_error{"Transform feedback vertex inputs must be non-instanced float attributes"};
+            }
+            if (byteOffset % sizeof(float) != 0 || byteStride % sizeof(float) != 0 || numElements == 0 || numElements > 4)
+            {
+                throw std::runtime_error{"Transform feedback vertex inputs must be float aligned"};
+            }
+            m_transformFeedbackInputs[location - Graphics::TRANSFORM_FEEDBACK_ATTRIBUTE_LOCATION_BASE] = {vertexBuffer, byteOffset, byteStride, numElements};
+            return;
+        }
 
         if (divisor == 1)
         {
@@ -159,7 +174,7 @@ namespace Babylon
     {
         for (const auto& pair : m_vertexBufferInstances)
         {
-            if (pair.second.StorageSource != nullptr)
+            if (pair.second.ResolveStorage() != nullptr)
             {
                 return true;
             }
