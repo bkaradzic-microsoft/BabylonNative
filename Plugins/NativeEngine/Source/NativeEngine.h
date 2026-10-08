@@ -184,6 +184,7 @@ namespace Babylon
         bgfx::Encoder* PrepareDraw();
         bgfx::TextureHandle ResolveTexture(const Graphics::Texture& texture, const UniformInfo& sampler);
         Graphics::FrameBuffer& GetBoundFrameBuffer();
+        void ResetDefaultFrameBuffer();
 
         // One-shot GPU-compute self-test (env-gated by BABYLON_COMPUTE_SELFTEST). Compiles a
         // trivial GLSL compute shader, dispatches it to write an image, and reads the result
@@ -269,6 +270,13 @@ namespace Babylon
         Graphics::FrameBuffer m_defaultFrameBuffer;
         Graphics::FrameBuffer* m_boundFrameBuffer{};
         PerFrameValue<bool> m_boundFrameBufferNeedsRebinding;
+
+        // WebGL viewport is context state, not framebuffer state: binding a framebuffer keeps the
+        // current viewport. Normalized, with bgfx's top-left origin.
+        Graphics::Rect m_viewPort{0.0f, 0.0f, 1.0f, 1.0f};
+
+        // WebGL resets the drawing buffer's depth and stencil at the start of every frame.
+        PerFrameValue<bool> m_defaultFrameBufferNeedsReset;
 
         // Last material texture binds on the frame encoder. Compute dispatch (and instance
         // repack) clear encoder bind state; DrawInternal replays these so particle sheet
