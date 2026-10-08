@@ -44,7 +44,9 @@ namespace Babylon::Plugins::ShaderCache
     // 6: FlipFragCoordY rewrites gl_FragCoord and injects bnFragCoordTargetSize;
     //    version-5 entries for those shaders skip compilation and omit the uniform.
     // 7: preserve application uniform aliases and inject nearest-sampler state.
-    static const uint32_t CACHE_VERSION = 7;
+    // 8: bnFragCoordTargetSize became bnRenderTargetTransform, which vertex shaders also read
+    //    to render cube faces in GL row order, and dFdy now scales by it.
+    static const uint32_t CACHE_VERSION = 8;
 
     void ShaderCacheImpl::Clear()
     {
