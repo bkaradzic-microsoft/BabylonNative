@@ -997,7 +997,9 @@ namespace Babylon::ShaderCompilerTraversers
         public:
             void visitSymbol(TIntermSymbol* symbol) override
             {
-                if (symbol->getType().getQualifier().storage == EvqUniform && symbol->getType().getBasicType() == EbtSampler)
+                // Storage images (compute only) are bound as images, not texture + sampler pairs.
+                if (symbol->getType().getQualifier().storage == EvqUniform && symbol->getType().getBasicType() == EbtSampler &&
+                    !symbol->getType().getSampler().isImage())
                 {
                     // Collect all sampler uniform symbols into the relevant caches
                     // later proccessing. Note that we treat linker object replacement
@@ -1029,12 +1031,22 @@ namespace Babylon::ShaderCompilerTraversers
                 // shaders that declare many sampler uniforms but only use a few.
                 std::map<std::string, unsigned int> nameToBinding{};
                 unsigned int nextBinding{0};
-                Traverse(program.getIntermediate(EShLangVertex), ids, nameToBinding, nextBinding);
-                Traverse(program.getIntermediate(EShLangFragment), ids, nameToBinding, nextBinding);
+                for (auto stage : {EShLangVertex, EShLangFragment})
+                {
+                    if (auto* intermediate = program.getIntermediate(stage))
+                    {
+                        Traverse(intermediate, ids, nameToBinding, nextBinding, false);
+                    }
+                }
+                // Compute samplers declare explicit bindings past the storage buffer stages; keep them.
+                if (auto* intermediate = program.getIntermediate(EShLangCompute))
+                {
+                    Traverse(intermediate, ids, nameToBinding, nextBinding, true);
+                }
             }
 
         private:
-            static void Traverse(TIntermediate* intermediate, IdGenerator& ids, std::map<std::string, unsigned int>& nameToBinding, unsigned int& nextBinding)
+            static void Traverse(TIntermediate* intermediate, IdGenerator& ids, std::map<std::string, unsigned int>& nameToBinding, unsigned int& nextBinding, bool preserveBindings)
             {
                 SamplerSplitterTraverser traverser{};
                 intermediate->getTreeRoot()->traverse(&traverser);
@@ -1053,7 +1065,11 @@ namespace Babylon::ShaderCompilerTraversers
                     // on the public Traverse() overload for why bindings are shared.
                     unsigned int layoutBinding;
                     const auto bindingIt = nameToBinding.find(name);
-                    if (bindingIt != nameToBinding.end())
+                    if (preserveBindings && symbol->getType().getQualifier().hasBinding())
+                    {
+                        layoutBinding = symbol->getType().getQualifier().layoutBinding;
+                    }
+                    else if (bindingIt != nameToBinding.end())
                     {
                         layoutBinding = bindingIt->second;
                     }
@@ -1166,8 +1182,13 @@ namespace Babylon::ShaderCompilerTraversers
             static void Traverse(TProgram& program, IdGenerator& ids)
             {
                 SamplerFunctionParameterSplitterTraverser pass{};
-                pass.Traverse(program.getIntermediate(EShLangVertex), ids);
-                pass.Traverse(program.getIntermediate(EShLangFragment), ids);
+                for (auto stage : {EShLangVertex, EShLangFragment, EShLangCompute})
+                {
+                    if (auto* intermediate = program.getIntermediate(stage))
+                    {
+                        pass.Traverse(intermediate, ids);
+                    }
+                }
             }
 
         private:

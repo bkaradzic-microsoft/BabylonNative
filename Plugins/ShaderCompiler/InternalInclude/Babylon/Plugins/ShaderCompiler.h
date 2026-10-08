@@ -26,10 +26,10 @@ namespace Babylon::Plugins
         Graphics::BgfxShaderInfo Compile(std::string_view vertexSource, std::string_view fragmentSource, const std::map<std::string, uint32_t>& instancedAttributes = {});
 
         /// Compiles a single GLSL compute shader (GLSL ES 3.10 `layout(local_size_*)`) into a bgfx
-        /// CSH (compute) shader binary. Storage buffers/images are not encoded in the binary; they
-        /// are bound at dispatch time via bgfx::setBuffer/setImage using the stage index that matches
-        /// the shader's u#/t# register (assigned from the GLSL binding).
-        /// Currently supported only on D3D11; other backends throw std::runtime_error.
+        /// CSH (compute) shader binary for the active backend (HLSL/DXBC, HLSL/DXIL, SPIR-V, MSL or
+        /// GLSL ES 3.10). Storage buffers/images are bound at dispatch time via bgfx::setBuffer/setImage
+        /// using the stage index that equals the GLSL binding; samplers need explicit bindings past
+        /// the storage buffer stages. Requires BGFX_CAPS_COMPUTE at runtime.
         Graphics::BgfxShaderInfo CompileCompute(std::string_view computeSource);
 
         /// Emulates WebGL2 transform feedback: compiles the capturing GLSL ES 3.00 vertex shader into

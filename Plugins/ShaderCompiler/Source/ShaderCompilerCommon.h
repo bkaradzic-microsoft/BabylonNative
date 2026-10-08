@@ -136,4 +136,7 @@ namespace Babylon::ShaderCompilerCommon
     /// table + samplers + blob) but with zero vertex attributes. Raw-buffer masks select the
     /// views used when storage buffers are bound at dispatch via bgfx::setBuffer(stage,...).
     Graphics::BgfxShaderInfo CreateBgfxComputeShader(ShaderInfo computeShaderInfo);
+
+    // Explicit sampler resource set + appender (Vulkan packages split samplers with its binding model).
+    Graphics::BgfxShaderInfo CreateBgfxComputeShader(ShaderInfo computeShaderInfo, SamplerResourceSet samplerResources, AppendSamplersFn appendSamplers);
 }

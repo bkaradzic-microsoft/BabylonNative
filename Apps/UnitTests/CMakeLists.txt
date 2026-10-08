@@ -49,6 +49,7 @@ set(SOURCES
     "Source/Tests.NativeEngine.InstanceData.cpp"
     "Source/Tests.NativeEngine.ImageFormats.cpp"
     "Source/Tests.NativeEngine.StorageBuffer.cpp"
+    "Source/Tests.NativeEngine.Compute.cpp"
     "Source/Tests.NativeEngine.Mipmaps.cpp"
     "Source/Tests.NativeEngine.PrimitiveModeExpansion.cpp"
     "Source/Tests.NativeEngine.DepthTextures.cpp"
@@ -72,7 +73,6 @@ endif()
 
 if(GRAPHICS_API STREQUAL "D3D11")
     set(SOURCES ${SOURCES}
-        "Source/Tests.NativeEngine.Compute.cpp"
         "Source/Tests.Device.${GRAPHICS_API}.cpp"
         "Source/Tests.Device.D3D11.ExternalBackBuffer.cpp")
 endif()

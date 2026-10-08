@@ -28,7 +28,7 @@ extern Babylon::Graphics::Configuration g_deviceConfig;
 
 namespace
 {
-    constexpr std::string_view WriteSource = R"(#version 310 es
+    [[maybe_unused]] constexpr std::string_view WriteSource = R"(#version 310 es
 precision highp float;
 precision highp int;
 layout(local_size_x = 1) in;
@@ -40,7 +40,7 @@ void main() {
 }
 )";
 
-    constexpr std::string_view ReadSource = R"(#version 310 es
+    [[maybe_unused]] constexpr std::string_view ReadSource = R"(#version 310 es
 precision highp float;
 precision highp int;
 layout(local_size_x = 1, local_size_y = 1) in;
@@ -53,7 +53,7 @@ void main() {
 }
 )";
 
-    std::array<uint32_t, 2> ReadRawMasks(const std::vector<uint8_t>& bytes)
+    [[maybe_unused]] std::array<uint32_t, 2> ReadRawMasks(const std::vector<uint8_t>& bytes)
     {
         if (bytes.size() < 20 || bytes[3] != 12)
         {
@@ -64,7 +64,7 @@ void main() {
         return masks;
     }
 
-    bgfx::ProgramHandle CreateComputeProgram(const Babylon::Graphics::BgfxShaderInfo& info)
+    [[maybe_unused]] bgfx::ProgramHandle CreateComputeProgram(const Babylon::Graphics::BgfxShaderInfo& info)
     {
         const auto shader = bgfx::createShader(bgfx::copy(info.ComputeBytes.data(), static_cast<uint32_t>(info.ComputeBytes.size())));
         if (!bgfx::isValid(shader))
@@ -79,7 +79,7 @@ void main() {
         return program;
     }
 
-    std::string ConstantComputeSource(std::string_view value)
+    [[maybe_unused]] std::string ConstantComputeSource(std::string_view value)
     {
         return std::string{"#version 310 es\nprecision highp float;\nlayout(local_size_x = 1) in;\n"
                            "layout(std430, binding = 1) buffer Output { vec4 values[]; };\n"
@@ -87,9 +87,18 @@ void main() {
                std::string{value} + "); }\n";
     }
 
+    [[maybe_unused]] bool RendererSupportsCompute()
+    {
+        Babylon::Graphics::Device device{g_deviceConfig};
+        device.StartRenderingCurrentFrame();
+        const bool supported = (bgfx::getCaps()->supported & BGFX_CAPS_COMPUTE) != 0;
+        device.FinishRenderingCurrentFrame();
+        return supported;
+    }
+
     // Creates the program through the JavaScript createComputeProgram binding, dispatches it with
     // a single storage buffer, and reads back the vec4 it wrote.
-    std::array<float, 4> DispatchNativeComputeProgram(const std::string& source)
+    [[maybe_unused]] std::array<float, 4> DispatchNativeComputeProgram(const std::string& source)
     {
         Babylon::Graphics::Device device{g_deviceConfig};
         device.StartRenderingCurrentFrame();
@@ -203,6 +212,7 @@ void main() {
     };
 }
 
+#if defined(BABYLON_NATIVE_GRAPHICS_API_D3D11) || defined(BABYLON_NATIVE_GRAPHICS_API_D3D12)
 TEST(NativeEngineCompute, PackagesRawBindingMasks)
 {
     Babylon::Plugins::ShaderCompiler compiler;
@@ -268,12 +278,19 @@ TEST(NativeEngineCompute, GraphicsStagesKeepEmptyRawMasks)
     EXPECT_EQ(ReadRawMasks(shader.VertexBytes), (std::array<uint32_t, 2>{0u, 0u}));
     EXPECT_EQ(ReadRawMasks(shader.FragmentBytes), (std::array<uint32_t, 2>{0u, 0u}));
 }
+#endif
 
 TEST(NativeEngineCompute, RawStorageBufferRoundTrip)
 {
+#if defined(USE_NOOP_METAL_DEVICE) || defined(SKIP_RENDER_TESTS)
+    GTEST_SKIP();
+#else
+    if (!RendererSupportsCompute())
+    {
+        GTEST_SKIP() << "Renderer does not support compute";
+    }
     Babylon::Graphics::Device device{g_deviceConfig};
     device.StartRenderingCurrentFrame();
-    ASSERT_NE(bgfx::getCaps()->supported & BGFX_CAPS_COMPUTE, 0u);
     std::array<uint8_t, 4 * 4 * 4> pixels{};
     std::promise<void> completed;
     auto completion = completed.get_future();
@@ -366,10 +383,18 @@ TEST(NativeEngineCompute, RawStorageBufferRoundTrip)
         EXPECT_EQ(pixels[i * 4 + 2], 0u) << "pixel " << i;
         EXPECT_EQ(pixels[i * 4 + 3], 255u) << "pixel " << i;
     }
+#endif
 }
 
 TEST(NativeEngineCompute, CreateComputeProgramUsesShaderCache)
 {
+#if defined(USE_NOOP_METAL_DEVICE) || defined(SKIP_RENDER_TESTS)
+    GTEST_SKIP();
+#else
+    if (!RendererSupportsCompute())
+    {
+        GTEST_SKIP() << "Renderer does not support compute";
+    }
     Babylon::Plugins::ShaderCache::Enable();
     Babylon::Plugins::ShaderCache::Clear();
     const auto disableCache = gsl::finally([] {
@@ -410,5 +435,6 @@ TEST(NativeEngineCompute, CreateComputeProgramUsesShaderCache)
     EXPECT_EQ(loaded->ComputeBytes, insertedBytes);
     EXPECT_EQ(DispatchNativeComputeProgram(requested), (std::array<float, 4>{5.f, 6.f, 7.f, 8.f}));
     EXPECT_EQ(DispatchNativeComputeProgram(missed), (std::array<float, 4>{9.f, 10.f, 11.f, 12.f}));
+#endif
 }
 #endif

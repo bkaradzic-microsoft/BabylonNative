@@ -16,7 +16,7 @@ executes the scene script, and saves the rendered frame as a PNG.
    preprocessed shader source files. The scene includes a WebGL2 GPU particle
    system: its `gpuUpdateParticles` program is captured together with its
    transform feedback varyings, which Babylon Native runs as a generated compute
-   shader (currently D3D11 only), and its render program is captured with the
+   shader, and its render program is captured with the
    attributes it reads per instance.
 2. At CMake build time, **ShaderTool** compiles the shader source files into a
    binary cache (`shaders.bin`).

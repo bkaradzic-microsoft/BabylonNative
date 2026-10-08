@@ -1051,7 +1051,10 @@ namespace Babylon
                 StaticValue("COMMAND_DRAWINDEXEDINSTANCED", Napi::FunctionPointer::Create(env, &NativeEngine::DrawIndexedInstanced)),
                 StaticValue("COMMAND_DRAW", Napi::FunctionPointer::Create(env, &NativeEngine::Draw)),
                 StaticValue("COMMAND_DRAWINSTANCED", Napi::FunctionPointer::Create(env, &NativeEngine::DrawInstanced)),
-                StaticValue("COMMAND_DRAWTRANSFORMFEEDBACK", Napi::FunctionPointer::Create(env, &NativeEngine::DrawTransformFeedback)),
+                // Transform feedback is emulated with compute; without it Babylon.js falls back to CPU particles.
+                StaticValue("COMMAND_DRAWTRANSFORMFEEDBACK", 0 != (bgfx::getCaps()->supported & BGFX_CAPS_COMPUTE)
+                    ? Napi::FunctionPointer::Create(env, &NativeEngine::DrawTransformFeedback)
+                    : env.Undefined()),
                 StaticValue("COMMAND_CLEAR", Napi::FunctionPointer::Create(env, &NativeEngine::Clear)),
                 StaticValue("COMMAND_CLEAR2", Napi::FunctionPointer::Create(env, &NativeEngine::Clear2)),
                 StaticValue("COMMAND_SETSTENCIL", Napi::FunctionPointer::Create(env, &NativeEngine::SetStencil)),
