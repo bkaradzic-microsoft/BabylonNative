@@ -77,15 +77,43 @@ namespace Babylon
 
         if (location >= Graphics::TRANSFORM_FEEDBACK_ATTRIBUTE_LOCATION_BASE)
         {
-            if (attribType != bgfx::AttribType::Float || normalized || divisor != 0)
+            Graphics::TransformFeedbackInputType inputType{};
+            uint32_t componentSize{};
+            switch (attribType)
             {
-                throw std::runtime_error{"Transform feedback vertex inputs must be non-instanced float attributes"};
+                case bgfx::AttribType::Float:
+                    inputType = Graphics::TransformFeedbackInputType::Float;
+                    componentSize = 4;
+                    break;
+                case bgfx::AttribType::Int8:
+                    inputType = Graphics::TransformFeedbackInputType::Int8;
+                    componentSize = 1;
+                    break;
+                case bgfx::AttribType::Uint8:
+                    inputType = Graphics::TransformFeedbackInputType::Uint8;
+                    componentSize = 1;
+                    break;
+                case bgfx::AttribType::Int16:
+                    inputType = Graphics::TransformFeedbackInputType::Int16;
+                    componentSize = 2;
+                    break;
+                case bgfx::AttribType::Uint16:
+                    inputType = Graphics::TransformFeedbackInputType::Uint16;
+                    componentSize = 2;
+                    break;
+                default:
+                    throw std::runtime_error{"Unsupported transform feedback vertex input type"};
             }
-            if (byteOffset % sizeof(float) != 0 || byteStride % sizeof(float) != 0 || numElements == 0 || numElements > 4)
+            if (divisor != 0)
             {
-                throw std::runtime_error{"Transform feedback vertex inputs must be float aligned"};
+                throw std::runtime_error{"Transform feedback vertex inputs cannot be instanced"};
             }
-            m_transformFeedbackInputs[location - Graphics::TRANSFORM_FEEDBACK_ATTRIBUTE_LOCATION_BASE] = {vertexBuffer, byteOffset, byteStride, numElements};
+            if (byteOffset % componentSize != 0 || byteStride % componentSize != 0 || numElements == 0 || numElements > 4)
+            {
+                throw std::runtime_error{"Transform feedback vertex inputs must be aligned to their component size"};
+            }
+            m_transformFeedbackInputs[location - Graphics::TRANSFORM_FEEDBACK_ATTRIBUTE_LOCATION_BASE] = {
+                vertexBuffer, byteOffset, byteStride != 0 ? byteStride : numElements * componentSize, numElements, inputType, normalized};
             return;
         }
 

@@ -43,6 +43,10 @@ namespace Babylon
         StorageBuffer* GpuStorage() const { return m_gpuStorage.get(); }
         uint32_t ByteLength() const;
 
+        // Binds the contents as a read-only raw compute buffer (transform feedback vertex input). A
+        // buffer that was never built is promoted to GPU storage; a built one must be compute readable.
+        void SetComputeRead(bgfx::Encoder* encoder, uint8_t stage);
+
         struct InstanceInfo
         {
             VertexBuffer* Buffer{};
@@ -84,6 +88,7 @@ namespace Babylon
         std::vector<uint8_t> m_bytes{};
         const bool m_dynamic{};
         uint32_t m_byteStride{};
+        bool m_computeReadable{};
 
         union
         {

@@ -85,12 +85,25 @@ namespace Babylon::Graphics
     inline constexpr uint32_t TRANSFORM_FEEDBACK_WORKGROUP_SIZE{64};
     inline constexpr uint32_t TRANSFORM_FEEDBACK_INPUT_BINDING{0};
     inline constexpr uint32_t TRANSFORM_FEEDBACK_OUTPUT_BINDING{1};
-    inline constexpr uint32_t TRANSFORM_FEEDBACK_FIRST_SAMPLER_BINDING{2};
+    /// Vertex inputs may come from up to TRANSFORM_FEEDBACK_MAX_INPUT_BUFFERS vertex buffers. The first
+    /// is bound at TRANSFORM_FEEDBACK_INPUT_BINDING, the rest from TRANSFORM_FEEDBACK_EXTRA_INPUT_BINDING.
+    inline constexpr uint32_t TRANSFORM_FEEDBACK_MAX_INPUT_BUFFERS{4};
+    inline constexpr uint32_t TRANSFORM_FEEDBACK_EXTRA_INPUT_BINDING{2};
+    inline constexpr uint32_t TRANSFORM_FEEDBACK_FIRST_SAMPLER_BINDING{TRANSFORM_FEEDBACK_EXTRA_INPUT_BINDING + TRANSFORM_FEEDBACK_MAX_INPUT_BUFFERS - 1};
     inline constexpr uint32_t TRANSFORM_FEEDBACK_MAX_SAMPLER_BINDING{16};
     /// x = vertex count, y = first vertex.
     inline constexpr const char* TRANSFORM_FEEDBACK_PARAMS_UNIFORM{"bnTfParams"};
-    /// Per vertex input: x = float offset, y = float stride, z = component count (0 = unbound).
+    /// Per vertex input: x = byte offset, y = byte stride, z = component count (0 = unbound),
+    /// w = buffer index * 16 + TransformFeedbackInputType * 2 + normalized.
     inline constexpr const char* TRANSFORM_FEEDBACK_INPUT_LAYOUT_UNIFORM{"bnTfInputLayout"};
+    enum class TransformFeedbackInputType : uint32_t
+    {
+        Float = 0,
+        Int8 = 1,
+        Uint8 = 2,
+        Int16 = 3,
+        Uint16 = 4,
+    };
 
     struct BgfxShaderInfo
     {

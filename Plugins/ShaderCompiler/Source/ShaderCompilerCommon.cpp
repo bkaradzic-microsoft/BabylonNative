@@ -121,25 +121,35 @@ namespace Babylon::ShaderCompilerCommon
 
     namespace
     {
-        uint32_t FloatComponentCount(std::string_view type)
+        // Scalar or vector of float, int or uint: returns the component count, or 0 for other types.
+        uint32_t ComponentCount(std::string_view type)
         {
-            if (type == "float")
+            if (type == "float" || type == "int" || type == "uint")
             {
                 return 1;
             }
-            if (type == "vec2")
+            for (const std::string_view prefix : {"vec", "ivec", "uvec"})
             {
-                return 2;
-            }
-            if (type == "vec3")
-            {
-                return 3;
-            }
-            if (type == "vec4")
-            {
-                return 4;
+                if (type.size() == prefix.size() + 1 && type.starts_with(prefix) && type.back() >= '2' && type.back() <= '4')
+                {
+                    return static_cast<uint32_t>(type.back() - '0');
+                }
             }
             return 0;
+        }
+
+        // The bit cast that stores a captured component in the float output buffer unchanged.
+        std::string_view OutputBitCast(std::string_view type)
+        {
+            if (type == "int" || type.starts_with("ivec"))
+            {
+                return "intBitsToFloat";
+            }
+            if (type == "uint" || type.starts_with("uvec"))
+            {
+                return "uintBitsToFloat";
+            }
+            return "";
         }
 
         bool IsInterfaceQualifier(std::string_view token)
@@ -328,9 +338,9 @@ namespace Babylon::ShaderCompilerCommon
             }
 
             const std::string type{tokens[typeIndex].Text};
-            if (FloatComponentCount(type) == 0)
+            if (ComponentCount(type) == 0)
             {
-                throw std::runtime_error{"Transform feedback supports only float, vec2, vec3 and vec4 attributes and varyings ('" + type + "')."};
+                throw std::runtime_error{"Transform feedback supports only scalar and vector float, int and uint attributes and varyings ('" + type + "')."};
             }
 
             std::string declaration = type + " ";
@@ -447,17 +457,46 @@ namespace Babylon::ShaderCompilerCommon
         const size_t layoutCount = std::max<size_t>(inputs.size(), 1);
         std::string source = directives;
         source += "layout(local_size_x = " + std::to_string(Graphics::TRANSFORM_FEEDBACK_WORKGROUP_SIZE) + ", local_size_y = 1, local_size_z = 1) in;\n";
-        source += "layout(std430, binding = " + std::to_string(Graphics::TRANSFORM_FEEDBACK_INPUT_BINDING) + ") readonly buffer BnTfInput { float bnTfInput[]; };\n";
+        const auto inputBuffer = [](uint32_t buffer) {
+            return "bnTfInput" + std::to_string(buffer);
+        };
+        for (uint32_t buffer = 0; buffer < Graphics::TRANSFORM_FEEDBACK_MAX_INPUT_BUFFERS; ++buffer)
+        {
+            const uint32_t binding = buffer == 0 ? Graphics::TRANSFORM_FEEDBACK_INPUT_BINDING : Graphics::TRANSFORM_FEEDBACK_EXTRA_INPUT_BINDING + buffer - 1;
+            source += "layout(std430, binding = " + std::to_string(binding) + ") readonly buffer BnTfInputBuffer" + std::to_string(buffer) +
+                " { uint " + inputBuffer(buffer) + "[]; };\n";
+        }
         source += "layout(std430, binding = " + std::to_string(Graphics::TRANSFORM_FEEDBACK_OUTPUT_BINDING) + ") writeonly buffer BnTfOutput { float bnTfOutput[]; };\n";
         source += std::string{"uniform vec4 "} + Graphics::TRANSFORM_FEEDBACK_PARAMS_UNIFORM + ";\n";
         source += std::string{"uniform vec4 "} + Graphics::TRANSFORM_FEEDBACK_INPUT_LAYOUT_UNIFORM + "[" + std::to_string(layoutCount) + "];\n";
         source += "int bnTfVertexID;\nint bnTfInstanceID;\nvec4 bnTfPosition;\nfloat bnTfPointSize;\n";
         source += declarations;
 
+        source += "uint bnTfReadWord(int bufferIndex, int word)\n{\n";
+        for (uint32_t buffer = 1; buffer < Graphics::TRANSFORM_FEEDBACK_MAX_INPUT_BUFFERS; ++buffer)
+        {
+            source += "    if (bufferIndex == " + std::to_string(buffer) + ") { return " + inputBuffer(buffer) + "[word]; }\n";
+        }
+        source += "    return " + inputBuffer(0) + "[word];\n}\n";
+
+        // Decodes one component the way a WebGL vertex fetch does: float, or (normalized) 8/16-bit integers.
         source += "float bnTfReadInput(int slot, int component, float fallback)\n{\n";
         source += "    vec4 inputLayout = " + std::string{Graphics::TRANSFORM_FEEDBACK_INPUT_LAYOUT_UNIFORM} + "[slot];\n";
         source += "    if (float(component) >= inputLayout.z) { return fallback; }\n";
-        source += "    return bnTfInput[int(inputLayout.x) + bnTfVertexID * int(inputLayout.y) + component];\n}\n";
+        source += "    int info = int(inputLayout.w);\n";
+        source += "    int type = (info / 2) % 8;\n";
+        source += "    bool normalized = (info % 2) == 1;\n";
+        source += "    int size = type == 0 ? 4 : (type <= 2 ? 1 : 2);\n";
+        source += "    int address = int(inputLayout.x) + bnTfVertexID * int(inputLayout.y) + component * size;\n";
+        source += "    uint word = bnTfReadWord(info / 16, address / 4);\n";
+        source += "    int shift = (address % 4) * 8;\n";
+        source += "    if (type == 0) { return uintBitsToFloat(word); }\n";
+        source += "    int bits = size * 8;\n";
+        source += "    if (type == 1 || type == 3)\n    {\n";
+        source += "        float value = float(bitfieldExtract(int(word), shift, bits));\n";
+        source += "        return normalized ? max(value / float((1 << (bits - 1)) - 1), -1.0) : value;\n    }\n";
+        source += "    float value = float(bitfieldExtract(word, shift, bits));\n";
+        source += "    return normalized ? value / float((1 << bits) - 1) : value;\n}\n";
 
         source += "void main()\n{\n";
         source += "    uint index = gl_GlobalInvocationID.x;\n";
@@ -469,14 +508,14 @@ namespace Babylon::ShaderCompilerCommon
         for (size_t attribute = 0; attribute < inputs.size(); ++attribute)
         {
             const auto& input = inputs[attribute];
-            const uint32_t components = FloatComponentCount(input.Type);
-            source += "    " + input.Name + " = " + (components == 1 ? "" : input.Type + "(");
+            const uint32_t components = ComponentCount(input.Type);
+            source += "    " + input.Name + " = " + (components == 1 && input.Type == "float" ? "" : input.Type + "(");
             for (uint32_t component = 0; component < components; ++component)
             {
                 source += (component == 0 ? "" : ", ") + std::string{"bnTfReadInput("} + std::to_string(attribute) + ", " +
                     std::to_string(component) + ", " + fallbacks[component] + ")";
             }
-            source += std::string{components == 1 ? "" : ")"} + ";\n";
+            source += std::string{components == 1 && input.Type == "float" ? "" : ")"} + ";\n";
             result.InputNames.push_back(input.Name);
         }
         source += "    bnTfMain();\n";
@@ -489,17 +528,19 @@ namespace Babylon::ShaderCompilerCommon
             {
                 throw std::runtime_error{"Transform feedback varying '" + varying + "' is not a vertex shader output."};
             }
-            stride += FloatComponentCount(output->second);
+            stride += ComponentCount(output->second);
         }
         source += "    int base = int(index) * " + std::to_string(stride) + ";\n";
         uint32_t offset{};
         for (const auto& varying : varyings)
         {
-            const uint32_t components = FloatComponentCount(outputs.at(varying));
+            const auto& type = outputs.at(varying);
+            const uint32_t components = ComponentCount(type);
+            const std::string bitCast{OutputBitCast(type)};
             for (uint32_t component = 0; component < components; ++component)
             {
-                source += "    bnTfOutput[base + " + std::to_string(offset++) + "] = " + varying +
-                    (components == 1 ? "" : swizzles[component]) + ";\n";
+                source += "    bnTfOutput[base + " + std::to_string(offset++) + "] = " + bitCast + "(" + varying +
+                    (components == 1 ? "" : swizzles[component]) + ");\n";
             }
         }
         source += "}\n";

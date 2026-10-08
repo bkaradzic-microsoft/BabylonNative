@@ -119,13 +119,18 @@ namespace Babylon
             layout.m_stride = static_cast<uint16_t>(byteStride);
             layout.end();
 
+            // As in WebGL, where any vertex buffer can feed transform feedback, keep built buffers readable
+            // by the compute shaders that emulate it. Raw views address whole 32-bit words.
+            m_computeReadable = (bgfx::getCaps()->supported & BGFX_CAPS_COMPUTE) != 0 && memory->size % sizeof(uint32_t) == 0;
+            const uint16_t flags = m_computeReadable ? BGFX_BUFFER_COMPUTE_READ : BGFX_BUFFER_NONE;
+
             if (m_dynamic)
             {
-                m_dynamicHandle = bgfx::createDynamicVertexBuffer(memory, layout);
+                m_dynamicHandle = bgfx::createDynamicVertexBuffer(memory, layout, flags);
             }
             else
             {
-                m_handle = bgfx::createVertexBuffer(memory, layout);
+                m_handle = bgfx::createVertexBuffer(memory, layout, flags);
             }
 
             if (!bgfx::isValid(m_handle))
@@ -183,6 +188,26 @@ namespace Babylon
     uint32_t VertexBuffer::ByteLength() const
     {
         return m_gpuStorage ? m_gpuStorage->ByteLength() : static_cast<uint32_t>(m_bytes.size());
+    }
+
+    void VertexBuffer::SetComputeRead(bgfx::Encoder* encoder, uint8_t stage)
+    {
+        if (m_gpuStorage || !bgfx::isValid(m_handle))
+        {
+            PromoteToGpuStorage().SetCompute(encoder, stage, bgfx::Access::Read);
+        }
+        else if (!m_computeReadable)
+        {
+            throw std::runtime_error{"Transform feedback cannot read this vertex buffer on this renderer"};
+        }
+        else if (m_dynamic)
+        {
+            encoder->setBuffer(stage, m_dynamicHandle, bgfx::Access::Read);
+        }
+        else
+        {
+            encoder->setBuffer(stage, m_handle, bgfx::Access::Read);
+        }
     }
 
     StorageBuffer* VertexBuffer::InstanceInfo::ResolveStorage() const

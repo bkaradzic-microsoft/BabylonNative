@@ -437,4 +437,66 @@ TEST(NativeEngineCompute, CreateComputeProgramUsesShaderCache)
     EXPECT_EQ(DispatchNativeComputeProgram(missed), (std::array<float, 4>{9.f, 10.f, 11.f, 12.f}));
 #endif
 }
+
+// WebGL reads transform feedback results back with a synchronous getBufferSubData. The native engine
+// mirrors that with a compute copy plus mid-frame flushes, so the call must return the GPU contents.
+TEST(NativeEngineCompute, ReadTransformFeedbackBufferIsSynchronous)
+{
+#if defined(USE_NOOP_METAL_DEVICE) || defined(SKIP_RENDER_TESTS)
+    GTEST_SKIP();
+#else
+    if (!RendererSupportsCompute())
+    {
+        GTEST_SKIP() << "Renderer does not support compute";
+    }
+    constexpr uint32_t kCount = 300;
+    Babylon::Graphics::Device device{g_deviceConfig};
+    device.StartRenderingCurrentFrame();
+    std::promise<std::string> completed;
+    auto future = completed.get_future();
+    {
+        Babylon::AppRuntime runtime{};
+        runtime.Dispatch([&](Napi::Env env) {
+            try
+            {
+                device.AddToJavaScript(env);
+                Babylon::Plugins::NativeEngine::Initialize(env);
+                auto engine = env.Global().Get("_native").As<Napi::Object>().Get("Engine").As<Napi::Function>().New({});
+                auto result = Napi::Eval(env, R"(
+                    (function(engine, count) {
+                        const data = new Float32Array(count);
+                        for (let i = 0; i < count; ++i) { data[i] = i * 0.5 - 7; }
+                        const buffer = engine.createVertexBuffer(data.buffer, 0, data.byteLength, false);
+                        const target = new Float32Array(count + 2).fill(-1);
+                        engine.readTransformFeedbackBuffer(buffer, target.buffer, 4, count * 4);
+                        if (target[0] !== -1 || target[count + 1] !== -1) { return "wrote outside the target range"; }
+                        for (let i = 0; i < count; ++i) {
+                            if (target[i + 1] !== data[i]) { return "value " + i + " is " + target[i + 1]; }
+                        }
+                        return "";
+                    })
+                )", "read-transform-feedback.js").As<Napi::Function>().Call({engine, Napi::Number::New(env, kCount)});
+                completed.set_value(result.As<Napi::String>().Utf8Value());
+            }
+            catch (const std::exception& ex)
+            {
+                completed.set_value(ex.what());
+            }
+        });
+        const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds{30};
+        while (future.wait_for(std::chrono::milliseconds{1}) != std::future_status::ready)
+        {
+            if (std::chrono::steady_clock::now() >= deadline)
+            {
+                std::cerr << "Timed out waiting for readTransformFeedbackBuffer" << std::endl;
+                std::quick_exit(1);
+            }
+            device.FinishRenderingCurrentFrame();
+            device.StartRenderingCurrentFrame();
+        }
+        EXPECT_EQ(future.get(), "");
+    }
+    device.FinishRenderingCurrentFrame();
+#endif
+}
 #endif

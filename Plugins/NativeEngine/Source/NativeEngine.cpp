@@ -1083,6 +1083,7 @@ namespace Babylon
                 InstanceMethod("recordVertexBuffer", &NativeEngine::RecordVertexBuffer),
                 InstanceMethod("recordStorageBuffer", &NativeEngine::RecordStorageBuffer),
                 InstanceMethod("updateDynamicVertexBuffer", &NativeEngine::UpdateDynamicVertexBuffer),
+                InstanceMethod("readTransformFeedbackBuffer", &NativeEngine::ReadTransformFeedbackBuffer),
 
                 InstanceMethod("createProgram", &NativeEngine::CreateProgram),
                 InstanceMethod("createProgramAsync", &NativeEngine::CreateProgramAsync),
@@ -1417,6 +1418,127 @@ namespace Babylon
         {
             JsConsoleLogger::LogError(info.Env(), "Failed to update vertex buffer");
         }
+    }
+
+    // WebGL's getBufferSubData after transform feedback is synchronous; ANGLE stalls on the GPU. Do the same:
+    // copy the captured storage buffer into an R32F image, read it back and run mid-frame flushes until the
+    // read completes.
+    void NativeEngine::ReadTransformFeedbackBuffer(const Napi::CallbackInfo& info)
+    {
+        VertexBuffer* vertexBuffer = info[0].As<Napi::Pointer<VertexBuffer>>().Get();
+        const Napi::ArrayBuffer target = info[1].As<Napi::ArrayBuffer>();
+        const uint32_t targetByteOffset = info[2].As<Napi::Number>().Uint32Value();
+        const uint32_t targetByteLength = info[3].As<Napi::Number>().Uint32Value();
+        if (static_cast<uint64_t>(targetByteOffset) + targetByteLength > target.ByteLength())
+        {
+            throw Napi::RangeError::New(info.Env(), "readTransformFeedbackBuffer target range is out of bounds");
+        }
+        if ((bgfx::getCaps()->supported & BGFX_CAPS_COMPUTE) == 0)
+        {
+            throw Napi::Error::New(info.Env(), "readTransformFeedbackBuffer requires compute support");
+        }
+
+        if (m_commandStream)
+        {
+            SubmitCommands(info);
+        }
+
+        StorageBuffer& storage = vertexBuffer->PromoteToGpuStorage();
+        const uint32_t count = std::min(targetByteLength, storage.ByteLength()) / static_cast<uint32_t>(sizeof(float));
+        if (count == 0)
+        {
+            return;
+        }
+
+        constexpr uint32_t kWidth = 256;
+        const uint32_t height = (count + kWidth - 1) / kWidth;
+        if (height > bgfx::getCaps()->limits.maxTextureSize)
+        {
+            throw Napi::RangeError::New(info.Env(), "readTransformFeedbackBuffer buffer is too large");
+        }
+
+        if (m_bufferReadbackProgram == nullptr)
+        {
+            static constexpr const char* kSource = R"(#version 310 es
+precision highp float;
+precision highp int;
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+layout(std430, binding = 0) readonly buffer Source { float sourceData[]; };
+layout(r32f, binding = 1) writeonly uniform highp image2D destination;
+void main() {
+    uint i = gl_GlobalInvocationID.x;
+    if (i >= uint(sourceData.length())) { return; }
+    imageStore(destination, ivec2(int(i % 256u), int(i / 256u)), vec4(sourceData[i], 0.0, 0.0, 0.0));
+}
+)";
+            auto program = std::make_shared<Program>(m_deviceContext);
+            program->InitializeCompute(m_shaderProvider.GetCompute(kSource));
+            m_bufferReadbackProgram = std::move(program);
+        }
+
+        // Keeps the render thread parked in FinishRenderingCurrentFrame so ForceMidFrameFlush can run.
+        auto frameScope = m_deviceContext.AcquireFrameCompletionScope();
+
+        const bgfx::TextureHandle texture = bgfx::createTexture2D(static_cast<uint16_t>(kWidth), static_cast<uint16_t>(height),
+            /*hasMips*/ false, /*numLayers*/ 1, bgfx::TextureFormat::R32F, BGFX_TEXTURE_COMPUTE_WRITE);
+        const bgfx::TextureHandle readbackTexture = bgfx::createTexture2D(static_cast<uint16_t>(kWidth), static_cast<uint16_t>(height),
+            /*hasMips*/ false, /*numLayers*/ 1, bgfx::TextureFormat::R32F, BGFX_TEXTURE_BLIT_DST | BGFX_TEXTURE_READ_BACK);
+        const auto destroyTextures = gsl::finally([texture, readbackTexture] {
+            if (bgfx::isValid(texture))
+            {
+                bgfx::destroy(texture);
+            }
+            if (bgfx::isValid(readbackTexture))
+            {
+                bgfx::destroy(readbackTexture);
+            }
+        });
+        if (!bgfx::isValid(texture) || !bgfx::isValid(readbackTexture))
+        {
+            throw Napi::Error::New(info.Env(), "readTransformFeedbackBuffer could not allocate a readback texture");
+        }
+
+        bgfx::Encoder* encoder = GetEncoder();
+        encoder->setImage(1, texture, 0, bgfx::Access::Write, bgfx::TextureFormat::R32F);
+        storage.SetCompute(encoder, 0, bgfx::Access::Read);
+        GetBoundFrameBuffer().Compute(*encoder, m_bufferReadbackProgram->Handle(), (count + 63) / 64, 1, 1);
+        bgfx::TextureRegion destinationRegion{};
+        destinationRegion.init(readbackTexture);
+        bgfx::TextureRegion sourceRegion{};
+        sourceRegion.init(texture);
+        encoder->blit(m_deviceContext.AcquireNewViewId(), destinationRegion, sourceRegion);
+        RestoreBoundTextures(encoder);
+
+        // The read may complete after this call if it times out, so the continuation shares ownership of the pixels.
+        struct Readback
+        {
+            std::vector<uint8_t> Pixels;
+            std::atomic<bool> Done{false};
+            std::atomic<bool> Failed{false};
+        };
+        auto readback = std::make_shared<Readback>();
+        readback->Pixels.resize(static_cast<size_t>(kWidth) * height * sizeof(float));
+        m_deviceContext.ReadTextureAsync(readbackTexture, readback->Pixels)
+            .then(arcana::inline_scheduler, arcana::cancellation::none(), [readback](const arcana::expected<void, std::exception_ptr>& result) {
+                readback->Failed = result.has_error();
+                readback->Done = true;
+            });
+
+        constexpr int kMaxFlushes = 8;
+        for (int flush = 0; flush < kMaxFlushes && !readback->Done; ++flush)
+        {
+            if (!m_deviceContext.ForceMidFrameFlush())
+            {
+                break;
+            }
+        }
+
+        if (!readback->Done || readback->Failed)
+        {
+            throw Napi::Error::New(info.Env(), "readTransformFeedbackBuffer could not read the buffer back");
+        }
+
+        std::memcpy(static_cast<uint8_t*>(target.Data()) + targetByteOffset, readback->Pixels.data(), static_cast<size_t>(count) * sizeof(float));
     }
 
     namespace
@@ -4016,7 +4138,7 @@ namespace Babylon
             return;
         }
 
-        VertexBuffer* input{};
+        std::vector<VertexBuffer*> inputs;
         const uint32_t inputCount = m_currentProgram->TransformFeedbackInputCount();
         std::vector<float> inputLayout(std::max<size_t>(inputCount, 1) * 4, 0.0f);
         if (m_boundVertexArray != nullptr)
@@ -4027,24 +4149,28 @@ namespace Babylon
                 {
                     continue;
                 }
-                if (input != nullptr && input != record.Buffer)
+                if (record.Buffer == output)
                 {
-                    throw std::runtime_error{"Transform feedback inputs must come from a single vertex buffer"};
+                    throw std::runtime_error{"Transform feedback cannot capture into a buffer it reads from"};
                 }
-                input = record.Buffer;
-                const uint32_t stride = record.ByteStride != 0 ? record.ByteStride : record.NumElements * static_cast<uint32_t>(sizeof(float));
-                inputLayout[index * 4 + 0] = static_cast<float>(record.ByteOffset / sizeof(float));
-                inputLayout[index * 4 + 1] = static_cast<float>(stride / sizeof(float));
+                auto found = std::find(inputs.begin(), inputs.end(), record.Buffer);
+                if (found == inputs.end())
+                {
+                    if (inputs.size() == Graphics::TRANSFORM_FEEDBACK_MAX_INPUT_BUFFERS)
+                    {
+                        throw std::runtime_error{"Transform feedback inputs come from too many vertex buffers"};
+                    }
+                    found = inputs.insert(inputs.end(), record.Buffer);
+                }
+                const uint32_t buffer = static_cast<uint32_t>(found - inputs.begin());
+                inputLayout[index * 4 + 0] = static_cast<float>(record.ByteOffset);
+                inputLayout[index * 4 + 1] = static_cast<float>(record.ByteStride);
                 inputLayout[index * 4 + 2] = static_cast<float>(record.NumElements);
+                inputLayout[index * 4 + 3] = static_cast<float>(buffer * 16 + static_cast<uint32_t>(record.Type) * 2 + (record.Normalized ? 1 : 0));
             }
-        }
-        if (input == output)
-        {
-            throw std::runtime_error{"Transform feedback cannot capture into a buffer it reads from"};
         }
 
         StorageBuffer& outputStorage = output->PromoteToGpuStorage();
-        StorageBuffer* inputStorage = input != nullptr ? &input->PromoteToGpuStorage() : nullptr;
 
         bgfx::Encoder* encoder = PrepareDraw();
         for (const auto& [handle, value] : m_currentProgram->Uniforms())
@@ -4065,10 +4191,20 @@ namespace Babylon
             encoder->setUniform(layout->Handle, inputLayout.data(), static_cast<uint16_t>(std::max<uint32_t>(inputCount, 1)));
         }
 
-        // Buffers share bgfx binding slots with textures, so bind them after restoring textures.
-        if (inputStorage != nullptr)
+        // Buffers share bgfx binding slots with textures, so bind them after restoring textures. Every
+        // declared input buffer needs a binding (Vulkan descriptors), so unused ones repeat a bound
+        // buffer, or the output when there are no inputs.
+        for (uint32_t buffer = 0; buffer < Graphics::TRANSFORM_FEEDBACK_MAX_INPUT_BUFFERS; ++buffer)
         {
-            inputStorage->SetCompute(encoder, static_cast<uint8_t>(Graphics::TRANSFORM_FEEDBACK_INPUT_BINDING), bgfx::Access::Read);
+            const auto stage = static_cast<uint8_t>(buffer == 0 ? Graphics::TRANSFORM_FEEDBACK_INPUT_BINDING : Graphics::TRANSFORM_FEEDBACK_EXTRA_INPUT_BINDING + buffer - 1);
+            if (inputs.empty())
+            {
+                outputStorage.SetCompute(encoder, stage, bgfx::Access::Read);
+            }
+            else
+            {
+                inputs[buffer < inputs.size() ? buffer : 0]->SetComputeRead(encoder, stage);
+            }
         }
         outputStorage.SetCompute(encoder, static_cast<uint8_t>(Graphics::TRANSFORM_FEEDBACK_OUTPUT_BINDING), bgfx::Access::Write);
 

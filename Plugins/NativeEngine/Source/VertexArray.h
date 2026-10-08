@@ -2,6 +2,7 @@
 
 #include "IndexBuffer.h"
 #include "VertexBuffer.h"
+#include <Babylon/Graphics/BgfxShaderInfo.h>
 #include <set>
 #include <map>
 
@@ -38,14 +39,16 @@ namespace Babylon
         bool HasStorageInstances() const;
 
         // Vertex inputs of a transform feedback program (locations at or above
-        // TRANSFORM_FEEDBACK_ATTRIBUTE_LOCATION_BASE), keyed by input index. They are read directly
-        // from the vertex buffer's GPU storage by the emulating compute shader.
+        // TRANSFORM_FEEDBACK_ATTRIBUTE_LOCATION_BASE), keyed by input index. The emulating compute
+        // shader reads and decodes them from the vertex buffers bound as raw compute buffers.
         struct TransformFeedbackInput
         {
             VertexBuffer* Buffer{};
             uint32_t ByteOffset{};
             uint32_t ByteStride{};
             uint32_t NumElements{};
+            Graphics::TransformFeedbackInputType Type{};
+            bool Normalized{};
         };
         const std::map<uint32_t, TransformFeedbackInput>& GetTransformFeedbackInputs() const { return m_transformFeedbackInputs; }
     private:

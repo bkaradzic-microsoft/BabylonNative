@@ -63,7 +63,8 @@ namespace Babylon::Plugins::ShaderCache
     // 9: persist ComputeBytes and append a separately keyed compute shader section.
     // 10: bnFragCoordTargetSize became bnRenderTargetTransform, which vertex shaders also read
     //     to render cube faces in GL row order, and dFdy now scales by it.
-    static const uint32_t CACHE_VERSION = 10;
+    // 11: transform feedback compute shaders read typed inputs from up to four raw buffers.
+    static const uint32_t CACHE_VERSION = 11;
 
     void ShaderCacheImpl::Clear()
     {
