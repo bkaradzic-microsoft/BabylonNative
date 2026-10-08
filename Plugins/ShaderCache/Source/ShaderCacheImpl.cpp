@@ -45,7 +45,9 @@ namespace Babylon::Plugins::ShaderCache
     //    version-5 entries for those shaders skip compilation and omit the uniform.
     // 7: preserve application uniform aliases and inject nearest-sampler state.
     // 8: retain multisampled sampler types for native depth resolve selection.
-    static const uint32_t CACHE_VERSION = 8;
+    // 9: bnFragCoordTargetSize became bnRenderTargetTransform, which vertex shaders also read
+    //    to render cube faces in GL row order, and dFdy now scales by it.
+    static const uint32_t CACHE_VERSION = 9;
 
     void ShaderCacheImpl::Clear()
     {

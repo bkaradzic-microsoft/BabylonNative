@@ -37,18 +37,45 @@ using namespace std::chrono_literals;
 extern Babylon::Graphics::Configuration g_deviceConfig;
 
 #if defined(BABYLON_NATIVE_GRAPHICS_API_D3D11) || defined(BABYLON_NATIVE_GRAPHICS_API_VULKAN)
+#include <Babylon/Graphics/BgfxShaderInfo.h>
+#include <string_view>
+
 namespace
 {
-    gsl::span<const uint8_t> ReadUniformFreeShader(const std::vector<uint8_t>& bytes)
+    gsl::span<const uint8_t> ReadFixtureShaderCode(const std::vector<uint8_t>& bytes)
     {
-        // These fixtures have no uniforms: bgfx v12's code length starts at byte 22.
-        constexpr size_t codeOffset = 26;
-        if (bytes.size() < codeOffset || bytes[3] != 12 || bytes[20] != 0 || bytes[21] != 0)
+        // bgfx v12: 20-byte header, uint16 uniform count, uniform table, then uint32 code length.
+        // The only uniform these fixtures may carry is the injected render target transform.
+        constexpr size_t countOffset = 20;
+        if (bytes.size() < countOffset + 2 || bytes[3] != 12)
         {
-            throw std::runtime_error{"Expected a uniform-free bgfx v12 shader"};
+            throw std::runtime_error{"Expected a bgfx v12 shader"};
+        }
+        uint16_t uniformCount{};
+        std::memcpy(&uniformCount, bytes.data() + countOffset, sizeof(uniformCount));
+        size_t offset = countOffset + sizeof(uniformCount);
+        for (uint16_t uniform = 0; uniform < uniformCount; ++uniform)
+        {
+            if (offset >= bytes.size())
+            {
+                throw std::runtime_error{"Invalid shader uniform table"};
+            }
+            const size_t nameSize = bytes[offset];
+            if (offset + 1 + nameSize > bytes.size() ||
+                std::string_view{reinterpret_cast<const char*>(bytes.data() + offset + 1), nameSize} != Babylon::Graphics::RENDER_TARGET_TRANSFORM_UNIFORM_NAME)
+            {
+                throw std::runtime_error{"Expected only the render target transform uniform"};
+            }
+            // name, type, count, register index, register count, texture component/dimension/format.
+            offset += 1 + nameSize + 1 + 1 + 2 + 2 + 1 + 1 + 2;
+        }
+        const size_t codeOffset = offset + sizeof(uint32_t);
+        if (bytes.size() < codeOffset)
+        {
+            throw std::runtime_error{"Invalid shader byte length"};
         }
         uint32_t codeSize{};
-        std::memcpy(&codeSize, bytes.data() + codeOffset - sizeof(codeSize), sizeof(codeSize));
+        std::memcpy(&codeSize, bytes.data() + offset, sizeof(codeSize));
         if (codeSize > bytes.size() - codeOffset)
         {
             throw std::runtime_error{"Invalid shader byte length"};
@@ -101,7 +128,7 @@ TEST(ShaderCompilation, InterfaceBlocksHaveMatchingD3D11Semantics)
         void main() { color = vec4(fragmentData.tint, 1.0); }
     )");
     const auto readSignature = [](const std::vector<uint8_t>& bytes, bool vertex) {
-        const auto code = ReadUniformFreeShader(bytes);
+        const auto code = ReadFixtureShaderCode(bytes);
         Microsoft::WRL::ComPtr<ID3D11ShaderReflection> reflection;
         if (FAILED(D3DReflect(code.data(), code.size(), IID_PPV_ARGS(&reflection))))
         {
@@ -538,7 +565,7 @@ namespace
 {
     spirv_cross::Compiler ReadVulkanShader(const std::vector<uint8_t>& bytes)
     {
-        const auto code = ReadUniformFreeShader(bytes);
+        const auto code = ReadFixtureShaderCode(bytes);
         if (code.size() % sizeof(uint32_t) != 0)
         {
             throw std::runtime_error{"Invalid SPIR-V byte length"};

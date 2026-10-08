@@ -463,6 +463,12 @@ namespace
                         auto* encoder = context.GetActiveEncoder();
                         const float depth[4]{info[1].As<Napi::Number>().FloatValue(), 0, 0, 0};
                         encoder->setUniform(program.GetUniformInfo("testDepth")->Handle, depth);
+                        if (const auto* transform = program.RenderTargetTransformUniform())
+                        {
+                            // Ordinary 8x8 target; see RENDER_TARGET_TRANSFORM_UNIFORM_NAME.
+                            const float values[4]{8.0f, -1.0f, 1.0f, 0.0f};
+                            encoder->setUniform(transform->Handle, values);
+                        }
                         encoder->setVertexCount(3);
                         encoder->setState(BGFX_STATE_WRITE_Z | BGFX_STATE_DEPTH_TEST_ALWAYS | BGFX_STATE_MSAA);
                         frameBuffer.Submit(*encoder, program.Handle(), BGFX_DISCARD_ALL);
