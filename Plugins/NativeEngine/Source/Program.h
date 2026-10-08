@@ -87,11 +87,10 @@ namespace Babylon
         bgfx::ProgramHandle Handle() const { return m_handle; }
         const std::map<uint16_t, UniformValue>& Uniforms() const { return m_uniforms; }
         const std::map<std::string, uint32_t>& VertexAttributeLocations() const { return m_vertexAttributeLocations; }
-        // The uniform the shader compiler declares in fragment shaders that read gl_FragCoord, so
-        // the Y flip can be resolved against the bound framebuffer's size. Null for the shaders
-        // that never read gl_FragCoord (the compiler omits it there). Resolved once at
-        // initialization because it is consulted on every draw.
-        const UniformInfo* FragCoordTargetSizeUniform() const { return m_fragCoordTargetSizeUniform; }
+        // The render target orientation uniform the shader compiler injects on top-left-origin
+        // backends (see RENDER_TARGET_TRANSFORM_UNIFORM_NAME). Null on OpenGL and for compute.
+        // Resolved once at initialization because it is consulted on every draw.
+        const UniformInfo* RenderTargetTransformUniform() const { return m_renderTargetTransformUniform; }
         const std::map<uint8_t, bgfx::UniformHandle>& SamplerStateUniforms() const { return m_samplerStateUniforms; }
 
         // Compiler-assigned i_data slot for each built-in attribute location.
@@ -105,7 +104,7 @@ namespace Babylon
         std::map<std::string, uint16_t> m_uniformNameToIndex;
         std::map<uint16_t, UniformInfo> m_uniformInfos;
         std::map<std::string, uint32_t> m_vertexAttributeLocations;
-        const UniformInfo* m_fragCoordTargetSizeUniform{nullptr};
+        const UniformInfo* m_renderTargetTransformUniform{nullptr};
         std::map<uint8_t, bgfx::UniformHandle> m_samplerStateUniforms;
         std::map<uint32_t, uint32_t> m_builtInInstanceDataSlots;
         std::string m_vertexSource;

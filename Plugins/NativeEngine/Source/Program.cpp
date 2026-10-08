@@ -121,7 +121,7 @@ namespace Babylon
 
         // Cached rather than looked up per draw: DrawInternal consults this on every single draw,
         // and m_uniformInfos is stable for the lifetime of the program.
-        m_fragCoordTargetSizeUniform = GetUniformInfo(Graphics::FRAGCOORD_TARGET_SIZE_UNIFORM_NAME);
+        m_renderTargetTransformUniform = GetUniformInfo(Graphics::RENDER_TARGET_TRANSFORM_UNIFORM_NAME);
     }
 
     void Program::InitializeCompute(std::shared_ptr<Graphics::BgfxShaderInfo> shaderInfo)

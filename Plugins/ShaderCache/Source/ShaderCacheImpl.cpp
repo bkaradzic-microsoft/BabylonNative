@@ -61,7 +61,9 @@ namespace Babylon::Plugins::ShaderCache
     // 7: preserve application uniform aliases and inject nearest-sampler state.
     // 8: retain multisampled sampler types for native depth resolve selection.
     // 9: persist ComputeBytes and append a separately keyed compute shader section.
-    static const uint32_t CACHE_VERSION = 9;
+    // 10: bnFragCoordTargetSize became bnRenderTargetTransform, which vertex shaders also read
+    //     to render cube faces in GL row order, and dFdy now scales by it.
+    static const uint32_t CACHE_VERSION = 10;
 
     void ShaderCacheImpl::Clear()
     {
