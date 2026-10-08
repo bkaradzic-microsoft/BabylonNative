@@ -165,6 +165,7 @@ namespace Babylon
         bgfx::Encoder* GetEncoder();
         bgfx::Encoder* PrepareDraw();
         Graphics::FrameBuffer& GetBoundFrameBuffer();
+        void ResetDefaultFrameBuffer();
 
         std::shared_ptr<arcana::cancellation_source> m_cancellationSource{};
 
@@ -244,6 +245,13 @@ namespace Babylon
         Graphics::FrameBuffer m_defaultFrameBuffer;
         Graphics::FrameBuffer* m_boundFrameBuffer{};
         PerFrameValue<bool> m_boundFrameBufferNeedsRebinding;
+
+        // WebGL viewport is context state, not framebuffer state: binding a framebuffer keeps the
+        // current viewport. Normalized, with bgfx's top-left origin.
+        Graphics::Rect m_viewPort{0.0f, 0.0f, 1.0f, 1.0f};
+
+        // WebGL resets the drawing buffer's depth and stencil at the start of every frame.
+        PerFrameValue<bool> m_defaultFrameBufferNeedsReset;
 
         // Last material texture binds on the frame encoder. bgfx drops encoder bindings when work
         // moves to another view (clears, resolves, blits); WebGL keeps them, so they are replayed.

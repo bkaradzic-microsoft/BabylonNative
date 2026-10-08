@@ -151,7 +151,7 @@ namespace Babylon::Graphics
         }
     }
 
-    void FrameBuffer::Clear(bgfx::Encoder& encoder, uint16_t flags, float r, float g, float b, float a, float depth, uint8_t stencil, uint8_t colorAttachmentMask)
+    void FrameBuffer::Clear(bgfx::Encoder& encoder, uint16_t flags, float r, float g, float b, float a, float depth, uint8_t stencil, uint8_t colorAttachmentMask, bool ignoreScissor)
     {
         if (m_multisampledDepth && (flags & BGFX_CLEAR_DEPTH) != 0)
         {
@@ -193,7 +193,7 @@ namespace Babylon::Graphics
         // the view scissor is set.
         //
         // Note that the view rect and view scissor are reset to the desired dimensions before the encoder is submitted.
-        if (m_desiredScissor.X == 0.0f && m_desiredScissor.Y == 0.0f && m_desiredScissor.Width == 0.0f && m_desiredScissor.Height == 0.0f)
+        if (ignoreScissor || (m_desiredScissor.X == 0.0f && m_desiredScissor.Y == 0.0f && m_desiredScissor.Width == 0.0f && m_desiredScissor.Height == 0.0f))
         {
             bgfx::setViewRect(m_viewId.value(), 0, 0, Width(), Height());
             m_bgfxViewPort = {0, 0, 1, 1};
@@ -229,6 +229,11 @@ namespace Babylon::Graphics
     {
         m_desiredViewPort = {x, y, width, height};
         SetBgfxViewPortAndScissor(m_desiredViewPort, m_desiredScissor);
+    }
+
+    void FrameBuffer::SetDesiredViewPort(const Rect& viewPort)
+    {
+        m_desiredViewPort = viewPort;
     }
 
     void FrameBuffer::SetScissor(float x, float y, float width, float height)

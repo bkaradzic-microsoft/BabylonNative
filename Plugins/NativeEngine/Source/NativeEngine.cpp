@@ -1138,6 +1138,7 @@ namespace Babylon
         , m_defaultFrameBuffer{m_deviceContext, BGFX_INVALID_HANDLE, 0, 0, true, true, true}
         , m_boundFrameBuffer{&m_defaultFrameBuffer}
         , m_boundFrameBufferNeedsRebinding{m_deviceContext, *m_cancellationSource, true}
+        , m_defaultFrameBufferNeedsReset{m_deviceContext, *m_cancellationSource, true}
     {
         // Set features supported by the NativeEngine from Babylon.js.
         if (!info[0].IsUndefined())
@@ -3189,6 +3190,7 @@ namespace Babylon
         }
         m_boundFrameBuffer = frameBuffer;
         m_boundFrameBuffer->Bind();
+        m_boundFrameBuffer->SetDesiredViewPort(m_viewPort);
         m_boundFrameBufferNeedsRebinding.Set(false);
     }
 
@@ -3622,9 +3624,9 @@ namespace Babylon
         const float width{data.ReadFloat32()};
         const float height{data.ReadFloat32()};
         // bgfx view rectangles use a top-left origin on every renderer.
-        const float yOrigin = 1.f - y - height;
+        m_viewPort = {x, 1.f - y - height, width, height};
 
-        GetBoundFrameBuffer().SetViewPort(x, yOrigin, width, height);
+        GetBoundFrameBuffer().SetViewPort(m_viewPort.X, m_viewPort.Y, m_viewPort.Width, m_viewPort.Height);
     }
 
     void NativeEngine::SetScissor(NativeDataStream::Reader& data)
@@ -3876,6 +3878,7 @@ namespace Babylon
         {
             m_boundFrameBuffer = &m_defaultFrameBuffer;
             m_defaultFrameBuffer.Bind();
+            m_defaultFrameBuffer.SetDesiredViewPort(m_viewPort);
         }
         else if (m_boundFrameBufferNeedsRebinding.Get())
         {
@@ -3884,7 +3887,38 @@ namespace Babylon
         }
 
         m_boundFrameBufferNeedsRebinding.Set(false);
+
+        if (m_boundFrameBuffer == &m_defaultFrameBuffer && m_defaultFrameBufferNeedsReset.Get())
+        {
+            ResetDefaultFrameBuffer();
+        }
+
         return *m_boundFrameBuffer;
+    }
+
+    void NativeEngine::ResetDefaultFrameBuffer()
+    {
+        // Like a WebGL drawing buffer without preserveDrawingBuffer, the first use of the back buffer
+        // in a frame sees depth 1 and stencil 0 rather than whatever the previous frame left (or the
+        // zero-initialized surface when only render targets were ever cleared). Colour is preserved so
+        // content that is not redrawn every frame stays on screen. Not GetEncoder(): a view flush there
+        // would replace the encoder the caller already holds.
+        bgfx::Encoder* encoder = m_deviceContext.GetActiveEncoder();
+        if (encoder == nullptr)
+        {
+            return;
+        }
+
+        m_defaultFrameBufferNeedsReset.Set(false);
+
+        const uint16_t flags = static_cast<uint16_t>((m_defaultFrameBuffer.HasDepth() ? BGFX_CLEAR_DEPTH : 0) | (m_defaultFrameBuffer.HasStencil() ? BGFX_CLEAR_STENCIL : 0));
+        if (flags == 0)
+        {
+            return;
+        }
+
+        m_defaultFrameBuffer.Clear(*encoder, flags, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0, UINT8_MAX, true);
+        RestoreBoundTextures(encoder);
     }
 
     void NativeEngine::ScheduleRequestAnimationFrameCallbacks()
