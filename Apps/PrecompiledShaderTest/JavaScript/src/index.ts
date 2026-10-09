@@ -5,6 +5,7 @@ import { ShaderMaterial } from "@babylonjs/core/Materials/shaderMaterial";
 import { Color4 } from "@babylonjs/core/Maths/math.color";
 import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder";
 import { Scene } from "@babylonjs/core/scene";
+import { createParticleSystem, seedRandom, waitForParticleSystemAsync } from "./effects/particleEffect";
 import { fragmentShader, vertexShader } from "./effects/simpleEffect";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector";
 import { FreeCamera } from "@babylonjs/core/Cameras/freeCamera";
@@ -56,8 +57,21 @@ async function renderSceneAsync(): Promise<void> {
     );
     sphere.material = material;
 
+    // GPU particles update through a transform feedback program, which Babylon Native
+    // runs as a compute shader that only exists here if it was precompiled into the cache.
+    // Particle random data is seeded so the rendered particles match the reference image.
+    seedRandom();
+    const particleSystem = createParticleSystem(scene);
+    particleSystem.start();
+
+    // Scene readiness includes the particle system, so wait for it first and fail
+    // instead of waiting forever when one of its shaders is missing from the cache.
+    await waitForParticleSystemAsync(scene, particleSystem);
     await scene.whenReadyAsync();
 
+    // Babylon.js GPU particles ping-pong their buffers and draw the state produced by the previous
+    // frame's update (as in browsers), so the particles first appear in the second frame.
+    scene.render();
     scene.render();
 }
 

@@ -6,6 +6,8 @@ set(SOURCES
     "Source/DepthResolver.h"
     "Source/IndexBuffer.cpp"
     "Source/IndexBuffer.h"
+    "Source/InstanceRepacker.cpp"
+    "Source/InstanceRepacker.h"
     "Source/JsConsoleLogger.h"
     "Source/JsConsoleLogger.cpp"
     "Source/NativeDataStream.h"
@@ -27,7 +29,7 @@ set(SOURCES
     "Source/VertexBuffer.h")
 
 set(SHADERS "Source/Shaders/varying.def.sc")
-foreach(SHADER vs_depth_resolve fs_depth_resolve vs_depth_resolve_array fs_depth_resolve_array)
+foreach(SHADER cs_instance_repack vs_depth_resolve fs_depth_resolve vs_depth_resolve_array fs_depth_resolve_array)
     list(APPEND SHADERS "Source/Shaders/${SHADER}.sc")
     foreach(BACKEND dxbc dxil essl glsl metal spirv)
         list(APPEND SHADERS "Source/Shaders/${BACKEND}/${SHADER}.h")
@@ -37,6 +39,7 @@ endforeach()
 add_library(NativeEngine ${SOURCES} ${SHADERS})
 
 if(SHADERC_PATH AND NOT IOS AND NOT VISIONOS AND NOT ANDROID)
+    add_bgfx_shader("${CMAKE_CURRENT_SOURCE_DIR}/Source/Shaders/cs_instance_repack.sc" "")
     add_bgfx_shader("${CMAKE_CURRENT_SOURCE_DIR}/Source/Shaders/vs_depth_resolve.sc" "" ESSL_PROFILE 310_es)
     add_bgfx_shader("${CMAKE_CURRENT_SOURCE_DIR}/Source/Shaders/fs_depth_resolve.sc" "" ESSL_PROFILE 310_es)
     add_bgfx_shader("${CMAKE_CURRENT_SOURCE_DIR}/Source/Shaders/vs_depth_resolve_array.sc" "" ESSL_PROFILE 320_es)

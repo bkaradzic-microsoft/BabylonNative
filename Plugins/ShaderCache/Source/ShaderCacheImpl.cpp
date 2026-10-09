@@ -63,7 +63,9 @@ namespace Babylon::Plugins::ShaderCache
     // 9: bnFragCoordTargetSize became bnRenderTargetTransform, which vertex shaders also read
     //    to render cube faces in GL row order, and dFdy now scales by it.
     // 10: persist ComputeBytes and append a separately keyed compute shader section.
-    static const uint32_t CACHE_VERSION = 10;
+    // 11: cache transform feedback compute shaders and key instanced variants by their
+    //     routed attributes.
+    static const uint32_t CACHE_VERSION = 11;
 
     void ShaderCacheImpl::Clear()
     {
@@ -213,14 +215,14 @@ namespace Babylon::Plugins::ShaderCache
         return cacheSize;
     }
 
-    std::shared_ptr<Graphics::BgfxShaderInfo> ShaderCacheImpl::AddShader(std::string_view vertexSource, std::string_view fragmentSource, Graphics::BgfxShaderInfo shaderInfo)
+    std::shared_ptr<Graphics::BgfxShaderInfo> ShaderCacheImpl::AddShader(std::string_view vertexSource, std::string_view fragmentSource, Graphics::BgfxShaderInfo shaderInfo, const std::map<std::string, uint32_t>& instancedAttributes)
     {
-        return m_cache.try_emplace(Hash(vertexSource, fragmentSource), std::make_shared<Graphics::BgfxShaderInfo>(std::move(shaderInfo))).first->second;
+        return m_cache.try_emplace(Hash(vertexSource, fragmentSource, instancedAttributes), std::make_shared<Graphics::BgfxShaderInfo>(std::move(shaderInfo))).first->second;
     }
 
-    std::shared_ptr<Graphics::BgfxShaderInfo> ShaderCacheImpl::GetShader(std::string_view vertexSource, std::string_view fragmentSource)
+    std::shared_ptr<Graphics::BgfxShaderInfo> ShaderCacheImpl::GetShader(std::string_view vertexSource, std::string_view fragmentSource, const std::map<std::string, uint32_t>& instancedAttributes)
     {
-        const auto iter = m_cache.find(Hash(vertexSource, fragmentSource));
+        const auto iter = m_cache.find(Hash(vertexSource, fragmentSource, instancedAttributes));
         return (iter == m_cache.end() ? nullptr : iter->second);
     }
 
@@ -235,9 +237,31 @@ namespace Babylon::Plugins::ShaderCache
         return (iter == m_computeCache.end() ? nullptr : iter->second);
     }
 
-    ShaderCacheImpl::ShaderHash ShaderCacheImpl::Hash(std::string_view vertexSource, std::string_view fragmentSource)
+    std::shared_ptr<Graphics::BgfxShaderInfo> ShaderCacheImpl::AddTransformFeedbackShader(std::string_view vertexSource, const std::vector<std::string>& varyings, Graphics::BgfxShaderInfo shaderInfo)
+    {
+        return m_computeCache.try_emplace(Hash(vertexSource, varyings), std::make_shared<Graphics::BgfxShaderInfo>(std::move(shaderInfo))).first->second;
+    }
+
+    std::shared_ptr<Graphics::BgfxShaderInfo> ShaderCacheImpl::GetTransformFeedbackShader(std::string_view vertexSource, const std::vector<std::string>& varyings)
+    {
+        const auto iter = m_computeCache.find(Hash(vertexSource, varyings));
+        return (iter == m_computeCache.end() ? nullptr : iter->second);
+    }
+
+    ShaderCacheImpl::ShaderHash ShaderCacheImpl::Hash(std::string_view vertexSource, std::string_view fragmentSource, const std::map<std::string, uint32_t>& instancedAttributes)
     {
         std::string normalizeVertexSource = NormalizeLineEndings(vertexSource);
+        // Instanced variants share the base sources; the routed attributes select the variant.
+        // The NUL separator cannot occur in GLSL source, so variant keys never alias base keys.
+        if (!instancedAttributes.empty())
+        {
+            normalizeVertexSource.push_back('\0');
+            normalizeVertexSource += "instanced:";
+            for (const auto& [name, location] : instancedAttributes)
+            {
+                normalizeVertexSource += name + "=" + std::to_string(location) + ";";
+            }
+        }
         std::string normalizeFragmentSource = NormalizeLineEndings(fragmentSource);
         return {XXH3_64bits(normalizeVertexSource.data(), normalizeVertexSource.size()),
                 XXH3_64bits(normalizeFragmentSource.data(), normalizeFragmentSource.size())};
@@ -247,6 +271,21 @@ namespace Babylon::Plugins::ShaderCache
     {
         std::string normalizedComputeSource = NormalizeLineEndings(computeSource);
         const auto hash = XXH3_128bits(normalizedComputeSource.data(), normalizedComputeSource.size());
+        return {hash.low64, hash.high64};
+    }
+
+    ShaderCacheImpl::ShaderHash ShaderCacheImpl::Hash(std::string_view vertexSource, const std::vector<std::string>& varyings)
+    {
+        // Transform feedback programs share the compute section; the NUL-separated varyings suffix
+        // keeps their keys distinct from any GLSL compute source.
+        std::string key = NormalizeLineEndings(vertexSource);
+        key.push_back('\0');
+        key += "transform-feedback:";
+        for (const auto& varying : varyings)
+        {
+            key += varying + ",";
+        }
+        const auto hash = XXH3_128bits(key.data(), key.size());
         return {hash.low64, hash.high64};
     }
 }
