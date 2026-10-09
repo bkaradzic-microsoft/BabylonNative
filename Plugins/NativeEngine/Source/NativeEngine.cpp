@@ -2481,10 +2481,18 @@ namespace Babylon
         const Graphics::Texture* texture = data.ReadPointer<Graphics::Texture>();
 
         bgfx::Encoder* encoder = GetEncoder();
-        const uint16_t firstLayer = texture->ViewNumLayers() != 0 ? texture->ViewFirstLayer() : 0;
-        const uint16_t numLayers = texture->ViewNumLayers() != 0 ? texture->ViewNumLayers() : UINT16_MAX;
-        encoder->setTexture(uniformInfo->Stage, uniformInfo->Handle, texture->Handle(),
-            firstLayer, numLayers, 0, UINT8_MAX, texture->SamplerFlags(), 0, texture->SamplerMaxLod());
+
+        BoundTexture bound{};
+        bound.Handle = uniformInfo->Handle;
+        bound.Texture = texture->Handle();
+        bound.Flags = texture->SamplerFlags();
+        bound.FirstLayer = texture->ViewNumLayers() != 0 ? texture->ViewFirstLayer() : 0;
+        bound.NumLayers = texture->ViewNumLayers() != 0 ? texture->ViewNumLayers() : UINT16_MAX;
+        bound.MaxLod = texture->SamplerMaxLod();
+        m_boundTextures[uniformInfo->Stage] = bound;
+
+        encoder->setTexture(uniformInfo->Stage, bound.Handle, bound.Texture,
+            bound.FirstLayer, bound.NumLayers, 0, UINT8_MAX, bound.Flags, 0, bound.MaxLod);
     }
 
     void NativeEngine::UnsetTexture(NativeDataStream::Reader& data)
@@ -2492,13 +2500,32 @@ namespace Babylon
         const UniformInfo* uniformInfo = data.ReadPointer<UniformInfo>();
 
         bgfx::Encoder* encoder = GetEncoder();
+        m_boundTextures.erase(uniformInfo->Stage);
         encoder->setTexture(uniformInfo->Stage, uniformInfo->Handle, BGFX_INVALID_HANDLE);
     }
 
     void NativeEngine::DiscardAllTextures(NativeDataStream::Reader&)
     {
         bgfx::Encoder* encoder = GetEncoder();
+        m_boundTextures.clear();
         encoder->discard(BGFX_DISCARD_BINDINGS);
+    }
+
+    void NativeEngine::RestoreBoundTextures(bgfx::Encoder* encoder)
+    {
+        if (encoder == nullptr)
+        {
+            return;
+        }
+        for (const auto& [stage, bound] : m_boundTextures)
+        {
+            if (!bgfx::isValid(bound.Handle) || !bgfx::isValid(bound.Texture))
+            {
+                continue;
+            }
+            encoder->setTexture(stage, bound.Handle, bound.Texture,
+                bound.FirstLayer, bound.NumLayers, 0, UINT8_MAX, bound.Flags, 0, bound.MaxLod);
+        }
     }
 
     void NativeEngine::DeleteTexture(const Napi::CallbackInfo& info)
@@ -3226,6 +3253,8 @@ namespace Babylon
         }
 
         GetBoundFrameBuffer().Clear(*encoder, flags, r, g, b, a, depth, stencil);
+        // FrameBuffer::Clear touches its view, discarding bgfx bindings. WebGL clears retain them.
+        RestoreBoundTextures(encoder);
     }
 
     Napi::Value NativeEngine::GetRenderWidth(const Napi::CallbackInfo& info)
