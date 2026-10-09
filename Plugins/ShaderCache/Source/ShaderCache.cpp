@@ -70,4 +70,24 @@ namespace Babylon::Plugins::ShaderCache
 
         return ShaderCacheImpl::Instance->GetShader(vertexSource, fragmentSource);
     }
+
+    std::shared_ptr<Graphics::BgfxShaderInfo> AddComputeShader(std::string_view computeSource, Graphics::BgfxShaderInfo shaderInfo)
+    {
+        if (!ShaderCacheImpl::Instance)
+        {
+            throw std::runtime_error("ShaderCache is not enabled.");
+        }
+
+        return ShaderCacheImpl::Instance->AddComputeShader(computeSource, std::move(shaderInfo));
+    }
+
+    std::shared_ptr<Graphics::BgfxShaderInfo> GetComputeShader(std::string_view computeSource)
+    {
+        if (!ShaderCacheImpl::Instance)
+        {
+            throw std::runtime_error("ShaderCache is not enabled.");
+        }
+
+        return ShaderCacheImpl::Instance->GetComputeShader(computeSource);
+    }
 }

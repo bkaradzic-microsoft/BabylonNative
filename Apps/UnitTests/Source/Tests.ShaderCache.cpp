@@ -6,6 +6,7 @@
 #include <Babylon/Polyfills/Window.h>
 #include <Babylon/Plugins/NativeEngine.h>
 #include <Babylon/Plugins/ShaderCache.h>
+#include <Babylon/Plugins/ShaderCacheInternal.h>
 #include <Babylon/ScriptLoader.h>
 
 #include "App.h"
@@ -17,6 +18,8 @@
 #include <future>
 #include <iostream>
 #include <fstream>
+#include <gsl/util>
+#include <sstream>
 
 using namespace std::chrono_literals;
 
@@ -98,4 +101,73 @@ TEST(ShaderCache, SaveAndLoad)
     device.FinishRenderingCurrentFrame();
 
     Babylon::Plugins::ShaderCache::Disable();
+}
+
+TEST(ShaderCache, ComputeEntriesRoundTripSeparatelyFromGraphics)
+{
+    Babylon::Plugins::ShaderCache::Enable();
+    Babylon::Plugins::ShaderCache::Clear();
+    const auto disableCache = gsl::finally([] {
+        Babylon::Plugins::ShaderCache::Clear();
+        Babylon::Plugins::ShaderCache::Disable();
+    });
+
+    const std::string vertexSource = "void main() { gl_Position = vec4(0.0); }";
+    const std::string fragmentSource = "void main() { gl_FragColor = vec4(1.0); }";
+    const std::string computeSource = "#version 310 es\nlayout(local_size_x = 1) in;\nvoid main() {}\n";
+
+    Babylon::Graphics::BgfxShaderInfo graphics{};
+    graphics.VertexBytes = {1, 2, 3};
+    graphics.FragmentBytes = {4, 5};
+    graphics.VertexAttributeLocations = {{"position", 0}};
+    graphics.UniformStages = {{"diffuseSampler", 2}};
+
+    Babylon::Graphics::BgfxShaderInfo compute{};
+    compute.ComputeBytes = {9, 8, 7, 6};
+    compute.UniformStages = {{"depthInput", 5}};
+    compute.UniformNames = {{"_12_textureSize", "textureSize"}};
+    compute.MultisampledSamplers = {{"depthInput", true}};
+
+    Babylon::Plugins::ShaderCache::AddShader(vertexSource, fragmentSource, graphics);
+    Babylon::Plugins::ShaderCache::AddComputeShader(computeSource, compute);
+
+    // Compute and graphics entries use separate key spaces.
+    EXPECT_EQ(Babylon::Plugins::ShaderCache::GetComputeShader(vertexSource), nullptr);
+    EXPECT_EQ(Babylon::Plugins::ShaderCache::GetShader(computeSource, ""), nullptr);
+
+    std::stringstream stream{std::ios::in | std::ios::out | std::ios::binary};
+    ASSERT_EQ(Babylon::Plugins::ShaderCache::Save(stream), 2u);
+    Babylon::Plugins::ShaderCache::Clear();
+    EXPECT_EQ(Babylon::Plugins::ShaderCache::GetComputeShader(computeSource), nullptr);
+    ASSERT_EQ(Babylon::Plugins::ShaderCache::Load(stream), 2u);
+
+    std::string crlfComputeSource;
+    for (const char ch : computeSource)
+    {
+        if (ch == '\n')
+        {
+            crlfComputeSource.push_back('\r');
+        }
+        crlfComputeSource.push_back(ch);
+    }
+    const auto loadedCompute = Babylon::Plugins::ShaderCache::GetComputeShader(crlfComputeSource);
+    ASSERT_NE(loadedCompute, nullptr);
+    EXPECT_EQ(loadedCompute->ComputeBytes, compute.ComputeBytes);
+    EXPECT_TRUE(loadedCompute->VertexBytes.empty());
+    EXPECT_TRUE(loadedCompute->FragmentBytes.empty());
+    EXPECT_EQ(loadedCompute->UniformStages, compute.UniformStages);
+    EXPECT_EQ(loadedCompute->UniformNames, compute.UniformNames);
+    EXPECT_EQ(loadedCompute->MultisampledSamplers, compute.MultisampledSamplers);
+
+    const auto loadedGraphics = Babylon::Plugins::ShaderCache::GetShader(vertexSource, fragmentSource);
+    ASSERT_NE(loadedGraphics, nullptr);
+    EXPECT_EQ(loadedGraphics->VertexBytes, graphics.VertexBytes);
+    EXPECT_EQ(loadedGraphics->FragmentBytes, graphics.FragmentBytes);
+    EXPECT_TRUE(loadedGraphics->ComputeBytes.empty());
+    EXPECT_EQ(loadedGraphics->VertexAttributeLocations, graphics.VertexAttributeLocations);
+    EXPECT_EQ(loadedGraphics->UniformStages, graphics.UniformStages);
+
+    std::stringstream resaved{std::ios::in | std::ios::out | std::ios::binary};
+    EXPECT_EQ(Babylon::Plugins::ShaderCache::Save(resaved), 2u);
+    EXPECT_EQ(resaved.str(), stream.str());
 }
