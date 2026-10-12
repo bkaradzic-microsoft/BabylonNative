@@ -17,6 +17,7 @@ set(DEPENDENCIES
 
 set(SCRIPTS
     "Scripts/experience.js"
+    "Scripts/playwright.js"
     "Scripts/playground_runner.js"
     "Scripts/validation_native.js"
     "Scripts/config.json")
@@ -110,6 +111,8 @@ elseif(WINDOWS_STORE)
         "UWP/App.h")
 elseif(WIN32)
     set(SOURCES ${SOURCES}
+        "Shared/PlaywrightBridge.cpp"
+        "Shared/PlaywrightBridge.h"
         "Win32/App.cpp"
         "Win32/App.h"
         "Win32/App.ico"

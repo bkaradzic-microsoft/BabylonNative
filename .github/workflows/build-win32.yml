@@ -18,6 +18,20 @@ on:
         required: false
         type: boolean
         default: false
+      visual-tests:
+        description: "legacy, shadow (non-blocking Playwright comparison), or replace (coverage-gated)"
+        required: false
+        type: string
+        default: legacy
+      babylonjs-repository:
+        required: false
+        type: string
+        default: BabylonJS/Babylon.js
+      babylonjs-ref:
+        description: "Full commit SHA containing the native Playwright project"
+        required: false
+        type: string
+        default: ""
 
 # Absorb transient npm registry / CDN flakes during `npm install` in Apps/CMakeLists.txt.
 # npm's default fetch-retries is 2; bump to 5 (npm's own exponential backoff handles spacing).
@@ -27,10 +41,29 @@ env:
 jobs:
   build:
     runs-on: windows-2022
-    timeout-minutes: 60
+    timeout-minutes: ${{ inputs.visual-tests != 'legacy' && 120 || 60 }}
     steps:
       - uses: actions/checkout@v5
 
+      - name: Validate visual migration inputs
+        shell: pwsh
+        env:
+          VISUAL_TESTS: ${{ inputs.visual-tests }}
+          SUITE_REF: ${{ inputs.babylonjs-ref }}
+          GRAPHICS_API: ${{ inputs.graphics-api }}
+          PLATFORM: ${{ inputs.platform }}
+        run: |
+          if ($env:VISUAL_TESTS -notin @('legacy', 'shadow', 'replace')) {
+            throw 'visual-tests must be legacy, shadow, or replace.'
+          }
+          if ($env:VISUAL_TESTS -ne 'legacy') {
+            if ($env:SUITE_REF -notmatch '^[0-9a-fA-F]{40}$') {
+              throw 'The native suite must be pinned to a full Babylon.js commit SHA.'
+            }
+            if ($env:GRAPHICS_API -ne 'D3D11' -or $env:PLATFORM -ne 'x64') {
+              throw 'The first Playwright migration supports Win32 x64 D3D11 only.'
+            }
+          }
 
       - name: Set variables
         id: vars
@@ -105,11 +138,92 @@ jobs:
           )
 
       - name: Validation Tests
-        if: ${{ inputs.graphics-api != 'D3D12' }}
+        if: ${{ inputs.graphics-api != 'D3D12' && inputs.visual-tests != 'replace' }}
         shell: cmd
         run: |
           cd build\${{ steps.vars.outputs.solution_name }}\Apps\Playground\RelWithDebInfo
           Playground app:///Scripts/validation_native.js
+
+      - name: Checkout shared Babylon.js visualization suite
+        id: suite-checkout
+        if: ${{ !cancelled() && inputs.visual-tests != 'legacy' }}
+        continue-on-error: ${{ inputs.visual-tests == 'shadow' }}
+        uses: actions/checkout@v5
+        with:
+          repository: ${{ inputs.babylonjs-repository }}
+          ref: ${{ inputs.babylonjs-ref }}
+          path: .playwright-babylonjs
+          persist-credentials: false
+
+      - name: Set up Node for native visualization
+        id: suite-node
+        if: ${{ !cancelled() && inputs.visual-tests != 'legacy' && steps.suite-checkout.outcome == 'success' }}
+        continue-on-error: ${{ inputs.visual-tests == 'shadow' }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: .playwright-babylonjs/package-lock.json
+
+      - name: Set up npm for the shared suite
+        id: suite-npm
+        if: ${{ !cancelled() && inputs.visual-tests != 'legacy' && steps.suite-node.outcome == 'success' }}
+        continue-on-error: ${{ inputs.visual-tests == 'shadow' }}
+        run: npm install --global npm@11.18.0
+
+      - name: Install shared suite dependencies
+        id: suite-install
+        if: ${{ !cancelled() && inputs.visual-tests != 'legacy' && steps.suite-npm.outcome == 'success' }}
+        continue-on-error: ${{ inputs.visual-tests == 'shadow' }}
+        working-directory: .playwright-babylonjs
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
+        run: npm ci
+
+      - name: Native Playwright visualization
+        id: native-playwright
+        if: ${{ !cancelled() && inputs.visual-tests != 'legacy' && steps.suite-install.outcome == 'success' }}
+        continue-on-error: ${{ inputs.visual-tests == 'shadow' }}
+        timeout-minutes: 60
+        shell: pwsh
+        env:
+          VISUAL_TESTS: ${{ inputs.visual-tests }}
+          SOLUTION_NAME: ${{ steps.vars.outputs.solution_name }}
+        run: |
+          & .\Apps\scripts\runPlaywright.ps1 `
+            -BabylonJsRoot .\.playwright-babylonjs `
+            -Playground ".\build\$env:SOLUTION_NAME\Apps\Playground\RelWithDebInfo\Playground.exe" `
+            -Artifacts "$env:RUNNER_TEMP\native-playwright" `
+            -Mode $env:VISUAL_TESTS `
+            -Workers 2
+
+      - name: Summarize native migration readiness
+        if: ${{ !cancelled() && inputs.visual-tests != 'legacy' }}
+        shell: pwsh
+        env:
+          NATIVE_OUTCOME: ${{ steps.native-playwright.outcome }}
+        run: |
+          "## Native Playwright: $env:NATIVE_OUTCOME" >> $env:GITHUB_STEP_SUMMARY
+          $report = "$env:RUNNER_TEMP\native-playwright\migration.json"
+          if (Test-Path $report) {
+            $data = Get-Content $report -Raw | ConvertFrom-Json
+            "Selected: $($data.summary.selected); results: $($data.summary.statuses | ConvertTo-Json -Compress)" >> $env:GITHUB_STEP_SUMMARY
+            "Legacy coverage passing: $($data.coverage.coveredAndPassing)/$($data.coverage.legacyRunnable)" >> $env:GITHUB_STEP_SUMMARY
+            "Ready for cutover: $($data.coverage.readyForCutover)" >> $env:GITHUB_STEP_SUMMARY
+          } else {
+            "No complete migration report was produced. This run does not establish readiness." >> $env:GITHUB_STEP_SUMMARY
+          }
+          if ($env:NATIVE_OUTCOME -ne 'success') {
+            Write-Output '::warning::Native Playwright did not pass. Inspect the migration report; do not remove legacy validation.'
+          }
+
+      - name: Upload native Playwright report and image diffs
+        if: ${{ !cancelled() && inputs.visual-tests != 'legacy' }}
+        uses: actions/upload-artifact@v6
+        with:
+          name: ${{ steps.vars.outputs.solution_name }}-${{ inputs.graphics-api }}${{ inputs.enable-sanitizers && '-sanitizer' || '' }}-playwright
+          path: ${{ runner.temp }}/native-playwright/
+          if-no-files-found: warn
 
       - name: Upload Rendered Pictures
         if: ${{ inputs.graphics-api != 'D3D12' && !cancelled() }}
@@ -128,7 +242,7 @@ jobs:
           if-no-files-found: ignore
 
       - name: Stage Playground Crash Dump
-        if: failure()
+        if: ${{ !cancelled() && (failure() || steps.native-playwright.outcome == 'failure') }}
         shell: powershell
         run: |
           New-Item -ItemType Directory -Force -Path "$env:RUNNER_TEMP\Dumps" | Out-Null
@@ -155,7 +269,7 @@ jobs:
           Copy-Item -Path "build\${{ steps.vars.outputs.solution_name }}\Apps\UnitTests\RelWithDebInfo\UnitTests.*" -Destination "$env:RUNNER_TEMP\Dumps\" -ErrorAction SilentlyContinue
 
       - name: Upload Crash Dumps
-        if: failure()
+        if: ${{ !cancelled() && (failure() || steps.native-playwright.outcome == 'failure') }}
         uses: actions/upload-artifact@v6
         with:
           name: ${{ steps.vars.outputs.solution_name }}-${{ inputs.graphics-api }}${{ inputs.enable-sanitizers && '-sanitizer' || '' }}-crash-dumps
