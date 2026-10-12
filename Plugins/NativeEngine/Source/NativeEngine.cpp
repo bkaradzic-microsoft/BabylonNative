@@ -1,4 +1,5 @@
 #include "NativeEngine.h"
+#include "DepthResolver.h"
 
 #include <Babylon/Graphics/Texture.h>
 
@@ -1215,6 +1216,8 @@ namespace Babylon
         // Cancellation doesn't stop work already running on a threadpool thread, so wait for
         // any in-flight graphics tasks to finish before teardown frees the resources they use.
         m_asyncTaskTracker->Wait();
+        m_boundTextures.clear();
+        m_depthResolver.reset();
     }
 
     NativeEngine::AsyncTaskTracker::Scope::Scope(std::shared_ptr<AsyncTaskTracker> tracker)
@@ -2880,6 +2883,8 @@ void main() {
         BoundTexture bound{};
         bound.Handle = uniformInfo->Handle;
         bound.Texture = texture->Handle();
+        bound.SamplingTexture = bound.Texture;
+        bound.MultisampledDepth = texture->MultisampledDepth();
         bound.Flags = texture->SamplerFlags();
         bound.FirstLayer = texture->ViewNumLayers() != 0 ? texture->ViewFirstLayer() : 0;
         bound.NumLayers = texture->ViewNumLayers() != 0 ? texture->ViewNumLayers() : UINT16_MAX;
@@ -2919,7 +2924,7 @@ void main() {
             {
                 continue;
             }
-            encoder->setTexture(stage, bound.Handle, bound.Texture,
+            encoder->setTexture(stage, bound.Handle, bound.SamplingTexture,
                 bound.FirstLayer, bound.NumLayers, 0, UINT8_MAX, bound.Flags, 0, bound.MaxLod);
         }
     }
@@ -3293,6 +3298,7 @@ void main() {
         std::array<bgfx::Attachment, 9> attachments{};
         uint8_t numAttachments = 0;
         uint8_t depthOneVolumeAttachmentMask{};
+        std::shared_ptr<Graphics::MultisampledDepthState> multisampledDepth;
 
         // An uninitialized texture requests sampleable depth; alias the attachment back into it.
         Graphics::Texture* depthStencilTextureRequest = depthStencilTexture;
@@ -3332,6 +3338,10 @@ void main() {
             attachments[numAttachments++].init(texture->Handle(), bgfx::Access::Write, attachmentLayer, 1, mip
                 , autoGenMips ? BGFX_ATTACHMENT_AUTO_GEN_MIPS : BGFX_ATTACHMENT_NONE
                 );
+            if (texture->MultisampledDepth())
+            {
+                multisampledDepth = texture->MultisampledDepth();
+            }
         }
 
         // Create and alias shared depth once; subsequent framebuffers borrow its handle.
@@ -3346,6 +3356,7 @@ void main() {
                     (explicitDepthTexture->NumLayers() > 1) ? depthAttachLayer : static_cast<uint16_t>(0);
                 attachments[numAttachments++].init(explicitDepthTexture->Handle(), bgfx::Access::Write, attachLayer, 1, 0, BGFX_ATTACHMENT_NONE);
                 borrowedExplicitDepth = true;
+                multisampledDepth = explicitDepthTexture->MultisampledDepth();
             }
             else
             {
@@ -3452,6 +3463,7 @@ void main() {
             const bool textureOwnsDepth = depthStencilTexture == nullptr;
             depthStencilTextureRequest->Attach(bgfx::getTexture(frameBufferHandle, static_cast<uint8_t>(depthStencilAttachmentIndex)),
                 textureOwnsDepth, width, height, false, depthStencilNumLayers, depthStencilTextureFormat, depthStencilTextureFlags);
+            multisampledDepth = depthStencilTextureRequest->MultisampledDepth();
             if (textureOwnsDepth)
             {
                 frameBufferDepthOwnerIndex = -1;
@@ -3459,7 +3471,7 @@ void main() {
         }
 
         const bool isMultisampled = RenderTargetSamplesToBgfxRtFlag(samples) != BGFX_TEXTURE_RT;
-        Graphics::FrameBuffer* frameBuffer = new Graphics::FrameBuffer(m_deviceContext, frameBufferHandle, width, height, false, hasDepthAttachment, generateStencilBuffer, frameBufferDepthOwnerIndex, isMultisampled, depthOneVolumeAttachmentMask);
+        Graphics::FrameBuffer* frameBuffer = new Graphics::FrameBuffer(m_deviceContext, frameBufferHandle, width, height, false, hasDepthAttachment, generateStencilBuffer, frameBufferDepthOwnerIndex, isMultisampled, depthOneVolumeAttachmentMask, std::move(multisampledDepth));
 
         // Like ANGLE on D3D, render cube faces upside down on top-left-origin backends so their rows land
         // in GL order. Cube directions are sampled unflipped, so this keeps rendered faces consistent with
@@ -3530,7 +3542,7 @@ void main() {
         const uint32_t indexStart = data.ReadUint32();
         const uint32_t indexCount = data.ReadUint32();
 
-        bgfx::Encoder* encoder = GetEncoder();
+        bgfx::Encoder* encoder = PrepareDraw();
         const auto instanceDataLayout = GetInstanceDataLayout();
         bool shouldDraw = true;
         if (m_boundVertexArray != nullptr)
@@ -3563,7 +3575,7 @@ void main() {
         const uint32_t indexCount = data.ReadUint32();
         const uint32_t instanceCount = data.ReadUint32();
 
-        bgfx::Encoder* encoder = GetEncoder();
+        bgfx::Encoder* encoder = PrepareDraw();
         const auto instanceDataLayout = GetInstanceDataLayout();
         bool shouldDraw = true;
         if (m_boundVertexArray != nullptr)
@@ -3603,7 +3615,7 @@ void main() {
         const uint32_t verticesStart = data.ReadUint32();
         const uint32_t verticesCount = data.ReadUint32();
 
-        bgfx::Encoder* encoder = GetEncoder();
+        bgfx::Encoder* encoder = PrepareDraw();
         const auto instanceDataLayout = GetInstanceDataLayout();
         bool shouldDraw = true;
         if (m_boundVertexArray != nullptr)
@@ -3632,7 +3644,7 @@ void main() {
         const uint32_t verticesCount = data.ReadUint32();
         const uint32_t instanceCount = data.ReadUint32();
 
-        bgfx::Encoder* encoder = GetEncoder();
+        bgfx::Encoder* encoder = PrepareDraw();
         const auto instanceDataLayout = GetInstanceDataLayout();
         bool shouldDraw = true;
         if (m_boundVertexArray != nullptr)
@@ -4079,8 +4091,7 @@ void main() {
 
         StorageBuffer& outputStorage = output->PromoteToGpuStorage();
 
-        bgfx::Encoder* encoder = GetEncoder();
-        RestoreBoundTextures(encoder);
+        bgfx::Encoder* encoder = PrepareDraw();
         for (const auto& [handle, value] : m_currentProgram->Uniforms())
         {
             encoder->setUniform({handle}, value.Data.data(), value.ElementLength);
@@ -4279,7 +4290,31 @@ void main() {
         boundFrameBuffer.SetStencil(*encoder, m_stencilState);
 
         // Discard everything except textures since we keep the state of everything else.
-        boundFrameBuffer.Submit(*encoder, programHandle, BGFX_DISCARD_ALL & ~BGFX_DISCARD_BINDINGS);
+        boundFrameBuffer.Submit(*encoder, programHandle, BGFX_DISCARD_ALL & ~BGFX_DISCARD_BINDINGS, (m_engineState & BGFX_STATE_WRITE_Z) != 0);
+    }
+
+    bgfx::Encoder* NativeEngine::PrepareDraw()
+    {
+        // Resolve before binding vertex/index/instance data: the internal draw discards encoder state.
+        for (auto& [stage, bound] : m_boundTextures)
+        {
+            bound.SamplingTexture = bound.Texture;
+            if (bound.MultisampledDepth && m_currentProgram)
+            {
+                const auto* sampler = m_currentProgram->GetSamplerInfoByStage(stage);
+                if (sampler && !sampler->Multisampled)
+                {
+                    if (!m_depthResolver)
+                    {
+                        m_depthResolver = std::make_unique<DepthResolver>(m_deviceContext);
+                    }
+                    bound.SamplingTexture = m_depthResolver->Resolve(bound.MultisampledDepth);
+                }
+            }
+        }
+        auto* encoder = GetEncoder();
+        RestoreBoundTextures(encoder);
+        return encoder;
     }
 
     Graphics::FrameBuffer& NativeEngine::GetBoundFrameBuffer()

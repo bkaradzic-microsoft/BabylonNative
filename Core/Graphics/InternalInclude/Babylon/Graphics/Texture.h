@@ -7,6 +7,18 @@ namespace Babylon::Graphics
 {
     class DeviceContext;
 
+    struct MultisampledDepthState
+    {
+        bgfx::TextureHandle Handle{bgfx::kInvalidHandle};
+        uint16_t Width{};
+        uint16_t Height{};
+        uint16_t Layers{};
+        bgfx::TextureFormat::Enum Format{bgfx::TextureFormat::Unknown};
+        uint64_t Revision{};
+        bool HasNativeWriter{};
+        bool External{};
+    };
+
     // This class is not thread-safe. Callers must serialize all access.
     class Texture final
     {
@@ -45,6 +57,7 @@ namespace Babylon::Graphics
         uint16_t Depth() const;
         bgfx::TextureFormat::Enum Format() const;
         uint64_t Flags() const;
+        const std::shared_ptr<MultisampledDepthState>& MultisampledDepth() const { return m_multisampledDepth; }
         uint32_t SamplerFlags() const;
         void SamplerFlags(uint32_t);
         uint8_t SamplerMaxLod() const;
@@ -85,6 +98,7 @@ namespace Babylon::Graphics
         bgfx::TextureHandle m_handle{bgfx::kInvalidHandle};
         bool m_ownsHandle{false};
         std::shared_ptr<void> m_nativeTextureOwner{};
+        std::shared_ptr<MultisampledDepthState> m_multisampledDepth{};
         uint16_t m_width{0};
         uint16_t m_height{0};
         bool m_hasMips{false};

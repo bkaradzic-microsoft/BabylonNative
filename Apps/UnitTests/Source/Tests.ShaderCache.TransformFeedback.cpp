@@ -33,6 +33,7 @@ TEST(ShaderCache, TransformFeedbackEntriesRoundTripSeparatelyFromGraphics)
     compute.ComputeBytes = {9, 8, 7, 6};
     compute.UniformStages = {{"depthInput", 5}};
     compute.UniformNames = {{"_12_textureSize", "textureSize"}};
+    compute.MultisampledSamplers = {{"depthInput", true}};
 
     Babylon::Plugins::ShaderCache::AddShader(vertexSource, fragmentSource, graphics);
     Babylon::Plugins::ShaderCache::AddTransformFeedbackShader(feedbackSource, varyings, compute);
@@ -64,6 +65,7 @@ TEST(ShaderCache, TransformFeedbackEntriesRoundTripSeparatelyFromGraphics)
     EXPECT_TRUE(loadedCompute->FragmentBytes.empty());
     EXPECT_EQ(loadedCompute->UniformStages, compute.UniformStages);
     EXPECT_EQ(loadedCompute->UniformNames, compute.UniformNames);
+    EXPECT_EQ(loadedCompute->MultisampledSamplers, compute.MultisampledSamplers);
 
     const auto loadedGraphics = Babylon::Plugins::ShaderCache::GetShader(vertexSource, fragmentSource);
     ASSERT_NE(loadedGraphics, nullptr);

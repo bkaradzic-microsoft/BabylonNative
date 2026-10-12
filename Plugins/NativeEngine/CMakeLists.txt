@@ -2,6 +2,8 @@ include(${CMAKE_CURRENT_LIST_DIR}/../../Dependencies/shaderc.cmake)
 
 set(SOURCES
     "Include/Babylon/Plugins/NativeEngine.h"
+    "Source/DepthResolver.cpp"
+    "Source/DepthResolver.h"
     "Source/IndexBuffer.cpp"
     "Source/IndexBuffer.h"
     "Source/InstanceRepacker.cpp"
@@ -26,15 +28,22 @@ set(SOURCES
     "Source/VertexBuffer.cpp"
     "Source/VertexBuffer.h")
 
-set(SHADERS "Source/Shaders/cs_instance_repack.sc")
-foreach(BACKEND dxbc dxil essl glsl metal spirv)
-    list(APPEND SHADERS "Source/Shaders/${BACKEND}/cs_instance_repack.h")
+set(SHADERS "Source/Shaders/varying.def.sc")
+foreach(SHADER cs_instance_repack vs_depth_resolve fs_depth_resolve vs_depth_resolve_array fs_depth_resolve_array)
+    list(APPEND SHADERS "Source/Shaders/${SHADER}.sc")
+    foreach(BACKEND dxbc dxil essl glsl metal spirv)
+        list(APPEND SHADERS "Source/Shaders/${BACKEND}/${SHADER}.h")
+    endforeach()
 endforeach()
 
 add_library(NativeEngine ${SOURCES} ${SHADERS})
 
 if(SHADERC_PATH AND NOT IOS AND NOT VISIONOS AND NOT ANDROID)
     add_bgfx_shader("${CMAKE_CURRENT_SOURCE_DIR}/Source/Shaders/cs_instance_repack.sc" "")
+    add_bgfx_shader("${CMAKE_CURRENT_SOURCE_DIR}/Source/Shaders/vs_depth_resolve.sc" "" ESSL_PROFILE 310_es)
+    add_bgfx_shader("${CMAKE_CURRENT_SOURCE_DIR}/Source/Shaders/fs_depth_resolve.sc" "" ESSL_PROFILE 310_es)
+    add_bgfx_shader("${CMAKE_CURRENT_SOURCE_DIR}/Source/Shaders/vs_depth_resolve_array.sc" "" ESSL_PROFILE 320_es)
+    add_bgfx_shader("${CMAKE_CURRENT_SOURCE_DIR}/Source/Shaders/fs_depth_resolve_array.sc" "" ESSL_PROFILE 320_es METAL_PROFILE metal21-11)
 endif()
 
 warnings_as_errors(NativeEngine)
@@ -108,3 +117,4 @@ endif()
 
 set_property(TARGET NativeEngine PROPERTY FOLDER Plugins)
 source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${SOURCES})
+source_group("Shaders" FILES ${SHADERS})

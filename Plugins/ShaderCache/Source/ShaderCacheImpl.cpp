@@ -59,11 +59,12 @@ namespace Babylon::Plugins::ShaderCache
     // 6: FlipFragCoordY rewrites gl_FragCoord and injects bnFragCoordTargetSize;
     //    version-5 entries for those shaders skip compilation and omit the uniform.
     // 7: preserve application uniform aliases and inject nearest-sampler state.
-    // 8: bnFragCoordTargetSize became bnRenderTargetTransform, which vertex shaders also read
+    // 8: retain multisampled sampler types for native depth resolve selection.
+    // 9: bnFragCoordTargetSize became bnRenderTargetTransform, which vertex shaders also read
     //    to render cube faces in GL row order, and dFdy now scales by it.
-    // 9: persist ComputeBytes, append a separately keyed section of transform feedback
-    //    compute shaders, and key instanced variants by their routed attributes.
-    static const uint32_t CACHE_VERSION = 9;
+    // 10: persist ComputeBytes, append a separately keyed section of transform feedback
+    //     compute shaders, and key instanced variants by their routed attributes.
+    static const uint32_t CACHE_VERSION = 10;
 
     void ShaderCacheImpl::Clear()
     {
@@ -136,6 +137,12 @@ namespace Babylon::Plugins::ShaderCache
                 SaveString(stream, compiledName);
                 SaveString(stream, originalName);
             }
+            const auto multisampledCount = static_cast<uint32_t>(info->MultisampledSamplers.size());
+            stream.write(reinterpret_cast<const char*>(&multisampledCount), sizeof(multisampledCount));
+            for (const auto& sampler : info->MultisampledSamplers)
+            {
+                SaveString(stream, sampler.first);
+            }
         }
     }
 
@@ -193,6 +200,14 @@ namespace Babylon::Plugins::ShaderCache
                 LoadString(stream, compiledName);
                 LoadString(stream, originalName);
                 info->UniformNames.emplace(std::move(compiledName), std::move(originalName));
+            }
+            uint32_t multisampledCount{};
+            stream.read(reinterpret_cast<char*>(&multisampledCount), sizeof(multisampledCount));
+            for (uint32_t index = 0; index < multisampledCount; ++index)
+            {
+                std::string name;
+                LoadString(stream, name);
+                info->MultisampledSamplers.emplace(std::move(name), true);
             }
             entries.emplace(hash, std::move(info));
         }

@@ -141,6 +141,7 @@ namespace Babylon::Graphics
 
     void Texture::Dispose()
     {
+        m_multisampledDepth.reset();
         if (m_ownsHandle && bgfx::isValid(m_handle) && m_deviceID == m_deviceContext.GetDeviceId())
         {
             bgfx::destroy(m_handle);
@@ -183,6 +184,16 @@ namespace Babylon::Graphics
         m_numLayers = numLayers;
         m_format = format;
         m_flags = flags;
+        if (format > bgfx::TextureFormat::UnknownDepth && format != bgfx::TextureFormat::D0S8 &&
+            (flags & BGFX_TEXTURE_MSAA_SAMPLE) != 0)
+        {
+            m_multisampledDepth = std::make_shared<MultisampledDepthState>();
+            m_multisampledDepth->Handle = m_handle;
+            m_multisampledDepth->Width = width;
+            m_multisampledDepth->Height = height;
+            m_multisampledDepth->Layers = numLayers;
+            m_multisampledDepth->Format = format;
+        }
     }
 
     void Texture::Create2D(uint16_t width, uint16_t height, bool hasMips, uint16_t numLayers, bgfx::TextureFormat::Enum format, uint64_t flags, uintptr_t nativeTextureHandle, std::shared_ptr<void> nativeTextureOwner)
@@ -201,6 +212,10 @@ namespace Babylon::Graphics
         m_ownsHandle = true;
         m_nativeTextureOwner = std::move(nativeTextureOwner);
         SetMetadata(width, height, 0, hasMips, false, false, numLayers, format, flags);
+        if (m_multisampledDepth)
+        {
+            m_multisampledDepth->External = nativeTextureHandle != 0;
+        }
 
         // Make sure render targets are filled with 0 : https://registry.khronos.org/webgl/specs/latest/1.0/#TEXIMAGE2D
         if (nativeTextureHandle == 0 && (flags & BGFX_TEXTURE_RT_MASK) != 0)
