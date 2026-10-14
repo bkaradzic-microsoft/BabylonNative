@@ -2554,7 +2554,7 @@
             "renderCount": 5,
             "referenceImage": "screen-space-curvature.png",
             "excludeFromAutomaticTesting": true,
-            "reason": "Hermes (Win32 and Ubuntu CI) fails to import dragon.babylon from models.babylonjs.com; passes on Chakra, V8, QuickJS, JSI and JavaScriptCore."
+            "reason": "Hermes (Win32 CI) fails to import dragon.babylon from models.babylonjs.com; passes on Chakra, V8, QuickJS, JSI and JavaScriptCore."
         },
         {
             "title": "Render to 3D RT",
