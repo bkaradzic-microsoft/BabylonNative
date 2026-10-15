@@ -2348,7 +2348,11 @@ namespace Babylon::ShaderCompilerTraversers
                 auto* height = SamplerHeight(sampler);
                 auto* y = Component(m_intermediate->addSymbol(temporary), 1);
                 auto* pixel = m_intermediate->addBinaryMath(EOpMul, y, height, loc);
-                auto* rounded = m_intermediate->addBuiltInFunctionCall(loc, EOpFloor, true, pixel, TType{EbtFloat, EvqTemporary});
+                // Coordinates within half a subtexel (8-bit) of a row boundary resolve to the lower GL row,
+                // matching the WebGL reference (and a hardware sample of the flipped coordinate). A plain
+                // floor picks the upper row for pixel centers that land exactly on a boundary.
+                auto* quantized = m_intermediate->addBinaryMath(EOpAdd, pixel, m_intermediate->addConstantUnion(-1.0 / 512.0, EbtFloat, loc), loc);
+                auto* rounded = m_intermediate->addBuiltInFunctionCall(loc, EOpFloor, true, quantized, TType{EbtFloat, EvqTemporary});
                 auto* center = m_intermediate->addBinaryMath(EOpAdd, rounded, m_intermediate->addConstantUnion(0.5, EbtFloat, loc), loc);
                 auto* normalized = m_intermediate->addBinaryMath(EOpDiv, center, SamplerHeight(sampler), loc);
                 auto* components = m_intermediate->makeAggregate(Component(m_intermediate->addSymbol(temporary), 0), loc);

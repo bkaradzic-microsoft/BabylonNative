@@ -50,6 +50,8 @@ namespace Playground
         runtime.LoadScript("app:///Scripts/babylonjs.proceduralTextures.js");
         runtime.LoadScript("app:///Scripts/babylon.gui.js");
         runtime.LoadScript("app:///Scripts/meshwriter.min.js");
+        // earcut polygon triangulation, used by MeshBuilder.CreateText and others.
+        runtime.LoadScript("app:///Scripts/earcut.min.js");
         runtime.LoadScript("app:///Scripts/babylonjs.serializers.js");
     }
 
