@@ -521,7 +521,7 @@ enabled)
         {var generateMips = _arr[_i];
           test("uploads ".concat(fixture.name, " PNG as browser RGBA8 (mips ").concat(generateMips, ")"), /*#__PURE__*/(0,_babel_runtime_helpers_asyncToGenerator__WEBPACK_IMPORTED_MODULE_0__["default"])(/*#__PURE__*/_babel_runtime_regenerator__WEBPACK_IMPORTED_MODULE_1___default().mark(function _callee() {var engine, scene, texture, pixels, mipWidth, mipHeight, mip;return _babel_runtime_regenerator__WEBPACK_IMPORTED_MODULE_1___default().wrap(function (_context) {while (1) switch (_context.prev = _context.next) {case 0:
                   engine = new _babylonjs_core__WEBPACK_IMPORTED_MODULE_3__.NativeEngine();
-                  scene = new _babylonjs_core__WEBPACK_IMPORTED_MODULE_3__.Scene(engine);_context.prev = 1;_context.next = 2;return (
+                  scene = new _babylonjs_core__WEBPACK_IMPORTED_MODULE_3__.Scene(engine);_context2.prev = 1;_context2.next = 2;return (
 
                     new Promise(function (resolve, reject) {
                       var image = new _babylonjs_core__WEBPACK_IMPORTED_MODULE_3__.Texture(
@@ -529,9 +529,9 @@ enabled)
                         _babylonjs_core__WEBPACK_IMPORTED_MODULE_3__.Constants.TEXTURE_NEAREST_SAMPLINGMODE, function () {return resolve(image);},
                         function (message) {return reject(new Error(message || "PNG texture load failed"));}
                       );
-                    }));case 2:texture = _context.sent;_context.next = 3;return (
-                    texture.readPixels());case 3:pixels = _context.sent;if (
-                  pixels instanceof Uint8Array) {_context.next = 4;break;}throw (
+                    }));case 2:texture = _context2.sent;_context2.next = 3;return (
+                    texture.readPixels());case 3:pixels = _context2.sent;if (
+                  pixels instanceof Uint8Array) {_context2.next = 4;break;}throw (
                     new Error("Expected unsigned-byte PNG texture readback"));case 4:
 
                   expectPixels(pixels, fixture);
@@ -547,7 +547,7 @@ enabled)
 
 
                   scene.dispose();
-                  engine.dispose();return _context.finish(6);case 7:case "end":return _context.stop();}}, _callee, null, [[1,, 6, 7]]);}))
+                  engine.dispose();return _context2.finish(6);case 7:case "end":return _context2.stop();}}, _callee2, null, [[1,, 6, 7]]);}))
 
           );
         };for (var _i = 0, _arr = [false, true]; _i < _arr.length; _i++) {_loop2();}
@@ -560,7 +560,7 @@ enabled)
                 pixels = engine.resizeImageBitmap(bitmap, width, height);
                 expectPixels(pixels, fixture);case 3:_context2.prev = 3;
 
-                engine.dispose();return _context2.finish(3);case 4:case "end":return _context2.stop();}}, _callee2, null, [[1,, 3, 4]]);}))
+                engine.dispose();return _context3.finish(3);case 4:case "end":return _context3.stop();}}, _callee3, null, [[1,, 3, 4]]);}))
 
         );
       };for (_iterator.s(); !(_step = _iterator.n()).done;) {_loop();}} catch (err) {_iterator.e(err);} finally {_iterator.f();}
@@ -31606,10 +31606,10 @@ function hexToBytes(hex) {
     (0,chai__WEBPACK_IMPORTED_MODULE_4__.expect)(decoded.totalVertices).to.equal(SPHERE_VERTICES);
     (0,chai__WEBPACK_IMPORTED_MODULE_4__.expect)(decoded.indices.length).to.equal(SPHERE_INDICES);
 
-    var byKind = {};var _iterator = _createForOfIteratorHelper(
-        decoded.attributes),_step;try {for (_iterator.s(); !(_step = _iterator.n()).done;) {var a = _step.value;
+    var byKind = {};var _iterator2 = _createForOfIteratorHelper(
+        decoded.attributes),_step2;try {for (_iterator2.s(); !(_step2 = _iterator2.n()).done;) {var a = _step2.value;
         byKind[a.kind] = a;
-      }} catch (err) {_iterator.e(err);} finally {_iterator.f();}
+      }} catch (err) {_iterator2.e(err);} finally {_iterator2.f();}
 
     (0,chai__WEBPACK_IMPORTED_MODULE_4__.expect)(byKind.position.size).to.equal(3);
     (0,chai__WEBPACK_IMPORTED_MODULE_4__.expect)(byKind.normal.size).to.equal(3);

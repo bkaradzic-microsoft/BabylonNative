@@ -36,10 +36,11 @@ Text regressions use the packaged Arimo font; its license and provenance ship
 with the font.
 
 The Canvas pixel regressions in `JavaScript.All` require a rendering GPU backend.
-The test host sets `hasGpuRendering` to false only for the explicit no-op Metal
-test configuration (`BABYLON_NATIVE_TESTS_USE_NOOP_METAL_DEVICE=ON`), using the
-same `USE_NOOP_METAL_DEVICE` definition as the Apple test host. This keeps the
-shared tests compatible with installed public headers without exposing bgfx.
+The test host keeps `hasGpuRendering` and `skipCanvasGpuTests` consistent with
+its `SKIP_RENDER_TESTS` / `SKIP_EXTERNAL_TEXTURE_TESTS` configuration, including
+the explicit no-op Metal backend (`BABYLON_NATIVE_TESTS_USE_NOOP_METAL_DEVICE=ON`).
+This keeps the shared tests compatible with installed public headers without
+exposing bgfx.
 Only the pixel regressions are reported as pending in that configuration; API,
 PNG fallback, and text metrics tests still run. Configure that option `OFF` on a
 Metal-capable Mac to run the pixel regressions as well. Windows and Linux retain

@@ -103,6 +103,11 @@ diagnostic banners to stdout** -- without it, output goes to OutputDebugString
 only and is invisible from a console run. Use `--headless --once` for any
 scripted/CI run.
 
+On Win32, `--headless` also disables the JavaScript debugger listener, so
+automated runs do not trigger Windows Firewall access prompts. Interactive
+runs still enable the debugger. Native debugger attachment and
+`--break-on-fail` are unaffected.
+
 ### 6. RenderDoc capture trigger (already integrated)
 `TestUtils.captureNextFrame()` JS API -> `DeviceContext::RequestCaptureNextFrame()`
 -> on next bgfx frame, `BGFX_FRAME_DEBUG_CAPTURE` flag -> bgfx's

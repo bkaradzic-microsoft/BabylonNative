@@ -456,10 +456,10 @@ namespace Babylon::Plugins
                 encoder.SetSpeedOptions(options.Get("encodeSpeed").As<Napi::Number>().Int32Value(), options.Get("decodeSpeed").As<Napi::Number>().Int32Value());
             }
 
-            // Mirror Encoder::EncodeMeshToDracoBuffer. NativeDraco builds Draco with
-            // DRACO_GLTF_BITSTREAM=ON (glTF-compatible output); that subset may compile out
-            // attribute deduplication, so guard those passes on the feature macros Draco
-            // publishes. They only shrink the encoded output; skipping them still produces a
+            // Mirror Encoder::EncodeMeshToDracoBuffer. Shotgun builds Draco with
+            // DRACO_GLTF_BITSTREAM=OFF (full bitstream for the validation suite); still guard
+            // attribute deduplication on the feature macros Draco publishes so a glTF-subset
+            // build remains safe. They only shrink the encoded output; skipping them still produces a
             // valid stream.
             if (mesh.GetNamedAttributeId(draco::GeometryAttribute::POSITION) == -1)
             {
