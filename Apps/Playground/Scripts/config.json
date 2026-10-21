@@ -2031,7 +2031,8 @@
             "title": "GUI Input Test",
             "playgroundId": "#UB4F3B#8",
             "renderCount": 2,
-            "referenceImage": "guiInputTest.png"
+            "referenceImage": "guiInputTest.png",
+            "workarounds": ["global-self"]
         },
         {
             "title": "Serialize and Load Hierarchy",
