@@ -586,7 +586,8 @@
             "title": "Gaussian Splatting SPZ SH",
             "playgroundId": "#XSNFXP#2",
             "renderCount": 15,
-            "referenceImage": "gsplat-spz-sh.png"
+            "referenceImage": "gsplat-spz-sh.png",
+            "workarounds": ["es-module-import"]
         },
         {
             "title": "Gaussian Splatting viewports",
@@ -608,7 +609,8 @@
         {
             "title": "SPZ v3 - Splat",
             "playgroundId": "#V7CV8W#4",
-            "referenceImage": "gsplat-spz-v3.png"
+            "referenceImage": "gsplat-spz-v3.png",
+            "workarounds": ["es-module-import"]
         },
         {
             "title": "SOGS with SH",
